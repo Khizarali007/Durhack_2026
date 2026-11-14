@@ -60,3 +60,13 @@ This file covers the **frontend only**. I own it on the `frontend` branch. Perso
 - `npm install`: install dependencies
 - `npm run dev`: local dev server
 - `npm run build`: production bundle (must succeed before every merge)
+
+## Visual design direction
+Look and feel: modelled on a modern retail broker app (clean, spacious, beginner-friendly), with reference screenshots in docs/design-refs/. Copy the layout patterns and feel, NOT any brand assets. Our brand is HoopStreet: own name, own colours, own wordmark, never another company's logo or name.
+- Desktop: three columns. Left = market list/watchlist, centre = chart + player card, right = order ticket. Below the chart, tabs for Positions / Open orders / History. Selecting a player updates chart, card and ticket together.
+- Mobile: bottom nav (Home / Market / Portfolio / Learn). Single-stock page = chart + stats, with sticky Buy and Sell buttons that open a bottom-sheet ticket.
+- Progressive disclosure: the ticket defaults to a simple market order. Limit, stop-loss, short and leverage sit behind tabs, never all visible at once.
+- Always visible: current price, cash, and cash tied up in pending orders.
+- Dark theme by default, with a light theme toggle. Green = up, red = down.
+- Use CSS variables for every colour, spacing and radius value (design tokens), so the whole look can be re-themed in one file.
+- Generous whitespace, one accent colour, rounded cards, large readable numbers, tabular numerals for prices.
