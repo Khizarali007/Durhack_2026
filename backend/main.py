@@ -38,7 +38,7 @@ from trading.payouts import PayoutProcessor
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def market_runtime(app: FastAPI):
     market = get_market()
     fresh = getattr(market, "requires_fresh_session", False)
     app.state.trading_db = Database(":memory:" if fresh else None)
@@ -125,10 +125,57 @@ async def lifespan(app: FastAPI):
             use_market(None)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.timeline_busy = False
+    app.state.active_account_requests = 0
+    app.state.timeline_error = None
+    app.state.timeline_task = None
+    stack = contextlib.AsyncExitStack()
+
+    async def restart_market():
+        from market.engine import LiveMarket
+        config = get_market().replay_config
+        await stack.aclose()
+        use_market(LiveMarket(**config))
+        await stack.enter_async_context(market_runtime(app))
+
+    app.state.restart_market = restart_market
+    await stack.enter_async_context(market_runtime(app))
+    try:
+        yield
+    finally:
+        task = app.state.timeline_task
+        if task and not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        await stack.aclose()
+
+
 app = FastAPI(title="HoopStreet", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def guard_timeline_change(request, call_next):
+    # Session state is rebuilt on rewind; no account request may race teardown.
+    if getattr(app.state, "timeline_busy", False) and request.url.path.startswith("/trading/"):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "Moving the market timeline; please wait."}, status_code=409)
+    is_account = request.url.path.startswith("/trading/")
+    if is_account:
+        app.state.active_account_requests += 1
+    try:
+        return await call_next(request)
+    finally:
+        if is_account:
+            app.state.active_account_requests -= 1
+
 from market.router import router as market_router
 
 app.include_router(trading_router)
 app.include_router(market_router)
+from market.timeline import router as timeline_router
+app.include_router(timeline_router)
 # Standalone integration demo; keeps the production frontend namespace free.
 app.mount("/demo", StaticFiles(directory=Path(__file__).resolve().parents[1] / "web" / "demo", html=True), name="demo")

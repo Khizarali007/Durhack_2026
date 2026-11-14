@@ -58,3 +58,18 @@ reports disabled when the receipt worker is off. Demo changes are local only.
 Latest UI refinement: removed the detailed tabs, restored the original graph
 style and added a dashed formula-value line. Verified buy/sell and player
 switching in-browser. Backend functionality is unchanged. No push performed.
+
+## Timeline controls — 14 November 2026
+
+Implemented an actual-market day slider, pause/play, speed controls and daily
+chart-history backfill. Forward seeks retain accounts and process the existing
+economic ticks; rewind rebuilds the complete runtime and resets accounts.
+Local-only controls reject seeks with Solana writes enabled. Large seeks take
+time; the demo shows progress and prevents trading during replay.
+Working location remains the backend branch above. Commit locally; do not push.
+
+Verification: 336 backend tests plus five model tests passed; three optional
+devnet tests skipped. Targeted timeline/order tests passed after the final test
+addition. Browser verified a 17-day seek preserving holdings and paying $26.54,
+rewind resetting the account, history reload, and faster playback. Next: user
+review of the minimal demo; no push authorized.

@@ -66,7 +66,10 @@ async def live_quotes(websocket: WebSocket):
                                    'quotes': {s: asdict(m.quote(s)) for s in symbols}})
         while True:
             getter = asyncio.create_task(queue.get())
-            done, _ = await asyncio.wait({receiver, getter}, return_when=asyncio.FIRST_COMPLETED)
+            done, _ = await asyncio.wait({receiver, getter}, timeout=1, return_when=asyncio.FIRST_COMPLETED)
+            if get_market() is not m:
+                await websocket.close(code=1001, reason="Replay restarted")
+                return
             if receiver in done:
                 receiver.result()
                 receiver = asyncio.create_task(websocket.receive_text())

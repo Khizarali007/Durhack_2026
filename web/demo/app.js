@@ -17,6 +17,10 @@ const money = (v) =>
       }).format(v);
 const rate = (v) => (v == null ? "—" : "$" + v.toFixed(3));
 const colors = ["#5ce0aa", "#f9ad67", "#8aa6ff", "#f48fb1"];
+let timelineState = null,
+  seeking = false,
+  dragging = false,
+  historyLoaded = false;
 let players = [],
   quotes = {},
   selected = "WEMBY",
@@ -58,9 +62,10 @@ function error(e) {
   $("error").textContent = e.message || String(e);
 }
 function controls() {
-  for (const id of ["buy", "sell"]) $(id).disabled = !token || busy || finished;
+  for (const id of ["buy", "sell"])
+    $(id).disabled = !token || busy || seeking || finished;
   $("start").hidden = !!token;
-  $("start").disabled = busy;
+  $("start").disabled = busy || seeking;
 }
 function resetAccount() {
   token = null;
@@ -92,6 +97,7 @@ function choose() {
   draw();
   renderAccount();
   valuation().catch(error);
+  loadHistory().catch(error);
 }
 $("search").onchange = choose;
 $("search").onkeydown = (e) => {
@@ -111,6 +117,7 @@ $("add").onclick = () => {
     comparisons.push(p.symbol);
   }
   $("compare-search").value = "";
+  loadHistory().catch(error);
   draw();
 };
 $("compare-search").onkeydown = (e) => {
@@ -152,7 +159,7 @@ $("start").onclick = async () => {
   }
 };
 async function trade(side) {
-  if (busy || !token || finished) return;
+  if (busy || seeking || !token || finished) return;
   if (!$("qty").reportValidity()) return;
   busy = true;
   controls();
@@ -282,6 +289,7 @@ function draw() {
     );
 }
 function ingest(r) {
+  if (seeking || (timelineState && r.t < timelineState.t)) return;
   quotes = r.quotes;
   $("clock").textContent =
     new Date(r.t * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC";
@@ -290,7 +298,10 @@ function ingest(r) {
   for (const [s, q] of Object.entries(quotes)) {
     const rows = (history[s] ??= []);
     rows.push({ t: r.t, last: q.last, fair: q.fair_value });
-    if (rows.length > 600) rows.shift();
+    if (rows.length > 2000) {
+      const compact = rows.filter((_, i) => i % 2 === 0);
+      history[s] = compact;
+    }
   }
   draw();
 }
@@ -306,17 +317,31 @@ async function refresh() {
   if (refreshing) return;
   refreshing = true;
   try {
+    const previousSeek = seeking;
+    timelineState = await api("/market/timeline");
+    seeking = timelineState.busy;
+    renderTimeline();
+    if (seeking) {
+      controls();
+      return;
+    }
     const s = await api("/market/status");
     if (session && session !== s.session_id) {
       history = {};
+      historyLoaded = false;
       resetAccount();
-      $("result").textContent = "Backend restarted. Start a fresh session.";
+      $("result").textContent = "Market reset. Start a fresh session.";
     }
     session = s.session_id;
     finished = s.finished;
     controls();
+    if (previousSeek || !historyLoaded) {
+      await loadHistory();
+      ingest(await api("/market/quotes"));
+      historyLoaded = true;
+    }
     $("note").textContent =
-      `${s.finished ? "Replay finished. Restart the backend for a new season." : `Live replay · 1 day / ${s.real_seconds_per_historical_day} seconds`} · Hold at noon UTC for day-close payouts. Chart shows the latest 600 observations collected on this page.`;
+      `${s.finished ? "Replay finished. Drag the timeline back to start again." : `${timelineState.paused ? "Paused" : "Live replay"} · 1 day / ${(s.real_seconds_per_historical_day / timelineState.rate).toFixed(1)} seconds`} · Hold at noon UTC for day-close payouts. Rewinding resets accounts; forward jumps settle games and payouts in order.`;
     if (s.last_error) error("Market paused: " + s.last_error);
     if (!socket || socket.readyState !== WebSocket.OPEN)
       ingest(await api("/market/quotes"));
@@ -327,6 +352,73 @@ async function refresh() {
     refreshing = false;
   }
 }
+function renderTimeline() {
+  if (!timelineState) return;
+  const s = timelineState;
+  $("timeline").max = Math.round((s.end_t - s.start_t) / 86400);
+  if (!dragging) {
+    $("timeline").value = Math.floor((s.t - s.start_t) / 86400);
+    $("timeline-date").textContent = new Date(s.t * 1000)
+      .toISOString()
+      .slice(0, 10);
+  }
+  $("pause").textContent = s.paused ? "Play" : "Pause";
+  $("speed").value = String(s.rate);
+  for (const id of ["pause", "timeline", "speed"]) $(id).disabled = seeking;
+  $("timeline-status").textContent =
+    s.error ||
+    (seeking
+      ? "Moving market… " + new Date(s.t * 1000).toISOString().slice(0, 10)
+      : "Drag to any day. Rewinding resets all accounts. Jumps pause at the selected day.");
+}
+async function loadHistory() {
+  const symbols = [selected, ...comparisons];
+  const r = await api(
+    "/market/history?symbols=" + encodeURIComponent(symbols.join(",")),
+  );
+  if (seeking || (session && r.session_id !== session)) return;
+  for (const [s, rows] of Object.entries(r.history)) {
+    const merged = new Map(rows.map((p) => [p.t, p]));
+    for (const point of history[s] || []) merged.set(point.t, point);
+    history[s] = [...merged.values()].sort((a, b) => a.t - b.t);
+  }
+  draw();
+}
+async function control(body) {
+  try {
+    if (body.target_t !== undefined) {
+      seeking = true;
+      controls();
+    }
+    timelineState = await api("/market/timeline", "POST", body);
+    seeking = timelineState.busy;
+    renderTimeline();
+    $("error").textContent = "";
+  } catch (e) {
+    seeking = false;
+    error(e);
+  }
+  controls();
+}
+$("timeline").oninput = () => {
+  dragging = true;
+  if (timelineState)
+    $("timeline-date").textContent = new Date(
+      (timelineState.start_t + Number($("timeline").value) * 86400) * 1000,
+    )
+      .toISOString()
+      .slice(0, 10);
+};
+$("timeline").onchange = () => {
+  dragging = false;
+  if (timelineState)
+    control({
+      target_t: timelineState.start_t + Number($("timeline").value) * 86400,
+    });
+};
+$("pause").onclick = () =>
+  timelineState && control({ paused: !timelineState.paused });
+$("speed").onchange = () => control({ rate: Number($("speed").value) });
 (async () => {
   controls();
   try {

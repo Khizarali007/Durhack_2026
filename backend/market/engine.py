@@ -47,6 +47,7 @@ class LiveMarket:
             raise ValueError("day_seconds must be finite and positive")
         if not math.isfinite(tick_seconds) or tick_seconds <= 0:
             raise ValueError("tick_seconds must be finite and positive")
+        self.replay_config = dict(database=database, values=values, injuries=injuries, seed=seed, day_seconds=day_seconds, tick_seconds=tick_seconds)
         self.day_seconds, self.tick_seconds = day_seconds, tick_seconds
         data, self.results = load_data(database or ROOT / 'data/player_games_2024_25.sqlite',
                                       values or ROOT / 'data/starting_values_2024_25.csv')
@@ -63,6 +64,10 @@ class LiveMarket:
         self.end = datetime.fromisoformat(max(self.results)).replace(tzinfo=timezone.utc) + timedelta(days=1)
         self._t = self.day.timestamp()
         self.finished = False
+        self.paused = False
+        self.playback_rate = 1.0
+        self.start_t = self._t
+        self.timeline_history = {p.symbol: [{"t": self._t, "last": self.markets[p.player_id].last_cents/100, "fair": self.markets[p.player_id].fair_cents/100}] for p in self._players}
         self.rng = random.Random(seed + 9999991)
         self._orders = itertools.count(1)
         self._subscribers = []
@@ -286,6 +291,7 @@ class LiveMarket:
                 m.availability_probability = CONFIG.healthy_availability
                 m.injury_status, m.injury_reason = 'Available', 'Played in official box score'
                 m.update_fair()
+            self.timeline_history[self.symbols[pid]].append({"t": day_end(day), "last": m.last_cents/100, "fair": m.fair_cents/100})
             m.price_history.append(m.last_cents)
             m.prior_close = m.last_cents
             m.trades_today.clear()
@@ -295,10 +301,10 @@ class LiveMarket:
             bot.orders_today = 0
         self.day += timedelta(days=1)
 
-    def step(self):
+    def step(self, target_t=None):
         if self.finished:
             return
-        self._t = min(self.end.timestamp(), self._t + 86400 * self.tick_seconds / self.day_seconds)
+        self._t = min(self.end.timestamp(), self._t + 86400 * self.tick_seconds / self.day_seconds, target_t if target_t is not None else float("inf"))
         if int(self._t // 60) * 60 != self._bundle_minute:
             self._flush_bots()
         while self.day.timestamp() + 86400 <= self._t:
@@ -315,8 +321,10 @@ class LiveMarket:
         self._publish(MarketTick(self._t, {p.symbol: self.quote(p.symbol) for p in self._players}))
 
     async def run(self):
-        while not self.finished:
-            await asyncio.sleep(self.tick_seconds)
+        while True:
+            await asyncio.sleep(self.tick_seconds / self.playback_rate)
+            if self.paused or self.finished:
+                continue
             try:
                 self.step()
                 self.last_error = None

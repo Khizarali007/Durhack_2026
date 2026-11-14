@@ -74,6 +74,29 @@
           </div>
         </div>
       </section>
+      <div class="controls timeline">
+        <button id="pause">Pause</button>
+        <input
+          id="timeline"
+          type="range"
+          min="0"
+          max="174"
+          step="1"
+          value="0"
+          aria-label="Market day"
+        />
+        <span id="timeline-date" class="date">—</span>
+        <select id="speed" aria-label="Market speed">
+          <option value="1">1×</option>
+          <option value="5">5×</option>
+          <option value="20">20×</option>
+          <option value="50">50×</option>
+        </select>
+      </div>
+      <p id="timeline-status" class="explainer">
+        Drag to any day. Rewinding resets all accounts. Jumps pause at the
+        selected day.
+      </p>
       <p id="formula" class="explainer">
         Expected score = ability + 25% × (form − ability). Actual payout = $0.02
         × positive Game Score. Dashed line = formula value; solid lines = traded

@@ -18,10 +18,18 @@ portfolio equity, selected-player holdings, paid dividends and pending rights
 refresh automatically. Buy/sell actions use actual market orders against the
 local simulation, not frontend-generated balances.
 
-Chart history contains the latest 600 observations collected while the page is
-open; reload clears it. The backend advances independently, currently one day per
-60 real seconds. Noon records payout rights; day close settles them. Restarting
-the backend resets the session and accounts. All money is virtual.
+Drag the market-day slider to move the actual simulation. Forward jumps preserve
+accounts and process intervening trades and payouts. Backward jumps rebuild the
+market from the original seed and reset **all** accounts, orders and balances.
+Every jump lands paused; press Play to continue. Choose 1×, 5×, 20× or 50× speed.
+Long jumps take time because all intervening ticks are processed; progress is shown.
+Trading is blocked during a jump. Controls are local-only and seeks require
+Solana writes to be disabled.
+
+Daily chart history comes from the backend and survives page reloads within the
+same session; recent live observations add detail. The baseline speed is one day
+per 60 seconds. Noon records payout rights; day close settles them. All money is
+virtual. Rewinding also reconnects the chart to the new session.
 
 The previous detailed tabs were removed at the user's request. Limit/stop orders,
 leaderboard, bot audit and other backend features remain available through `/docs`.
@@ -32,3 +40,9 @@ Verified the simplified page in-browser: guest creation, buy ten/sell two shares
 holdings and cash updates, player switching, percentage scale and formula overlay.
 Backend code was unchanged by the simplification; its previous regression run
 passed 340 tests with three optional devnet tests skipped.
+
+Timeline validation: 336 backend tests passed (three optional devnet tests skipped);
+five model tests passed. Targeted integration checks also verify payout settlement,
+limit-order execution during a seek, invalid targets, reset authentication and
+pause/resume. Browser checks confirmed forward seeking with shares/payouts,
+rewinding with account reset, restored daily history and 20× playback.

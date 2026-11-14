@@ -312,3 +312,62 @@ def test_post_credit_error_rolls_back_market_and_sqlite(engine, account, monkeyp
     monkeypatch.setattr(engine,'check_ledger',original)
     engine._pay_day(day)
     original()
+
+
+def test_timeline_forward_settles_and_rewind_resets_accounts(engine, monkeypatch):
+    import time
+    from main import app
+    monkeypatch.setenv('SOLANA_RECEIPTS', 'off')
+    engine.paused = True
+    use_market(engine)
+    try:
+        with TestClient(app) as client:
+            def wait_seek():
+                for _ in range(300):
+                    status = client.get('/market/timeline').json()
+                    if not status['busy']:
+                        assert status['error'] is None, status
+                        return status
+                    time.sleep(.01)
+                pytest.fail('seek did not finish')
+            start = engine.start_t
+            user = client.post('/trading/guest').json()
+            headers = {'Authorization': 'Bearer ' + user['token']}
+            assert client.post('/trading/orders', headers=headers, json={'symbol':'WEMBY','side':'buy','qty':10}).status_code == 200
+            session = engine.session_id
+            assert client.post('/market/timeline', json={'target_t':start+86400}).status_code == 200
+            status = wait_seek()
+            assert status['t'] == start+86400 and status['paused']
+            assert status['session_id'] == session
+            portfolio = client.get('/trading/portfolio', headers=headers).json()
+            assert portfolio['payouts_received'] == 8.0
+            assert portfolio['positions'][0]['qty'] == 10
+            history = client.get('/market/history?symbols=WEMBY').json()['history']['WEMBY']
+            assert len(history) == 2 and history[-1]['t'] == start+86400
+            assert client.post('/market/timeline', json={'target_t':start-1}).status_code == 422
+            assert client.post('/market/timeline', json={'rate':0}).status_code == 422
+            order = client.post('/trading/orders/open', headers=headers, json={
+                'symbol':'WEMBY', 'side':'sell', 'order_type':'limit', 'qty':2, 'price':.01})
+            assert order.status_code == 201
+            client.post('/market/timeline', json={'target_t':engine.end.timestamp()})
+            assert wait_seek()['t'] == engine.end.timestamp()
+            assert engine.finished
+            assert client.get('/trading/portfolio', headers=headers).json()['positions'][0]['qty'] == 8
+            client.post('/market/timeline', json={'target_t':start})
+            status = wait_seek()
+            assert status['t'] == start and status['session_id'] != session
+            assert client.get('/trading/portfolio', headers=headers).status_code == 401
+            fresh = client.post('/trading/guest').json()
+            assert fresh['cash'] == 100000
+            assert client.post('/market/timeline', json={'rate':20,'paused':False}).json()['rate'] == 20
+            for _ in range(100):
+                if client.get('/market/timeline').json()['t'] > start:
+                    break
+                time.sleep(.01)
+            assert client.get('/market/timeline').json()['t'] > start
+            client.post('/market/timeline', json={'paused':True})
+            t = client.get('/market/timeline').json()['t']
+            time.sleep(.08)
+            assert client.get('/market/timeline').json()['t'] == t
+    finally:
+        use_market(None)

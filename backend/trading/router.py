@@ -607,7 +607,10 @@ async def live_updates(websocket: WebSocket, token: str | None = None) -> None:
         receiver = asyncio.create_task(websocket.receive_text())
         getter = asyncio.create_task(queue.get())
         while True:
-            done, _ = await asyncio.wait({receiver, getter}, return_when=asyncio.FIRST_COMPLETED)
+            done, _ = await asyncio.wait({receiver, getter}, timeout=1, return_when=asyncio.FIRST_COMPLETED)
+            if websocket.app.state.live is not hub:
+                await websocket.close(code=1001, reason="Replay restarted")
+                return
             if getter in done:
                 await websocket.send_json(getter.result())
                 getter = asyncio.create_task(queue.get())
