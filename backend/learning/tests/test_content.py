@@ -1,6 +1,6 @@
 import json
 
-from learning.router import CONTENT_DIR
+from learning.content import CONTENT_DIR
 from learning.scenario import SCENARIOS_DIR
 
 OUTCOMES = {"never_bought", "sold_at_loss", "still_holding", "passed_ok", "passed_great"}

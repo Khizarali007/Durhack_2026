@@ -1,6 +1,6 @@
 {
   "_notes": {
-    "outcome_rules": "Checked in order for the mission's goal symbol, using trades during the mission: (1) no buys -> never_bought; (2) realised P&L > 0 -> passed_great if return on the sold shares >= grading.great_min_return_pct, else passed_ok; (3) still holding shares -> still_holding; (4) otherwise -> sold_at_loss (includes breaking even).",
+    "outcome_rules": "Checked in order for the mission's goal symbol, using trades during the mission: (1) no buys -> never_bought; (2) realised P&L after fees > 0 -> passed_great if score >= grading.great_min_score, else passed_ok; (3) still holding shares -> still_holding; (4) otherwise -> sold_at_loss (includes breaking even). Score 0-100 = (avg sell - avg buy) / (highest price after the streak - lowest price before it).",
     "placeholders": "Missions 2-6 are placeholders. Copy marked TODO is not final."
   },
   "missions": [
@@ -13,7 +13,7 @@
       "goal": "Buy SGA, then sell it for a profit before the bell.",
       "hint": "Watch the ticker - a player is heating up.",
       "grading": {
-        "great_min_return_pct": 8
+        "great_min_score": 60
       },
       "debrief": {
         "never_bought": "The bell rang and your cash never left the bench. Safe? Sure. But SGA went on a heater and you watched from the stands. Next time: spot the move, buy in.",
