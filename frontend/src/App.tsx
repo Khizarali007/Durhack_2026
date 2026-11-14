@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
 const StyleguidePage = lazy(() => import('./pages/StyleguidePage'))
+const DebugPage = lazy(() => import('./pages/DebugPage'))
 
 export default function App() {
   return (
@@ -12,6 +13,14 @@ export default function App() {
           element={
             <Suspense fallback={null}>
               <StyleguidePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/debug"
+          element={
+            <Suspense fallback={null}>
+              <DebugPage />
             </Suspense>
           }
         />
