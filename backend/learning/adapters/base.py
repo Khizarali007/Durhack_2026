@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from .models import MarketEvent, Portfolio, Tick, Trade
+from .models import MarketEvent, Portfolio, Position, Tick, Trade
 
 
 @runtime_checkable
@@ -55,4 +55,10 @@ class TradesAdapter(Protocol):
 
     def portfolio(self, user_id: str) -> Portfolio:
         """Current cash, equity and positions for a user."""
+        ...
+
+    def apply_start_state(self, user_id: str, cash: float, positions: list[Position]) -> None:
+        """Reset the user's (mission) account to this cash and these positions.
+        Called by the mission runner when a mission starts. Past trades may be
+        kept; the runner only reads trades inside the mission window."""
         ...

@@ -116,6 +116,15 @@ class MockTrades:
             return list(trades)
         return [tr for tr in trades if tr.t >= since_t]
 
+    def apply_start_state(self, user_id: str, cash: float, positions: list[Position]) -> None:
+        acct = self._acct(user_id)
+        acct.cash = float(cash)
+        acct.positions = {
+            p.symbol: Position(symbol=p.symbol, qty=p.qty, avg_cost=p.avg_cost)
+            for p in positions
+            if p.qty
+        }
+
     def portfolio(self, user_id: str) -> Portfolio:
         acct = self._acct(user_id)
         equity = acct.cash
