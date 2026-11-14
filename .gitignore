@@ -5,7 +5,14 @@
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Local databases (Person 2's trading.sqlite and its WAL files)
+*.sqlite
+*.sqlite-*
+*.db
 
 # Secrets (API keys, Solana signing keypair)
 .env
+.env.*
 *keypair*.json

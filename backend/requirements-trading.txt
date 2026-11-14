@@ -1,0 +1,7 @@
+# Person 2 (accounts, trading, Solana) dependencies. Python 3.11+.
+# Versions match Person 4's backend/requirements-learning.txt so one venv runs both.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6,<3
+pytest>=8.0
+httpx>=0.27
