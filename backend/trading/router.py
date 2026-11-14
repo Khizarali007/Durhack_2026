@@ -28,7 +28,8 @@ from .market_provider import get_market
 from .money import to_hoop
 from .money import to_cents
 from .open_orders import OpenOrder, cancel_open_order, create_open_order, list_open_orders
-from .orders import OrderError, place_market_order, reserved_cash
+from .estimates import estimate_order
+from .orders import FEE_RATE, OrderError, place_market_order, reserved_cash
 from .portfolio import build_portfolio
 from .trades import trades_for_user
 
@@ -95,6 +96,45 @@ class OrderOut(BaseModel):
     reason: str | None = Field(None, description="Why the order was only partly filled")
     receipt_status: Literal["pending", "confirmed", "failed"] = Field(
         description="Solana receipt. Always pending here: poll GET /trading/orders/{order_id}/receipt")
+    quoted_best_price: float | None = Field(
+        description="Best price when you placed the order: the ask when buying, the bid when selling")
+    slippage: float | None = Field(description="Per share: how much worse your average was than the best price")
+    slippage_pct: float | None
+
+
+class MakerQuoteOut(BaseModel):
+    maker_id: str
+    bid: float | None
+    ask: float | None
+    shares: int = Field(description="Shares this maker can sell you right now")
+
+
+class EstimateOut(BaseModel):
+    """What an order would cost right now. Nothing is traded."""
+
+    symbol: str
+    side: Literal["buy", "sell"]
+    qty: int
+    method: str = Field(description="'engine preview' (exact) or 'maker quotes (approximate)'")
+    best_bid: float | None
+    best_ask: float | None
+    spread: float | None = Field(description="best_ask - best_bid")
+    spread_pct: float | None = Field(description="Spread as a % of the mid price")
+    best_price: float | None = Field(description="The ask when buying, the bid when selling")
+    estimated_fillable_qty: int
+    estimated_avg_price: float | None
+    estimated_slippage: float = Field(description="Per share, how much worse the average is than the best price")
+    estimated_slippage_pct: float
+    estimated_notional: float
+    estimated_fee: float
+    fee_rate_pct: float
+    estimated_total: float = Field(description="Buy: what you'd pay incl. fee. Sell: what you'd receive after the fee")
+    available_cash: float
+    can_afford_qty: int | None = Field(description="Buys: how many shares your available cash covers")
+    sellable_qty: int | None = Field(description="Sells: shares you hold that aren't reserved for open orders")
+    ok: bool = Field(description="True if the whole order would go through as asked")
+    warnings: list[str] = Field(description="Plain-English heads-ups for the order ticket")
+    makers: list[MakerQuoteOut]
 
 
 class OpenOrderIn(BaseModel):
@@ -187,6 +227,8 @@ class TradeOut(BaseModel):
     receipt_signature: str | None
     receipt_confirm_ms: int | None
     receipt_explorer_url: str | None
+    quoted_price: float | None = Field(description="Best price when the order was placed")
+    slippage: float | None = Field(description="Per share vs quoted_price, positive = worse")
 
 
 class BotBundleOut(BaseModel):
@@ -322,6 +364,44 @@ async def place_order(order: OrderIn, request: Request, user: User = Depends(cur
                        t=f.t, counterparty=f.counterparty) for f in outcome.fills],
         reason=outcome.reason,
         receipt_status="pending",
+        quoted_best_price=to_hoop(outcome.quoted_best_cents) if outcome.quoted_best_cents is not None else None,
+        slippage=round(outcome.slippage_cents / 100, 4) if outcome.slippage_cents is not None else None,
+        slippage_pct=(round(100 * outcome.slippage_cents / outcome.quoted_best_cents, 2)
+                      if outcome.slippage_cents is not None and outcome.quoted_best_cents else None),
+    )
+
+
+@router.post("/orders/quote")
+async def quote_order(order: OrderIn, user: User = Depends(current_user),
+                      db: Database = Depends(get_db)) -> EstimateOut:
+    """Before you confirm: spread, expected slippage for this size, the fee and the total. Trades nothing."""
+    try:
+        e = estimate_order(db, get_market(), user.user_id, order.symbol, order.side, order.qty)
+    except OrderError as error:
+        raise HTTPException(error.status_code, error.message) from error
+    best = e.best_price_cents
+    ok = e.fillable_qty == e.qty and (e.affordable_qty >= e.qty if e.side == "buy" else e.sellable_qty >= e.qty)
+    return EstimateOut(
+        symbol=e.symbol, side=e.side, qty=e.qty, method=e.method,
+        best_bid=to_hoop(e.best_bid_cents) if e.best_bid_cents is not None else None,
+        best_ask=to_hoop(e.best_ask_cents) if e.best_ask_cents is not None else None,
+        spread=to_hoop(e.spread_cents) if e.spread_cents is not None else None,
+        spread_pct=round(100 * e.spread_cents / e.mid_cents, 2) if e.spread_cents is not None else None,
+        best_price=to_hoop(best) if best is not None else None,
+        estimated_fillable_qty=e.fillable_qty,
+        estimated_avg_price=round(e.avg_price_cents / 100, 4) if e.avg_price_cents else None,
+        estimated_slippage=round(e.slippage_cents / 100, 4),
+        estimated_slippage_pct=round(100 * e.slippage_cents / best, 2) if best else 0.0,
+        estimated_notional=to_hoop(e.notional_cents),
+        estimated_fee=to_hoop(e.fee_cents),
+        fee_rate_pct=float(FEE_RATE * 100),
+        estimated_total=to_hoop(e.total_cents),
+        available_cash=to_hoop(e.available_cash_cents),
+        can_afford_qty=e.affordable_qty if e.side == "buy" else None,
+        sellable_qty=e.sellable_qty if e.side == "sell" else None,
+        ok=ok,
+        warnings=e.warnings,
+        makers=[MakerQuoteOut(maker_id=m.maker_id, bid=m.bid, ask=m.ask, shares=m.shares) for m in e.makers],
     )
 
 
@@ -424,7 +504,10 @@ def trades(
                  price=to_hoop(r.price_cents), fee=to_hoop(r.fee_cents), t=r.t, reason=r.reason,
                  order_id=r.order_id, counterparty=r.counterparty, receipt_status=r.receipt_status,
                  receipt_signature=r.receipt_signature, receipt_confirm_ms=r.receipt_confirm_ms,
-                 receipt_explorer_url=explorer_url("tx", r.receipt_signature) if r.receipt_signature else None)
+                 receipt_explorer_url=explorer_url("tx", r.receipt_signature) if r.receipt_signature else None,
+                 quoted_price=to_hoop(r.quoted_price_cents) if r.quoted_price_cents is not None else None,
+                 slippage=(to_hoop((r.price_cents - r.quoted_price_cents) * (1 if r.side in ("buy", "cover") else -1))
+                           if r.quoted_price_cents is not None else None))
         for r in trades_for_user(db, user.user_id, since_t=since_t, symbol=symbol, limit=limit)
     ]
 

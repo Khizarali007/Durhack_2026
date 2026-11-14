@@ -62,6 +62,15 @@ class OrderOutcome:
     position_qty_after: int
     fills: list[RecordedFill] = field(default_factory=list)
     reason: str | None = None    # why it was only partly filled
+    quoted_best_cents: int | None = None  # best price when the order was placed (ask to buy, bid to sell)
+
+    @property
+    def slippage_cents(self) -> float | None:
+        """Per share, positive = the average fill was worse than the quoted best price."""
+        if self.quoted_best_cents is None or not self.filled_qty:
+            return None
+        diff = self.average_price_cents - self.quoted_best_cents
+        return diff if self.side == "buy" else -diff
 
     @property
     def filled_qty(self) -> int:
@@ -118,6 +127,9 @@ def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol:
         raise OrderError(404, f"unknown symbol {symbol!r}")
     cash, held, _ = _balance(db, user_id, symbol)
     order_id = f"ord_{secrets.token_hex(6)}"
+    quote = market.quote(symbol)
+    quoted = quote.ask if side == "buy" else quote.bid
+    quoted_cents = to_cents(quoted) if quoted is not None else None
 
     if side == "buy":
         available = cash - reserved_cash(db, user_id, exclude=own_open_order)
@@ -133,7 +145,7 @@ def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol:
 
     if not engine_fills:
         raise OrderError(400 if why == "not enough cash" else 409, why or "the order could not be filled")
-    return _record(db, order_id, user_id, symbol, side, qty, engine_fills, why, reason)
+    return _record(db, order_id, user_id, symbol, side, qty, engine_fills, why, reason, quoted_cents)
 
 
 def _buy_in_chunks(market: MarketEngine, user_id: str, symbol: str, qty: int, cash: int,
@@ -202,7 +214,8 @@ def _balance(db: Database, user_id: str, symbol: str) -> tuple[int, int, int]:
 
 
 def _record(db: Database, order_id: str, user_id: str, symbol: str, side: Side, qty: int,
-            engine_fills: list[Fill], why: str | None, fill_reason: str = "market") -> OrderOutcome:
+            engine_fills: list[Fill], why: str | None, fill_reason: str = "market",
+            quoted_cents: int | None = None) -> OrderOutcome:
     recorded: list[RecordedFill] = []
     with db.lock, db.conn:  # one transaction: all fills, cash and position, or nothing
         cash, held, basis = _balance(db, user_id, symbol)
@@ -221,9 +234,10 @@ def _record(db: Database, order_id: str, user_id: str, symbol: str, side: Side, 
             trade = RecordedFill(f"t_{secrets.token_hex(6)}", fill.qty, price, fee, fill.t, fill.counterparty)
             db.conn.execute(
                 "INSERT INTO trades (trade_id, order_id, user_id, symbol, side, qty, price_cents,"
-                " fee_cents, t, reason, counterparty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " fee_cents, t, reason, counterparty, quoted_price_cents)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (trade.trade_id, order_id, user_id, symbol, side, trade.qty, price, fee, trade.t,
-                 fill_reason, trade.counterparty),
+                 fill_reason, trade.counterparty, quoted_cents),
             )
             recorded.append(trade)
         if cash < 0:
@@ -240,4 +254,5 @@ def _record(db: Database, order_id: str, user_id: str, symbol: str, side: Side, 
             )
     filled = sum(f.qty for f in recorded)
     return OrderOutcome(order_id, "filled" if filled == qty else "partially_filled", symbol, side,
-                        qty, cash, held, recorded, None if filled == qty else why)
+                        qty, cash, held, recorded, None if filled == qty else why,
+                        quoted_best_cents=quoted_cents)

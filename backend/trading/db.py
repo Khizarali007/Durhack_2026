@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS trades (
     reason              TEXT NOT NULL DEFAULT 'market'
                         CHECK (reason IN ('market', 'limit', 'stop', 'liquidation')),
     counterparty        TEXT,                    -- market maker id
+    quoted_price_cents  INTEGER,                 -- best price when the order was placed (P2-12)
     receipt_status      TEXT NOT NULL DEFAULT 'pending'
                         CHECK (receipt_status IN ('pending', 'confirmed', 'failed')),
     receipt_signature   TEXT,                    -- Solana transaction signature
@@ -133,6 +134,12 @@ CREATE TABLE IF NOT EXISTS bot_trades (
 
 TABLES = ("users", "sessions", "wallets", "positions", "trades", "open_orders", "bot_bundles", "bot_trades")
 
+# Columns added after a table first shipped. CREATE TABLE IF NOT EXISTS won't add
+# them to an existing database file, so they're added on startup if missing.
+MIGRATIONS = (
+    ("trades", "quoted_price_cents", "INTEGER"),
+)
+
 
 class Database:
     """One shared SQLite connection, safe to use from FastAPI's worker threads."""
@@ -149,6 +156,14 @@ class Database:
             self.conn.execute("PRAGMA journal_mode = WAL")
         self.lock = threading.RLock()
         self.conn.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        for table, column, sql_type in MIGRATIONS:
+            existing = {row["name"] for row in self.conn.execute(f"PRAGMA table_info({table})")}
+            if column not in existing:
+                self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}")
+        self.conn.commit()
 
     def tables(self) -> list[str]:
         with self.lock:

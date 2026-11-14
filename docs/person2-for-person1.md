@@ -89,6 +89,8 @@ What I rely on:
 
 **Limit and stop orders are my job.** Your engine has no resting book, which is fine: I watch ticks and send market orders.
 
+**Nice to have:** `engine.preview_order(symbol, side, qty) -> OrderResult`, meaning what `submit_order` would do right now, **without trading or changing anything**. My order ticket uses it to show the exact average price, slippage and fee before the player confirms (`POST /trading/orders/quote`). My fake does it by trading against a throwaway copy of that player's makers. Without it, I estimate from the makers' current quotes, which underestimates slippage on big orders.
+
 ### 3d. An event stream
 
 ```python
@@ -123,6 +125,8 @@ Use `put_nowait` and drop the event if a queue is full, so one slow listener nev
 7. **Live clock:** when will the 12-market-minute sessions and final whistle exist? Can the replay start on a chosen day (the demo starts the day before the Wembanyama news)?
 8. **Resets:** when the market restarts or jumps to a day, should players' portfolios reset too? I'd add an admin reset on my side if so.
 9. **Person 4:** they also need a `MarketAdapter` from you (`get_tick`, `recent_ticks`, `inject_event`, `set_fair_value_shift`, `recent_events`). See `docs/person4-interfaces.md` on `person4-learning`. Their tick shape `{t, symbol, price, fair_value, best_bid, best_ask}` is a subset of my `Quote`, so one engine can serve both of us.
+
+10. **Preview:** can you add `preview_order` (see the end of 3c)? It's not required, but it makes the order ticket's estimate exact.
 
 ---
 

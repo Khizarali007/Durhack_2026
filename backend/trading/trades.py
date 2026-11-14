@@ -28,6 +28,7 @@ class TradeRecord:
     receipt_status: str
     receipt_signature: str | None
     receipt_confirm_ms: int | None
+    quoted_price_cents: int | None = None   # best price when the order was placed (P2-12)
 
 
 def trades_for_user(db: Database, user_id: str, *, since_t: float | None = None,
@@ -51,6 +52,7 @@ def trades_for_user(db: Database, user_id: str, *, since_t: float | None = None,
     return [
         TradeRecord(r["trade_id"], r["order_id"], r["user_id"], r["symbol"], r["side"], r["qty"],
                     r["price_cents"], r["fee_cents"], r["t"], r["reason"], r["counterparty"],
-                    r["receipt_status"], r["receipt_signature"], r["receipt_confirm_ms"])
+                    r["receipt_status"], r["receipt_signature"], r["receipt_confirm_ms"],
+                    r["quoted_price_cents"])
         for r in reversed(rows)
     ]

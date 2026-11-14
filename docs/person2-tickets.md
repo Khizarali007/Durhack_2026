@@ -278,14 +278,32 @@ These come from Person 1's prototype and Person 4's interfaces.
   - Selling shares reserved for a stop was refused, and cancelling worked.
   - The stop-loss fired when the price drifted down to its trigger, with its trade receipt queued.
 
-## ⬜ P2-12 · Fees, spread and slippage
+## ✅ P2-12 · Fees, spread and slippage
 - **Gate:** G2
-- **Depends on:** P2-04
-- **What:**
-  - `POST /trading/orders/quote` estimates before confirm: best price, spread, estimated slippage for this quantity, and the fee (0.10%).
-  - Store the actuals on each fill.
-- **Note:** to estimate slippage without trading, ask Person 1 for a "preview" call, or work it out from the makers' quotes and share counts in `Quote.makers`.
-- **Done when:** the ticket shows the estimate and the actual, and big orders show more slippage.
+- **What was built** (`trading/estimates.py`):
+  - **`POST /trading/orders/quote {symbol, side, qty}`** (needs the token, trades nothing) returns:
+    - best bid/ask, spread and spread %
+    - best price
+    - estimated fillable qty, average price, slippage (HOOP and %), notional, fee (0.10%), and total (buy: incl. fee; sell: after fee)
+    - available cash, `can_afford_qty` (buys) or `sellable_qty` (sells)
+    - `ok`, the 3 makers' quotes, and **plain-English `warnings`**: makers can't fill it all, a big order slips over 1% ("a limit order caps the price you pay"), wide spread, not enough cash, or shares reserved
+  - **How it estimates:** the engine's optional `preview_order` (the fake has it, and it's exact). Otherwise it walks the makers' quotes, which is approximate. Person 1 has been asked for `preview_order`.
+  - **Actuals after the fill:**
+    - Orders return `quoted_best_price` (ask or bid at order time), `slippage` and `slippage_pct`.
+    - Each trade stores `quoted_price_cents`, and `GET /trading/trades` shows `quoted_price` and `slippage` per fill.
+  - **Database migrations:** `db.py` now adds missing columns to an existing database on startup (`MIGRATIONS`), so schema changes no longer mean deleting `data/trading.sqlite`.
+- **Tests:** 16 in `test_estimates.py`, covering:
+  - The preview doesn't trade, and **the estimate equals the real order** when no tick falls in between.
+  - Bigger orders slip more, plus the warnings and the fallback estimate.
+  - The API, actual slippage on orders and trades, and the migration on an old database.
+
+  185 pass in total, 3 runs in a row.
+- **Checked on a live server:**
+  - Quoting 5 SGA showed no slippage, a 1.65 spread (1.1%) and a 0.75 fee.
+  - Quoting 300 SGA showed an average of 158.4743 (5.47% slippage) with a warning.
+  - Quoting 700 SGA said only 450 could fill.
+  - **The real 300-share buy then filled at exactly 158.4743 / 5.47% / 47.53 fee.**
+  - The local database gained the new column on startup.
 
 ## ⬜ P2-13 · Messages pushed to each user
 - **Gate:** G2

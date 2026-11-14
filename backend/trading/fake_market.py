@@ -26,6 +26,7 @@ Pure standard library. Deterministic for a given seed, so tests can call
 from __future__ import annotations
 
 import asyncio
+import copy
 import itertools
 import math
 import random
@@ -192,6 +193,22 @@ class FakeMarket:
         if not fills:
             return OrderResult(order_id, "rejected", (), qty, reason)
         return OrderResult(order_id, "partially_filled", tuple(fills), remaining, reason)
+
+    def preview_order(self, *, symbol: str, side: Side, qty: int) -> OrderResult:
+        """What ``submit_order`` would return right now, without trading or changing anything."""
+        if symbol not in self._markets:
+            return OrderResult("preview", "rejected", (), qty, f"unknown symbol {symbol!r}")
+        real = self._markets[symbol]
+        self._markets[symbol] = copy.deepcopy(real)   # trade against a throwaway copy
+        try:
+            fills = self._execute("preview", symbol, side, qty)
+        finally:
+            self._markets[symbol] = real
+        remaining = qty - sum(f.qty for f in fills)
+        if remaining == 0:
+            return OrderResult("preview", "filled", tuple(fills), 0)
+        reason = "market makers ran out of shares" if side == "buy" else "market makers ran out of cash"
+        return OrderResult("preview", "partially_filled" if fills else "rejected", tuple(fills), remaining, reason)
 
     # --- Events -------------------------------------------------------------------
 
