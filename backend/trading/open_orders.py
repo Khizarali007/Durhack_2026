@@ -35,6 +35,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .db import Database
+from .live import fill_message, open_order_message
 from .market_contract import MarketEngine, MarketTick
 from .money import to_cents
 from .orders import (
@@ -153,10 +154,12 @@ class OrderWatcher:
     """Checks open orders against every market tick and fires the ones whose price is reached."""
 
     def __init__(self, db: Database, market: MarketEngine,
-                 on_fill: Callable[[str], None] | None = None) -> None:
+                 on_fill: Callable[[str], None] | None = None,
+                 notify_user: Callable[[str, dict], None] | None = None) -> None:
         self.db = db
         self.market = market
-        self.on_fill = on_fill   # called with each market order id it creates (for receipts)
+        self.on_fill = on_fill           # called with each market order id it creates (for receipts)
+        self.notify_user = notify_user   # notify_user(user_id, message) for live updates (P2-13)
         self._queue = None
         self._task: asyncio.Task | None = None
 
@@ -206,6 +209,7 @@ class OrderWatcher:
             if error.status_code == 409 or error.message == PRICE_MOVED:
                 return None  # price slipped back or no liquidity: try again next tick
             self._update(order.order_id, status="failed", reason=error.message, reserved=0)
+            self._tell(order.user_id, "failed", order.order_id)
             return None
 
         filled = order.filled_qty + outcome.filled_qty
@@ -215,7 +219,14 @@ class OrderWatcher:
                      last_fill=outcome.order_id)
         if self.on_fill:
             self.on_fill(outcome.order_id)
+        if self.notify_user:
+            self.notify_user(order.user_id, fill_message(outcome, order.order_type))
+        self._tell(order.user_id, "filled" if done else "fired", order.order_id)
         return outcome.order_id
+
+    def _tell(self, user_id: str, event: str, order_id: str) -> None:
+        if self.notify_user:
+            self.notify_user(user_id, open_order_message(get_open_order(self.db, order_id), event))
 
     def _update(self, order_id: str, *, status: str, reserved: int, reason: str | None = None,
                 filled: int | None = None, last_fill: str | None = None) -> None:

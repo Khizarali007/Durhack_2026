@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 
 from .accounts import (
@@ -16,7 +18,9 @@ from .accounts import (
     create_guest_user,
     create_session,
     delete_session,
+    user_for_token,
 )
+from .live import fill_message, open_order_message
 from .chain.bot_bundles import bundle_lines
 from .chain.config import explorer_url
 from .chain.receipts import bot_trades_hash
@@ -349,6 +353,7 @@ async def place_order(order: OrderIn, request: Request, user: User = Depends(cur
         raise HTTPException(error.status_code, error.message) from error
     if request.app.state.receipts:
         request.app.state.receipts.enqueue(outcome.order_id)
+    _live(request).publish_user(user.user_id, fill_message(outcome))
     return OrderOut(
         order_id=outcome.order_id,
         status=outcome.status,
@@ -406,7 +411,7 @@ async def quote_order(order: OrderIn, user: User = Depends(current_user),
 
 
 @router.post("/orders/open", status_code=status.HTTP_201_CREATED)
-async def place_open_order(order: OpenOrderIn, user: User = Depends(current_user),
+async def place_open_order(order: OpenOrderIn, request: Request, user: User = Depends(current_user),
                            db: Database = Depends(get_db)) -> OpenOrderOut:
     """Place a limit order or a stop-loss. It waits until the price is reached, then trades.
 
@@ -419,6 +424,7 @@ async def place_open_order(order: OpenOrderIn, user: User = Depends(current_user
                                     order_type=order.order_type, qty=order.qty, price_cents=to_cents(order.price))
     except OrderError as error:
         raise HTTPException(error.status_code, error.message) from error
+    _live(request).publish_user(user.user_id, open_order_message(created, "placed"))
     return _open_order_out(created)
 
 
@@ -431,12 +437,70 @@ def open_orders(user: User = Depends(current_user), db: Database = Depends(get_d
 
 
 @router.delete("/orders/{order_id}")
-def cancel_order(order_id: str, user: User = Depends(current_user), db: Database = Depends(get_db)) -> OpenOrderOut:
+def cancel_order(order_id: str, request: Request, user: User = Depends(current_user),
+                 db: Database = Depends(get_db)) -> OpenOrderOut:
     """Cancel an open limit or stop-loss order and release what it held back. `409` if it already filled."""
     try:
-        return _open_order_out(cancel_open_order(db, user.user_id, order_id))
+        cancelled = cancel_open_order(db, user.user_id, order_id)
     except OrderError as error:
         raise HTTPException(error.status_code, error.message) from error
+    _live(request).publish_user(user.user_id, open_order_message(cancelled, "cancelled"))
+    return _open_order_out(cancelled)
+
+
+def _live(request: Request):
+    """The live-update hub (a do-nothing stand-in if the app didn't start one)."""
+    return getattr(request.app.state, "live", None) or _NoHub()
+
+
+class _NoHub:
+    def publish_user(self, user_id, message):
+        pass
+
+    def publish_public(self, message):
+        pass
+
+
+@router.websocket("/ws")
+async def live_updates(websocket: WebSocket, token: str | None = None) -> None:
+    """Live updates. Connect to `/trading/ws?token=<session token>`.
+
+    Browsers can't set headers on a WebSocket, so the token goes in the URL.
+    Without a token you get the public feed only (bot bundles settling on
+    Solana), which suits a projector screen. A bad token is refused with close
+    code 4401. Send `ping` (or `{"type":"ping"}`) to get a `pong`.
+    """
+    hub = websocket.app.state.live
+    user = user_for_token(websocket.app.state.trading_db, token) if token else None
+    if token and user is None:
+        await websocket.close(code=4401, reason="missing or invalid session token")
+        return
+    await websocket.accept()
+    user_id = user.user_id if user else None
+    queue = hub.subscribe(user_id)
+    receiver = getter = None
+    try:
+        await websocket.send_json({"type": "hello", "user_id": user_id, "public_only": user is None,
+                                   "market_time": get_market().market_time()})
+        receiver = asyncio.create_task(websocket.receive_text())
+        getter = asyncio.create_task(queue.get())
+        while True:
+            done, _ = await asyncio.wait({receiver, getter}, return_when=asyncio.FIRST_COMPLETED)
+            if getter in done:
+                await websocket.send_json(getter.result())
+                getter = asyncio.create_task(queue.get())
+            if receiver in done:
+                text = receiver.result()  # raises WebSocketDisconnect when the client leaves
+                if text.strip().lower() in ("ping", '{"type":"ping"}', '{"type": "ping"}'):
+                    await websocket.send_json({"type": "pong"})
+                receiver = asyncio.create_task(websocket.receive_text())
+    except WebSocketDisconnect:
+        pass
+    finally:
+        hub.unsubscribe(user_id, queue)
+        for task in (receiver, getter):
+            if task and not task.done():
+                task.cancel()
 
 
 @router.get("/orders/{order_id}/receipt")

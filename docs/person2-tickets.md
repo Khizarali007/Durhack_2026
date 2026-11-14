@@ -305,11 +305,42 @@ These come from Person 1's prototype and Person 4's interfaces.
   - **The real 300-share buy then filled at exactly 158.4743 / 5.47% / 47.53 fee.**
   - The local database gained the new column on startup.
 
-## ⬜ P2-13 · Messages pushed to each user
+## ✅ P2-13 · Messages pushed to each user
 - **Gate:** G2
-- **Depends on:** P2-09
-- **What:** each user gets their own fills, order fires and receipt status changes over a WebSocket. Agree the endpoint and message shapes with Persons 1 and 3. Person 4 uses `/learning/ws`, so `/trading/ws` fits the pattern.
-- **Done when:** the frontend sees ⏳ settling, then ✓ confirmed, without refreshing.
+- **What was built** (`trading/live.py`, `/trading/ws` in `router.py`):
+  - **Connecting:**
+    - `ws://<host>/trading/ws?token=<session token>`. Browsers can't set headers on a WebSocket, so the token goes in the URL.
+    - **Without a token** you get the public feed only, which suits a projector or spectator screen.
+    - A bad token is refused with close code **4401**.
+    - Send `ping` or `{"type":"ping"}` to get `{"type":"pong"}`.
+  - **Messages** (flat JSON with a `type`, like Person 4's `/learning/ws`):
+    - `hello` on connect: `{user_id, public_only, market_time}`
+    - `fill`: your order filled. `{order_id, reason: market|limit|stop, status, symbol, side, filled_qty, average_price, total_fee, cash, position_qty, slippage, receipt_status: "pending"}`
+    - `open_order`: `{event: placed|fired|filled|cancelled|failed, order_id, symbol, side, order_type, price, qty, filled_qty, remaining_qty, status, reason, last_fill_order_id}`
+    - `receipt`: your order's Solana receipt. `{order_id, status: confirmed|failed, signature, explorer_url, confirm_ms}`
+    - `bot_bundle` (**public**): a minute of bot trades settled on Solana. `{bundle_id, trade_count, total_volume, minute_t, status, signature, explorer_url, confirm_ms}`
+  - **Hub:** one queue per connection. Private messages go only to that player's connections, and public ones go to everyone. Messages from worker threads are handed to the event loop safely, and a stuck client misses messages rather than slowing others down.
+  - **Producers:**
+    - The order route sends `fill`.
+    - Placing or cancelling an open order sends `open_order`.
+    - The open-order watcher sends `fill` and `open_order` (fired/filled/failed).
+    - The receipt worker sends `receipt` and `bot_bundle` when a receipt confirms or fails.
+- **Fixed along the way (receipts, P2-09):** devnet allows only about **10 `getSignatureStatuses` calls per 10 s** (`x-ratelimit-method-limit: 10`). Polling every 0.4 s meant that once anything was in flight, every check got 429 and **nothing confirmed**, which is why the spectator feed was silent on the first live run.
+  - The checker now polls every **2 s** and backs off on errors (2 → 4 → 8 → 16 s).
+  - Set `SOLANA_STATUS_INTERVAL_S` lower with a dedicated RPC.
+  - The cost: displayed `confirm_ms` is now about 2–3 s, because it's measured when we see the confirmation, not when Solana confirmed (under 1 s). **For the demo:** a free dedicated RPC (e.g. Helius) in `SOLANA_RPC_URL` plus `SOLANA_STATUS_INTERVAL_S=0.5` brings it back down.
+- **Tests:** 12 in `test_live.py`, covering:
+  - The hub: privacy, public broadcast, delivery from another thread, unsubscribe.
+  - Connecting with, without, or with a bad token, and ping/pong.
+  - Fill then receipt, and placed → filled → receipt for a limit order.
+  - Cancel, players seeing only their own updates, and a spectator receiving a real bot bundle.
+
+  The tests use a timeout helper so a missing message fails instead of hanging. 197 pass in total, 3 runs in a row.
+- **Checked on a live server against real devnet** with a real WebSocket client (player and spectator, 20 s):
+  - fill 0.57 s → open_order placed 0.58 s → fill (limit) and open_order filled 0.71 s → both receipts confirmed 3.8 s
+  - bot bundles of 21, 17 and 18 trades reached **both** the spectator and the player
+  - no errors
+- **For Person 3:** connect once after login and keep the socket open. Show "⏳ settling" on `fill`, flip to "✓ confirmed on Solana" with the Explorer link on the matching `receipt`, and drive a "trades settled on Solana" ticker from `bot_bundle`. Reconnect automatically if the socket drops.
 
 ## ⬜ P2-21 · TradesAdapter for Person 4 (new)
 - **Gate:** G2 (Person 4 builds on a mock until then)

@@ -20,6 +20,7 @@ from trading import router as trading_router
 from trading.chain import worker as receipt_worker
 from trading.chain.bot_bundles import BotBundleRecorder
 from trading.db import Database
+from trading.live import LiveHub, receipt_notifier
 from trading.market_provider import get_market
 from trading.open_orders import OrderWatcher
 
@@ -30,10 +31,16 @@ async def lifespan(app: FastAPI):
     market = get_market()
     market_task = asyncio.create_task(market.run())
 
+    # Live updates over /trading/ws (P2-13).
+    app.state.live = LiveHub()
+    app.state.live.bind_loop()
+
     # Solana receipts (P2-09). SOLANA_RECEIPTS=off runs without them.
     app.state.receipts = None
     if receipt_worker.receipts_enabled():
-        app.state.receipts = receipt_worker.ReceiptWorker(app.state.trading_db, receipt_worker.sender_factory())
+        app.state.receipts = receipt_worker.ReceiptWorker(
+            app.state.trading_db, receipt_worker.sender_factory(),
+            notify=receipt_notifier(app.state.trading_db, app.state.live))
         await app.state.receipts.start()
 
     # Bot trades: one bundle (and one receipt) per market minute (P2-10).
@@ -43,7 +50,8 @@ async def lifespan(app: FastAPI):
 
     # Limit and stop-loss orders fire on market ticks (P2-11); their trades get receipts too.
     watcher = OrderWatcher(app.state.trading_db, market,
-                           on_fill=app.state.receipts.enqueue if app.state.receipts else None)
+                           on_fill=app.state.receipts.enqueue if app.state.receipts else None,
+                           notify_user=app.state.live.publish_user)
     await watcher.start()
 
     # Person 4 plugs in here at merge (see docs/person4-interfaces.md on their branch):

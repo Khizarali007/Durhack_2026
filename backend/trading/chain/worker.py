@@ -47,7 +47,12 @@ JobKind = Literal["order", "bundle"]
 
 log = logging.getLogger("trading.receipts")
 
-CHECK_INTERVAL_S = 0.4
+# The public devnet server allows only about 10 getSignatureStatuses calls per
+# 10 s per user (x-ratelimit-method-limit: 10). Polling every 0.4 s got
+# rate-limited forever once anything was in flight, so check every 2 s and
+# back off further on errors. A dedicated RPC (SOLANA_RPC_URL) can go faster.
+CHECK_INTERVAL_S = 2.0   # override with SOLANA_STATUS_INTERVAL_S
+MAX_CHECK_INTERVAL_S = 16.0
 LANDING_TIMEOUT_S = 60.0   # a blockhash expires after ~60-90 s, so resending after this can't double up
 
 
@@ -78,15 +83,18 @@ class _InFlight:
 
 class ReceiptWorker:
     def __init__(self, db: Database, sender: ReceiptSender, *, senders: int = 2, max_attempts: int = 5,
-                 base_delay_s: float | None = None, check_interval_s: float = CHECK_INTERVAL_S,
-                 landing_timeout_s: float = LANDING_TIMEOUT_S) -> None:
+                 base_delay_s: float | None = None, check_interval_s: float | None = None,
+                 landing_timeout_s: float = LANDING_TIMEOUT_S, notify=None) -> None:
         self.db = db
         self.sender = sender
+        self.notify = notify   # notify(job, status, signature, confirm_ms) when a receipt confirms or fails
         self.senders = senders
         self.max_attempts = max_attempts
         if base_delay_s is None:
             base_delay_s = float(os.environ.get("SOLANA_RECEIPT_RETRY_BASE_S", "1"))
         self.base_delay_s = base_delay_s
+        if check_interval_s is None:
+            check_interval_s = float(os.environ.get("SOLANA_STATUS_INTERVAL_S", CHECK_INTERVAL_S))
         self.check_interval_s = check_interval_s
         self.landing_timeout_s = landing_timeout_s
         self._queue: asyncio.Queue[tuple[Job, int]] = asyncio.Queue()
@@ -192,16 +200,19 @@ class ReceiptWorker:
     # --- Checking ---------------------------------------------------------------------
 
     async def _check_loop(self) -> None:
+        interval = self.check_interval_s
         while True:
-            await asyncio.sleep(self.check_interval_s)
+            await asyncio.sleep(interval)
             if not self._in_flight:
                 continue
             signatures = list(self._in_flight)
             try:
                 statuses = await self.sender.statuses(signatures)
-            except Exception as exc:  # devnet busy or rate limiting: just look again next round
-                log.debug("status check failed: %r", exc)
+            except Exception as exc:  # devnet busy or rate limiting: wait longer, then look again
+                interval = min(interval * 2, max(MAX_CHECK_INTERVAL_S, self.check_interval_s))
+                log.debug("status check failed (next in %.1fs): %r", interval, exc)
                 continue
+            interval = self.check_interval_s
             now = time.monotonic()
             for signature in signatures:
                 flight = self._in_flight.get(signature)
@@ -246,3 +257,8 @@ class ReceiptWorker:
                 f"UPDATE {table} SET receipt_status = ?, receipt_signature = ?, receipt_confirm_ms = ?"
                 f" WHERE {key} = ?", (status, signature, confirm_ms, job.id),
             )
+        if self.notify and status in ("confirmed", "failed"):
+            try:
+                self.notify(job, status, signature, confirm_ms)
+            except Exception:
+                log.exception("receipt notification for %s failed", job.id)

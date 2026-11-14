@@ -82,6 +82,7 @@ def fake_sender(monkeypatch):
     monkeypatch.setattr(receipt_worker, "sender_factory", lambda: sender)
     monkeypatch.setenv("SOLANA_RECEIPTS", "on")
     monkeypatch.setenv("SOLANA_RECEIPT_RETRY_BASE_S", "0.01")
+    monkeypatch.setenv("SOLANA_STATUS_INTERVAL_S", "0.2")  # real devnet uses 2 s
     return sender
 
 
