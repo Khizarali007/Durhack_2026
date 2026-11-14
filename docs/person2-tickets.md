@@ -144,13 +144,19 @@ These come from Person 1's prototype and Person 4's interfaces.
 - **Tests:** 9 in `test_portfolio.py`. 69 pass in total, 3 runs in a row.
 - **Checked on a live server:** after buying 30 WEMBY, buying 10 SGA and selling 4 SGA, the portfolio showed both positions with values and weights. Its totals added up: 28.90 = −5.96 realised + 40.16 unrealised − 5.30 fees. No token gave 401.
 
-## 🟡 P2-06 · Trade record
+## ✅ P2-06 · Trade record
 - **Gate:** G1
-- **Depends on:** P2-04 ✅
-- **Done in P2-04:** every fill is already saved as a row in `trades`.
-- **What's left:**
-  - `GET /trading/trades` returns the user's fills oldest first, shaped like Person 4's `Trade`: `trade_id, user_id, symbol, side, qty, price, fee, t, reason`, plus `receipt_status`.
-- **Done when:** every order shows up in order with the right prices and fees.
+- **What was built:**
+  - Every fill is saved as a `trades` row (done in P2-04).
+  - `GET /trading/trades` (needs the token) returns your fills **oldest first**.
+    - **Fields:** `trade_id, user_id, symbol, side, qty, price, fee, t, reason`, which match Person 4's `Trade`, plus `order_id, counterparty, receipt_status, receipt_signature, receipt_confirm_ms` for the Solana tickets.
+    - **Optional filters:**
+      - `since_t`: inclusive, as Person 4 expects
+      - `symbol`
+      - `limit`: the most recent N, still oldest first. Default 500, max 5000.
+  - `trading/trades.py`: `trades_for_user()` returns cents, ready for P2-21's TradesAdapter.
+- **Tests:** 12 in `test_trades.py` (order and values match the order responses, Person 4's fields, inclusive `since_t`, filters, privacy, 401). 81 pass in total, 3 runs in a row.
+- **Checked on a live server:** bought 15 LUKA (two fills from different makers) and sold 5, and the history listed all three fills in order with prices, fees, market times and `pending` receipts. `limit=1` returned the sale, and no token gave 401.
 
 ---
 

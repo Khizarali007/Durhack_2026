@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from .accounts import User, create_guest_user, create_session
@@ -15,6 +15,7 @@ from .market_provider import get_market
 from .money import to_hoop
 from .orders import OrderError, place_market_order
 from .portfolio import build_portfolio
+from .trades import trades_for_user
 
 router = APIRouter(prefix="/trading", tags=["trading"])
 
@@ -87,6 +88,26 @@ class PortfolioOut(BaseModel):
     realised_pnl: float
     fees_paid: float
     positions: list[PositionOut] = Field(description="Largest holding first")
+
+
+class TradeOut(BaseModel):
+    """One fill. The first nine fields match Person 4's Trade model."""
+
+    trade_id: str
+    user_id: str
+    symbol: str
+    side: Literal["buy", "sell", "short", "cover"]
+    qty: int
+    price: float = Field(description="Fill price per share, HOOP")
+    fee: float = Field(description="Fee charged on this fill, HOOP")
+    t: float = Field(description="Market time of the fill, epoch seconds")
+    reason: Literal["market", "limit", "stop", "liquidation"]
+    order_id: str
+    counterparty: str | None
+    receipt_status: Literal["pending", "confirmed", "failed"] = Field(
+        description="Solana receipt: pending until P2-09 writes it on-chain")
+    receipt_signature: str | None
+    receipt_confirm_ms: int | None
 
 
 def _pct(part: int, whole: int) -> float:
@@ -183,6 +204,24 @@ async def portfolio(user: User = Depends(current_user), db: Database = Depends(g
             for p in view.positions
         ],
     )
+
+
+@router.get("/trades")
+def trades(
+    user: User = Depends(current_user),
+    db: Database = Depends(get_db),
+    since_t: float | None = Query(None, description="Only fills at or after this market time"),
+    symbol: str | None = Query(None, description="Only this player"),
+    limit: int = Query(500, ge=1, le=5000, description="Only the most recent N (still oldest first)"),
+) -> list[TradeOut]:
+    """Your fills, oldest first."""
+    return [
+        TradeOut(trade_id=r.trade_id, user_id=r.user_id, symbol=r.symbol, side=r.side, qty=r.qty,
+                 price=to_hoop(r.price_cents), fee=to_hoop(r.fee_cents), t=r.t, reason=r.reason,
+                 order_id=r.order_id, counterparty=r.counterparty, receipt_status=r.receipt_status,
+                 receipt_signature=r.receipt_signature, receipt_confirm_ms=r.receipt_confirm_ms)
+        for r in trades_for_user(db, user.user_id, since_t=since_t, symbol=symbol, limit=limit)
+    ]
 
 
 @router.get("/debug/quote/{symbol}")
