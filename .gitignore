@@ -1,6 +1,18 @@
+# Python and editors
 __pycache__/
 .venv/
-data/*.sqlite
+*.pyc
+.pytest_cache/
+.idea/
+.DS_Store
+# Local datasets and account databases
 data/*.csv
 data/source/
-.DS_Store
+*.sqlite
+*.sqlite-*
+*.db
+# Secrets
+.env
+.env.*
+*keypair*.json
+.solana/
