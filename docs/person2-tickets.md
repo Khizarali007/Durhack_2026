@@ -130,16 +130,19 @@ These come from Person 1's prototype and Person 4's interfaces.
   - Buying 600 FOX filled 450 (every maker's shares) at an average 103.14 vs a 95 start: 8.6% slippage, which is a good demo moment.
   - Buying FOX again then said the makers were out of shares.
 
-## ⬜ P2-05 · Portfolio
+## ✅ P2-05 · Portfolio
 - **Gate:** G1
-- **Depends on:** P2-04
-- **What:** `GET /trading/portfolio` returns, in HOOP floats:
-  - `cash`
-  - `equity` (cash + qty × last price)
-  - `positions: [{symbol, qty, avg_cost}]`
-
-  Those three fields match Person 4's `Portfolio`. Also return unrealised and realised profit/loss. Once P2-22 lands, also return payouts received.
-- **Done when:** the numbers add up after a sequence of buys and sells (test it).
+- **What was built:** `GET /trading/portfolio` (needs the session token), with the logic in `trading/portfolio.py`.
+  - **Totals:** `cash`, `positions_value`, `equity` (= cash + positions value), `starting_cash`, `total_pnl` and `total_pnl_pct`, `unrealised_pnl`, `realised_pnl`, `fees_paid`.
+  - **`positions`**, largest first: `symbol, name, team, qty, avg_cost, last_price, market_value, unrealised_pnl, unrealised_pnl_pct, weight_pct`. `weight_pct` is the share of equity, which Person 4's Composition panel can use directly.
+  - Shares are valued at the **last trade price** (the displayed price).
+  - `avg_cost` doesn't include fees. Fees are reported separately.
+  - **Realised profit** is rebuilt from the trades, using the same average-cost rule as orders, so it always matches the stored positions.
+  - Everything is computed in cents, so `equity − starting cash = realised + unrealised − fees` holds **exactly**. A test checks this after 25 random trades.
+  - `build_portfolio()` returns cents and covers what Person 4's `Portfolio` needs (`cash`, `equity`, `positions[symbol, qty, avg_cost]`), ready for P2-21.
+- **Not yet:** payouts received (P2-22), and shorts (P2-14). `total_pnl` assumes everyone starts with 100,000, so P2-21's `apply_start_state` will need its own starting value.
+- **Tests:** 9 in `test_portfolio.py`. 69 pass in total, 3 runs in a row.
+- **Checked on a live server:** after buying 30 WEMBY, buying 10 SGA and selling 4 SGA, the portfolio showed both positions with values and weights. Its totals added up: 28.90 = −5.96 realised + 40.16 unrealised − 5.30 fees. No token gave 401.
 
 ## 🟡 P2-06 · Trade record
 - **Gate:** G1

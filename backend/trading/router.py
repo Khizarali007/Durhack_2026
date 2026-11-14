@@ -14,6 +14,7 @@ from .deps import current_user, get_db
 from .market_provider import get_market
 from .money import to_hoop
 from .orders import OrderError, place_market_order
+from .portfolio import build_portfolio
 
 router = APIRouter(prefix="/trading", tags=["trading"])
 
@@ -59,6 +60,37 @@ class OrderOut(BaseModel):
     position_qty: int = Field(description="Shares of this player you hold after the order")
     fills: list[FillOut]
     reason: str | None = Field(None, description="Why the order was only partly filled")
+
+
+class PositionOut(BaseModel):
+    symbol: str
+    name: str | None
+    team: str | None
+    qty: int
+    avg_cost: float = Field(description="Average price paid per share, fees not included")
+    last_price: float = Field(description="Last traded price: what each share is worth now")
+    market_value: float
+    unrealised_pnl: float
+    unrealised_pnl_pct: float
+    weight_pct: float = Field(description="Share of your total equity in this player")
+
+
+class PortfolioOut(BaseModel):
+    user_id: str
+    cash: float
+    positions_value: float
+    equity: float = Field(description="cash + positions_value")
+    starting_cash: float
+    total_pnl: float = Field(description="equity - starting_cash (= realised + unrealised - fees)")
+    total_pnl_pct: float
+    unrealised_pnl: float
+    realised_pnl: float
+    fees_paid: float
+    positions: list[PositionOut] = Field(description="Largest holding first")
+
+
+def _pct(part: int, whole: int) -> float:
+    return round(100 * part / whole, 2) if whole else 0.0
 
 
 @router.get("/health")
@@ -119,6 +151,37 @@ async def place_order(order: OrderIn, user: User = Depends(current_user),
         fills=[FillOut(trade_id=f.trade_id, qty=f.qty, price=to_hoop(f.price_cents), fee=to_hoop(f.fee_cents),
                        t=f.t, counterparty=f.counterparty) for f in outcome.fills],
         reason=outcome.reason,
+    )
+
+
+@router.get("/portfolio")
+async def portfolio(user: User = Depends(current_user), db: Database = Depends(get_db)) -> PortfolioOut:
+    """Your cash, holdings marked at the last trade price, and profit/loss."""
+    view = build_portfolio(db, get_market(), user.user_id)
+    equity = view.equity_cents
+    return PortfolioOut(
+        user_id=view.user_id,
+        cash=to_hoop(view.cash_cents),
+        positions_value=to_hoop(view.positions_value_cents),
+        equity=to_hoop(equity),
+        starting_cash=to_hoop(view.starting_cash_cents),
+        total_pnl=to_hoop(view.total_pnl_cents),
+        total_pnl_pct=_pct(view.total_pnl_cents, view.starting_cash_cents),
+        unrealised_pnl=to_hoop(view.unrealised_cents),
+        realised_pnl=to_hoop(view.realised_cents),
+        fees_paid=to_hoop(view.fees_cents),
+        positions=[
+            PositionOut(
+                symbol=p.symbol, name=p.name, team=p.team, qty=p.qty,
+                avg_cost=round(p.avg_cost_cents / 100, 4),
+                last_price=to_hoop(p.last_price_cents),
+                market_value=to_hoop(p.market_value_cents),
+                unrealised_pnl=to_hoop(p.unrealised_cents),
+                unrealised_pnl_pct=_pct(p.unrealised_cents, p.cost_basis_cents),
+                weight_pct=_pct(p.market_value_cents, equity),
+            )
+            for p in view.positions
+        ],
     )
 
 
