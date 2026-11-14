@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import random
 import sqlite3
 from collections import defaultdict
@@ -17,7 +16,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 
-START_CASH_CENTS = 100_000  # 1,000 HOOP per bot, for each independent market
+START_CASH_CENTS = 10_000_000  # 100,000 HOOP per network bot
 MAKER_CASH_CENTS = 10_000_000  # 100,000 HOOP per maker
 MAKER_STARTING_SHARES = 150
 BOT_COUNT = 20
@@ -30,9 +29,10 @@ MIN_PRICE_CENTS = 1_000  # 10 HOOP
 @dataclass
 class Trader:
     cash: int
-    shares: int
+    shares: int = 0
     style: str = "maker"
     bias: float = 0.0
+    holdings: dict[int, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -46,10 +46,13 @@ class Market:
     makers: list[Trader]
     bots: list[Trader]
     rng: random.Random
-    initial_cash: int
     initial_shares: int
     prior_close: int
-    news_factor: float = 1.0
+    injury_factor: float = 1.0
+    injury_status: str = ""
+    injury_reason: str = ""
+    injury_level: str = ""
+    injury_signal: float = 0.0
     trades_today: list[int] = field(default_factory=list)
     volume_today: int = 0
 
@@ -59,6 +62,8 @@ class Market:
         maker_offset = (-0.007, 0.0, 0.007)[maker_index]
         midpoint = self.fair_cents * max(0.5, 1 + inventory_skew + maker_offset)
         spread = (0.020, 0.025, 0.030)[maker_index]
+        if self.injury_status in ("Questionable", "Doubtful"):
+            spread += 0.012
         bid = max(1, round(midpoint * (1 - spread / 2)))
         ask = max(bid + 1, round(midpoint * (1 + spread / 2)))
         return (bid if maker.cash >= bid else None,
@@ -86,15 +91,15 @@ class Market:
             if not quantity:
                 return None
             bot.cash -= price * quantity
-            bot.shares += quantity
+            bot.holdings[self.player_id] += quantity
             maker.cash += price * quantity
             maker.shares -= quantity
         else:
-            quantity = min(quantity, bot.shares, maker.cash // price)
+            quantity = min(quantity, bot.holdings[self.player_id], maker.cash // price)
             if not quantity:
                 return None
             bot.cash += price * quantity
-            bot.shares -= quantity
+            bot.holdings[self.player_id] -= quantity
             maker.cash -= price * quantity
             maker.shares += quantity
         self.last_cents = price
@@ -111,16 +116,37 @@ class Market:
             noise = self.rng.gauss(0, 0.015)
             momentum = max(-0.15, min(0.15, self.last_cents / self.prior_close - 1))
             trend = 0.8 * momentum if bot.style == "momentum" else 0
+            # Personalities share one account across every player market.
             perceived = self.fair_cents * max(0.5, 1 + bot.bias + trend + noise)
             side = None
             if bot.style == "casual" and self.rng.random() < 0.20:
                 side = self.rng.choice(("buy", "sell"))
+            elif bot.style == "news" and self.injury_signal < -0.005:
+                side = "sell"
+            elif bot.style == "news" and self.injury_signal > 0.005:
+                side = "buy"
+            elif bot.style == "risk_averse" and self.injury_status in ("Out", "Doubtful"):
+                side = "sell"
+            elif bot.style == "contrarian" and self.injury_signal < -0.005 and ask and ask[0] < self.fair_cents * 0.98:
+                side = "buy"
             elif ask and ask[0] < perceived * 0.985:
                 side = "buy"
             elif bid and bid[0] > perceived * 1.015:
                 side = "sell"
             if side:
-                self.trade(bot, side, self.rng.randint(1, 3))
+                size = self.rng.randint(2, 5) if bot.style in ("news", "risk_averse") and self.injury_signal else self.rng.randint(1, 3)
+                self.trade(bot, side, size)
+
+    def set_injury(self, report: dict) -> bool:
+        factor = float(report["target_factor"])
+        changed = abs(factor - self.injury_factor) > 0.001
+        self.injury_signal = factor - self.injury_factor if changed else 0.0
+        self.injury_factor = factor
+        self.injury_status = report["status"]
+        self.injury_reason = report["reason"]
+        self.injury_level = report["impact_level"]
+        self.update_fair()
+        return changed
 
     def reveal(self, scores: list[float]) -> None:
         # A rest day or DNP is not a zero-score game.
@@ -130,13 +156,12 @@ class Market:
 
     def update_fair(self) -> None:
         self.fair_cents = max(MIN_PRICE_CENTS,
-                              round(PRICE_PER_GAME_SCORE_CENTS * self.mean_score * self.news_factor))
+                              round(PRICE_PER_GAME_SCORE_CENTS * self.mean_score * self.injury_factor))
 
     def check_ledger(self) -> None:
-        traders = self.makers + self.bots
-        assert all(trader.cash >= 0 and trader.shares >= 0 for trader in traders)
-        assert sum(trader.cash for trader in traders) == self.initial_cash
-        assert sum(trader.shares for trader in traders) == self.initial_shares
+        assert all(trader.cash >= 0 and trader.shares >= 0 for trader in self.makers)
+        assert all(bot.cash >= 0 and bot.holdings[self.player_id] >= 0 for bot in self.bots)
+        assert sum(trader.shares for trader in self.makers) + sum(bot.holdings[self.player_id] for bot in self.bots) == self.initial_shares
 
 
 def load_data(path: Path, values_path: Path) -> tuple[dict[int, dict], dict[str, dict[int, list[float]]]]:
@@ -167,23 +192,22 @@ def load_data(path: Path, values_path: Path) -> tuple[dict[int, dict], dict[str,
 
 def make_markets(players: dict[int, dict], seed: int) -> dict[int, Market]:
     markets = {}
+    network_rng = random.Random(seed)
+    styles = ("value", "momentum", "casual", "risk_averse", "news", "contrarian")
+    bots = [Trader(START_CASH_CENTS, style=styles[i % len(styles)],
+                   bias=network_rng.gauss(0, 0.035)) for i in range(BOT_COUNT)]
     for player_id, player in sorted(players.items()):
         # Keep the age-adjusted opening estimate as the first fair value.
         mean = player["starting_price"] / (PRICE_PER_GAME_SCORE_CENTS / 100)
         fair = max(MIN_PRICE_CENTS, round(player["starting_price"] * 100))
         rng = random.Random(seed + player_id)
         makers = [Trader(MAKER_CASH_CENTS, MAKER_STARTING_SHARES) for _ in range(3)]
-        bots = []
-        for index in range(BOT_COUNT):
-            style = ("value", "momentum", "casual")[index % 3]
-            bots.append(Trader(START_CASH_CENTS, INITIAL_BOT_SHARES,
-                               style, rng.gauss(0, 0.07)))
+        for bot in bots:
+            bot.holdings[player_id] = INITIAL_BOT_SHARES
         makers[0].shares -= BOT_COUNT * INITIAL_BOT_SHARES
-        traders = makers + bots
         markets[player_id] = Market(
             player_id, player["name"], player["team"], mean, fair, fair,
-            makers, bots, rng, sum(t.cash for t in traders),
-            sum(t.shares for t in traders), fair,
+            makers, bots, rng, 3 * MAKER_STARTING_SHARES, fair,
         )
     return markets
 
@@ -196,27 +220,27 @@ def dates_between(first: str, last: str):
         day += timedelta(days=1)
 
 
-def load_events(path: Path | None, markets: dict[int, Market]) -> dict[str, list[tuple[int, dict]]]:
+def load_injuries(path: Path | None) -> dict[str, dict[int, dict]]:
     if path is None:
         return {}
-    by_name = {market.player_name.lower(): player_id for player_id, market in markets.items()}
-    by_date: dict[str, list[tuple[int, dict]]] = defaultdict(list)
-    for event in json.loads(path.read_text(encoding="utf-8")):
-        player_id = by_name.get(event["player"].lower())
-        if player_id is None:
-            raise ValueError(f"Event player not found: {event['player']}")
-        factor = event["value_factor"]
-        if not 0 < factor <= 2:
-            raise ValueError(f"Invalid event value factor: {factor}")
-        by_date[event["date"]].append((player_id, event))
+    by_date: dict[str, dict[int, dict]] = defaultdict(dict)
+    with path.open(newline="", encoding="utf-8") as file:
+        for row in csv.DictReader(file):
+            if not row["player_id"]:
+                continue  # Keep the full report list, even for players outside the market.
+            player_id = int(row["player_id"])
+            old = by_date[row["report_date"]].get(player_id)
+            if old is None or row["report_datetime"] > old["report_datetime"]:
+                by_date[row["report_date"]][player_id] = row
     return by_date
 
 
 def simulate(database: Path, values: Path, output: Path, seed: int, rounds: int,
-             names: list[str], events_path: Path | None = None) -> tuple[int, int]:
+             names: list[str], injuries_path: Path | None = None) -> tuple[int, int]:
     players, results = load_data(database, values)
     markets = make_markets(players, seed)
-    events = load_events(events_path, markets)
+    injuries = load_injuries(injuries_path)
+    initial_cash = sum(m.cash for market in markets.values() for m in market.makers) + sum(b.cash for b in next(iter(markets.values())).bots)
     selected = [market for market in markets.values()
                 if any(name.lower() in market.player_name.lower() for name in names)]
     if names and not selected:
@@ -229,21 +253,28 @@ def simulate(database: Path, values: Path, output: Path, seed: int, rounds: int,
         writer = csv.writer(file)
         writer.writerow(("date", "player_id", "player_name", "team", "fair_value",
                          "open", "high", "low", "close", "change_pct", "volume",
-                         "trades", "games_revealed", "game_score", "news", "best_bid", "best_ask"))
+                         "trades", "games_revealed", "game_score", "news", "best_bid", "best_ask",
+                         "injury_status", "injury_reason", "injury_level", "injury_factor", "injury_update"))
         for day in dates_between(min(results), max(results)):
             day_results = results.get(day, {})
-            day_events = {player_id: event for player_id, event in events.get(day, [])}
+            day_reports = injuries.get(day, {})
             for market in markets.values():
                 market.prior_close = market.last_cents
                 market.trades_today.clear()
                 market.volume_today = 0
+                report = day_reports.get(market.player_id)
+                changed = market.set_injury(report) if report else False
+                if not report:
+                    market.injury_signal = 0.0
                 for _ in range(rounds):
                     market.bot_round()
                 scores = day_results.get(market.player_id, [])
                 market.reveal(scores)
-                event = day_events.get(market.player_id)
-                if event:
-                    market.news_factor *= event["value_factor"]
+                if scores and market.injury_factor < 1.0:
+                    market.injury_signal = 1.0 - market.injury_factor
+                    market.injury_factor = 1.0
+                    market.injury_status = "Available"
+                    market.injury_reason = "Played in official box score"
                     market.update_fair()
                 for _ in range(rounds):
                     market.bot_round()
@@ -261,16 +292,19 @@ def simulate(database: Path, values: Path, output: Path, seed: int, rounds: int,
                     round(100 * (market.last_cents / market.prior_close - 1), 2),
                     market.volume_today, len(prices), len(scores),
                     round(sum(scores) / len(scores), 2) if scores else "",
-                    event["headline"] if event else "",
+                    f"Official injury report: {report['status']} — {report['reason']}" if report else "",
                     bid[0] / 100 if bid else "", ask[0] / 100 if ask else "",
+                    market.injury_status, market.injury_reason, market.injury_level,
+                    market.injury_factor, int(changed),
                 ))
                 if market.player_id in selected_ids:
                     change = 100 * (market.last_cents / market.prior_close - 1)
-                    if event:
-                        print(f"{day}  NEWS: {event['headline']}")
+                    if report and changed:
+                        print(f"{day}  INJURY: {market.player_name} {report['status']} — {report['reason']}")
                     print(f"{day}  {market.player_name:<25} "
                           f"close {market.last_cents / 100:>7.2f}  "
                           f"{change:+6.2f}%  volume {market.volume_today:>3}")
+            assert sum(m.cash for market in markets.values() for m in market.makers) + sum(b.cash for b in next(iter(markets.values())).bots) == initial_cash
     return len(markets), sum(1 for _ in dates_between(min(results), max(results)))
 
 
@@ -279,10 +313,8 @@ def main() -> None:
     parser.add_argument("--database", type=Path, default=Path("data/player_games_2024_25.sqlite"))
     parser.add_argument("--values", type=Path, default=Path("data/starting_values_2024_25.csv"))
     parser.add_argument("--output", type=Path, default=Path("data/market_daily_prices.csv"))
-    parser.add_argument("--events", type=Path, default=Path("data/market_events.json"),
-                        help="Dated public news events")
-    parser.add_argument("--no-events", action="store_true",
-                        help="Run the market using box scores alone")
+    parser.add_argument("--injuries", type=Path, default=Path("data/injury_reports_2024_25.csv"))
+    parser.add_argument("--no-injuries", action="store_true", help="Run using box scores alone")
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--rounds", type=int, default=1,
                         help="Bot rounds before and after each day's box scores are revealed")
@@ -292,7 +324,7 @@ def main() -> None:
     if args.rounds < 1:
         parser.error("--rounds must be at least 1")
     count, days = simulate(args.database, args.values, args.output, args.seed, args.rounds, args.player,
-                           None if args.no_events else args.events)
+                           None if args.no_injuries else args.injuries)
     print(f"Saved {days} daily closes for {count} players to {args.output}")
 
 

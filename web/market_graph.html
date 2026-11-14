@@ -29,7 +29,7 @@
 <body>
 <main>
   <header><div class="brand">HOOPSTREET <span style="color:#f9a869">◉</span></div><div class="tag">SIMULATED MARKET · 2024–25</div></header>
-  <h1>Watch the market move.</h1><p>Replay each day of the 2024–25 regular season and compare up to four players. <a href="/values" style="color:#65e2b9">See all opening values →</a></p>
+  <h1>Watch the market move.</h1><p>Replay each day of the 2024–25 regular season and compare up to four players. <a href="/values" style="color:#65e2b9">See all opening values →</a> · <a href="/injuries" style="color:#65e2b9">Browse official injury reports →</a></p>
   <div class="toolbar"><label>Main player<input id="search" type="search" list="player-list" placeholder="Search all 580 players…" autocomplete="off"><datalist id="player-list"></datalist></label><label>Playback speed<select id="speed"><option value="4000">1 day / 4 sec</option><option value="2000" selected>1 day / 2 sec</option><option value="1000">1 day / 1 sec</option><option value="400">1 day / 0.4 sec</option></select></label><label>Chart scale<select id="scale"><option value="price">Price in HOOP</option><option value="return">% since opening</option></select></label></div>
   <div class="compare"><label>Add comparison player<input id="compare-search" type="search" list="player-list" placeholder="Search another player…" autocomplete="off"></label><button id="add">+ Add player</button></div>
   <section class="card">
@@ -55,7 +55,7 @@ function draw(){if(!series.length)return;const rows=series[0].rows,r=rows[index]
   $('change').textContent=`${change>=0?'+':''}${change.toFixed(2)}% since start`;$('change').className='change '+(change>=0?'up':'down');
   $('stat-date').textContent=r.date;$('control-date').textContent=r.date;$('volume').textContent=`${r.volume} shares · ${r.trades} trades`;
   $('score').textContent=r.gameScore==null?'No game':r.gameScore.toFixed(2);$('fair').textContent=money(r.fair);$('slider').value=index;
-  $('note').textContent=r.news|| (r.gameScore==null?'No box score revealed today. Trading still continues.':`Game result revealed: Game Score ${r.gameScore.toFixed(2)}. Bots react through their next trades.`);
+  $('note').textContent=r.news ? `${r.news} · Model valuation factor ${r.injuryFactor.toFixed(2)} (${r.injuryLevel}).` : r.injuryFactor<1 ? `Current injury status: ${r.injuryStatus} · ${r.injuryReason} · Model valuation factor ${r.injuryFactor.toFixed(2)}.` : (r.gameScore==null?'No box score revealed today. Trading still continues.':`Game result revealed: Game Score ${r.gameScore.toFixed(2)}. Bots react through their next trades.`);
   const W=1000,H=360,L=60,R=20,T=25,B=42,returnMode=$('scale').value==='return';
   const value=(s,i)=>returnMode?100*(s.rows[i].close/s.rows[0].close-1):s.rows[i].close;
   const all=series.flatMap(s=>s.rows.map((_,i)=>value(s,i))),rawMin=Math.min(...all),rawMax=Math.max(...all),padding=Math.max(1,(rawMax-rawMin)*.08),min=rawMin-padding,max=rawMax+padding;

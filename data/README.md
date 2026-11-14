@@ -16,3 +16,9 @@ Run `python3 scripts/build_starting_values.py` after importing to create the
 ranked opening-value CSV from five **earlier** NBA seasons and birth dates.
 Then run `python3 scripts/simulate_market.py` for the season-long market CSV.
 Downloaded source files, generated CSVs and SQLite data are ignored by Git.
+
+Run `python3 scripts/import_injury_reports.py` for the full dated official
+injury-report list. `injury_reports_2024_25.csv` includes reported status,
+reason, game date, model impact class and factor. The downloaded archive is
+kept under ignored `data/source/`. See `docs/market-simulation.md` for scope
+and model assumptions.
