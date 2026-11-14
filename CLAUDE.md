@@ -43,7 +43,8 @@ This file covers the **frontend only**. I own it on the `frontend` branch. Perso
 
 ## Code conventions
 - Small, single-purpose components in `src/components/`. Shared state in one place (context or a small store), not prop-drilled through five levels
-- Person 4's components live in `src/components/learning/` (Mission panel, Composition panel, report card, glossary, tooltips). Do not edit that folder unless I say so. Leave clean mount points for them in the layout
+- Backend facts live in docs/backend-contracts.md
+- Person 4's components live in `src/learning/` (Mission panel, Composition panel, report card, glossary, tooltips). Do not edit that folder unless I say so. Leave clean mount points for them in the layout
 - Keep the app shell and layout files (`App`, routing, layout) minimal and stable, since two people depend on them
 - WebSocket handling: reconnect automatically, ignore malformed messages, and never let one bad tick crash the UI
 - Charts: update the live candle incrementally with `series.update()`. Do not reset all data on every tick
