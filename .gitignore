@@ -1,0 +1,11 @@
+# PyCharm / JetBrains settings
+.idea/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets (API keys, Solana signing keypair)
+.env
+*keypair*.json
