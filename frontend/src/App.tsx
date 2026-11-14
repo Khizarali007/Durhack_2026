@@ -9,6 +9,7 @@ import PortfolioPage from './pages/PortfolioPage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import LearnPage from './pages/LearnPage'
 import ActivityPage from './pages/ActivityPage'
+import { TourOverlay } from './learning'
 
 // The trading screen pulls in the chart library, so it loads as its own chunk
 const StockPage = lazy(() => import('./pages/StockPage'))
@@ -60,6 +61,8 @@ export default function App() {
               />
             </Route>
           </Routes>
+          {/* Person 4's Learn mode coach overlay: renders nothing unless a tutorial is running */}
+          <TourOverlay />
         </BrowserRouter>
       </SessionProvider>
     </ThemeProvider>

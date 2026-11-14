@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { usePlayers } from '../api'
 import type { Player } from '../api'
 import AccountStrip from '../components/account/AccountStrip'
+import { TourPromptCard } from '../learning'
 import MoverTile from '../components/home/MoverTile'
 import { changePct } from '../components/home/moverChange'
 import styles from './HomePage.module.css'
@@ -51,7 +52,7 @@ export default function HomePage() {
 
       <AccountStrip />
 
-      <div className={styles.columns}>
+      <div className={styles.columns} data-tour="home-movers">
         <section className={styles.column} aria-label="Top gainers">
           <h2 className={styles.colTitle}><span className="trend-up" aria-hidden="true">▲</span> Biggest gainers</h2>
           {waiting
@@ -71,7 +72,7 @@ export default function HomePage() {
 
         {/* Mount point for Person 4's mission prompt card ("Mission 1: Buy low, sell high") */}
         <section id="mission-card-mount" className={styles.mount} aria-label="Mission">
-          Mission card (Person 4) mounts here.
+          <TourPromptCard />
         </section>
       </div>
     </div>
