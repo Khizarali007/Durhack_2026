@@ -1,0 +1,165 @@
+/* Shared look for holdings, open orders and trade history tables */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--hs-font-size-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--hs-space-2) var(--hs-space-3);
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--hs-color-border-subtle);
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--hs-color-bg-panel);
+  font-size: var(--hs-font-size-xs);
+  font-weight: var(--hs-font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  color: var(--hs-color-text-secondary);
+  border-bottom-color: var(--hs-color-border);
+}
+
+.table td {
+  color: var(--hs-color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.table th.left,
+.table td.left {
+  text-align: left;
+}
+
+.table tbody tr:hover td {
+  background: var(--hs-color-bg-hover);
+}
+
+.muted {
+  color: var(--hs-color-text-secondary) !important;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-2);
+  min-width: 0;
+}
+
+.whoText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+}
+
+.whoName {
+  color: var(--hs-color-text-primary);
+  font-weight: var(--hs-font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.whoSub {
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-secondary);
+}
+
+.link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.link:hover .whoName {
+  color: var(--hs-color-accent);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--hs-color-accent);
+  outline-offset: 2px;
+}
+
+/* Side and status tags: a word plus an icon, never colour alone */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hs-space-1);
+  padding: 1px var(--hs-space-2);
+  border-radius: var(--hs-radius-pill);
+  font-size: var(--hs-font-size-xs);
+  font-weight: var(--hs-font-weight-medium);
+  white-space: nowrap;
+}
+
+.tagUp      { background: var(--hs-color-up-muted);      color: var(--hs-color-up-text); }
+.tagDown    { background: var(--hs-color-down-muted);    color: var(--hs-color-down-text); }
+.tagWarn    { background: var(--hs-color-warn-muted);    color: var(--hs-color-warn-text); }
+.tagAccent  { background: var(--hs-color-accent-muted);  color: var(--hs-color-accent); }
+.tagNeutral { background: var(--hs-color-neutral-muted); color: var(--hs-color-text-secondary); }
+
+.cancel {
+  height: 24px;
+  padding: 0 var(--hs-space-2);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-sm);
+  background: transparent;
+  color: var(--hs-color-text-secondary);
+  font-family: inherit;
+  font-size: var(--hs-font-size-xs);
+  cursor: pointer;
+  transition: var(--hs-transition-default);
+}
+
+.cancel:hover:not(:disabled) {
+  color: var(--hs-color-down-text);
+  border-color: var(--hs-color-down);
+}
+
+.cancel:focus-visible {
+  outline: 2px solid var(--hs-color-accent);
+  outline-offset: 1px;
+}
+
+.cancel:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.closedRow td {
+  color: var(--hs-color-text-secondary);
+}
+
+.error {
+  margin: 0;
+  padding: var(--hs-space-2) var(--hs-space-3);
+  font-size: var(--hs-font-size-sm);
+  color: var(--hs-color-text-primary);
+  background: var(--hs-color-down-muted);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--hs-space-5) var(--hs-space-4);
+  text-align: center;
+  font-size: var(--hs-font-size-sm);
+  color: var(--hs-color-text-secondary);
+  line-height: var(--hs-line-height-normal);
+}
+
+.explorer {
+  color: var(--hs-color-accent);
+  text-decoration: none;
+  font-size: var(--hs-font-size-xs);
+}
+
+.explorer:hover {
+  text-decoration: underline;
+}
+
+.pnlUp   { color: var(--hs-color-up-text) !important; }
+.pnlDown { color: var(--hs-color-down-text) !important; }

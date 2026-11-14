@@ -8,8 +8,9 @@ import PortfolioPage from './pages/PortfolioPage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import LearnPage from './pages/LearnPage'
 import ActivityPage from './pages/ActivityPage'
-import StockPage from './pages/StockPage'
 
+// The trading screen pulls in the chart library, so it loads as its own chunk
+const StockPage = lazy(() => import('./pages/StockPage'))
 const StyleguidePage = lazy(() => import('./pages/StyleguidePage'))
 const DebugPage = lazy(() => import('./pages/DebugPage'))
 
@@ -45,7 +46,14 @@ export default function App() {
               <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="learn" element={<LearnPage />} />
               <Route path="activity" element={<ActivityPage />} />
-              <Route path="stock/:symbol" element={<StockPage />} />
+              <Route
+                path="stock/:symbol"
+                element={
+                  <Suspense fallback={<div className="skeleton" style={{ flex: 1, margin: 'var(--hs-space-4)' }} />}>
+                    <StockPage />
+                  </Suspense>
+                }
+              />
             </Route>
           </Routes>
         </BrowserRouter>

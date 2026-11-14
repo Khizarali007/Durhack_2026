@@ -55,6 +55,10 @@ export default function OrderResult({ result, onDismiss }: OrderResultProps) {
   const buying = out.side === 'buy' || out.side === 'cover'
   const notional = out.average_price * out.filled_qty
   const total = buying ? notional + out.total_fee : notional - out.total_fee
+  // Slippage actually paid: how far the average fill landed from the best price when you pressed confirm
+  const actualSlippage = estimate !== null && estimate.best_price !== null
+    ? Math.abs(out.average_price - estimate.best_price) * out.filled_qty
+    : null
 
   return (
     <div className={`${styles.result} ${partial ? styles.pending : styles.ok}`} role="status">
@@ -82,6 +86,13 @@ export default function OrderResult({ result, onDismiss }: OrderResultProps) {
             {estimate !== null && <td>{formatPrice(estimate.est_avg_price)}</td>}
             <td>{formatPrice(out.average_price)}</td>
           </tr>
+          {estimate !== null && (
+            <tr>
+              <th scope="row">Slippage</th>
+              <td>{formatHOOP(estimate.slippage)}</td>
+              <td>{actualSlippage === null ? '—' : formatHOOP(actualSlippage)}</td>
+            </tr>
+          )}
           <tr>
             <th scope="row">Fee</th>
             {estimate !== null && <td>{formatHOOP(estimate.fee)}</td>}

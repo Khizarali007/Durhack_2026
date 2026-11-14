@@ -434,3 +434,11 @@
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
+
+.breakdownNote {
+  margin: 0;
+  padding: 0 var(--hs-space-3) var(--hs-space-2);
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-secondary);
+  line-height: var(--hs-line-height-tight);
+}

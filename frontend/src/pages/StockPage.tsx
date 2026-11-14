@@ -1,10 +1,12 @@
 import { useCallback } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { usePlayers } from '../api'
+import { usePlayers, useSymbolEvents } from '../api'
 import Watchlist from '../components/stock/Watchlist'
 import PlayerCard from '../components/stock/PlayerCard'
 import PriceChart from '../components/stock/PriceChart'
 import OrderTicket from '../components/stock/OrderTicket'
+import StockActivity from '../components/stock/StockActivity'
+import WhistleStrip from '../components/stock/WhistleStrip'
 import styles from './StockPage.module.css'
 
 /** The trading terminal: market list, chart and order ticket for one stock. */
@@ -14,6 +16,7 @@ export default function StockPage() {
   const navigate = useNavigate()
   const { bySymbol, loading } = usePlayers()
   const player = bySymbol.get(symbol)
+  const events = useSymbolEvents(symbol)
 
   // Same route, new param: React Router swaps the symbol without reloading the page
   const select = useCallback((next: string) => navigate(`/stock/${next}`), [navigate])
@@ -26,7 +29,9 @@ export default function StockPage() {
         <>
           <div className={styles.centre}>
             <PlayerCard player={player} />
-            <PriceChart symbol={player.symbol} />
+            <WhistleStrip symbol={player.symbol} />
+            <PriceChart symbol={player.symbol} events={events} />
+            <StockActivity symbol={player.symbol} />
           </div>
           {/* Keyed by symbol so quantity and the last result never carry over to another stock */}
           <OrderTicket key={player.symbol} player={player} />
