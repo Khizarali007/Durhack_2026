@@ -1,0 +1,54 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--hs-color-bg-page);
+}
+
+.below {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--hs-color-bg-page);
+  padding: var(--hs-space-6);
+}
+
+/* Loading skeleton */
+.skeleton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: var(--hs-color-bg-page);
+}
+
+.skeletonInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-4);
+  width: 200px;
+}
+
+.skeletonPulse,
+.skeletonPulseShort {
+  height: 14px;
+  background: var(--hs-color-bg-hover);
+  border-radius: var(--hs-radius-sm);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.skeletonPulseShort {
+  width: 60%;
+  animation-delay: 0.2s;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
