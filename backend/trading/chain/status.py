@@ -11,7 +11,8 @@ from solders.pubkey import Pubkey
 from . import config
 from .keys import load_or_create_keypair
 
-# Each memo receipt costs 5,000 lamports (0.000005 SOL), so 0.05 SOL covers ~10,000 receipts.
+# Each receipt has two signatures (fee payer + player), so it costs 10,000 lamports
+# (0.00001 SOL). 0.05 SOL covers about 5,000 receipts.
 READY_BALANCE_SOL = 0.05
 
 

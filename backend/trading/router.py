@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from .accounts import (
@@ -89,6 +89,16 @@ class OrderOut(BaseModel):
     position_qty: int = Field(description="Shares of this player you hold after the order")
     fills: list[FillOut]
     reason: str | None = Field(None, description="Why the order was only partly filled")
+    receipt_status: Literal["pending", "confirmed", "failed"] = Field(
+        description="Solana receipt. Always pending here: poll GET /trading/orders/{order_id}/receipt")
+
+
+class ReceiptOut(BaseModel):
+    order_id: str
+    status: Literal["pending", "confirmed", "failed"]
+    signature: str | None
+    explorer_url: str | None = Field(description="Public page showing the receipt on Solana devnet")
+    confirm_ms: int | None = Field(description="How long Solana took to confirm it, in milliseconds")
 
 
 class PositionOut(BaseModel):
@@ -136,6 +146,7 @@ class TradeOut(BaseModel):
         description="Solana receipt: pending until P2-09 writes it on-chain")
     receipt_signature: str | None
     receipt_confirm_ms: int | None
+    receipt_explorer_url: str | None
 
 
 def _pct(part: int, whole: int) -> float:
@@ -204,19 +215,22 @@ def me(user: User = Depends(current_user), db: Database = Depends(get_db)) -> Me
 
 
 @router.post("/orders")
-async def place_order(order: OrderIn, user: User = Depends(current_user),
+async def place_order(order: OrderIn, request: Request, user: User = Depends(current_user),
                       db: Database = Depends(get_db)) -> OrderOut:
     """Buy or sell at the market's best price.
 
     Errors: `400` not enough cash or shares, `404` unknown symbol, `409` the
     market makers couldn't fill any of it. A big order can come back
-    `partially_filled` with a `reason`.
+    `partially_filled` with a `reason`. The Solana receipt is written in the
+    background: the order never waits for it.
     """
     # async on purpose: engine calls run on the same thread that ticks the market.
     try:
         outcome = place_market_order(db, get_market(), user.user_id, order.symbol, order.side, order.qty)
     except OrderError as error:
         raise HTTPException(error.status_code, error.message) from error
+    if request.app.state.receipts:
+        request.app.state.receipts.enqueue(outcome.order_id)
     return OrderOut(
         order_id=outcome.order_id,
         status=outcome.status,
@@ -231,7 +245,25 @@ async def place_order(order: OrderIn, user: User = Depends(current_user),
         fills=[FillOut(trade_id=f.trade_id, qty=f.qty, price=to_hoop(f.price_cents), fee=to_hoop(f.fee_cents),
                        t=f.t, counterparty=f.counterparty) for f in outcome.fills],
         reason=outcome.reason,
+        receipt_status="pending",
     )
+
+
+@router.get("/orders/{order_id}/receipt")
+def order_receipt(order_id: str, user: User = Depends(current_user),
+                  db: Database = Depends(get_db)) -> ReceiptOut:
+    """The Solana receipt for one of your orders: pending, then confirmed with an Explorer link."""
+    with db.lock:
+        row = db.conn.execute(
+            "SELECT receipt_status, receipt_signature, receipt_confirm_ms FROM trades"
+            " WHERE order_id = ? AND user_id = ? LIMIT 1", (order_id, user.user_id)
+        ).fetchone()
+    if row is None:
+        raise HTTPException(404, "no such order")
+    signature = row["receipt_signature"]
+    return ReceiptOut(order_id=order_id, status=row["receipt_status"], signature=signature,
+                      explorer_url=explorer_url("tx", signature) if signature else None,
+                      confirm_ms=row["receipt_confirm_ms"])
 
 
 @router.get("/portfolio")
@@ -278,7 +310,8 @@ def trades(
         TradeOut(trade_id=r.trade_id, user_id=r.user_id, symbol=r.symbol, side=r.side, qty=r.qty,
                  price=to_hoop(r.price_cents), fee=to_hoop(r.fee_cents), t=r.t, reason=r.reason,
                  order_id=r.order_id, counterparty=r.counterparty, receipt_status=r.receipt_status,
-                 receipt_signature=r.receipt_signature, receipt_confirm_ms=r.receipt_confirm_ms)
+                 receipt_signature=r.receipt_signature, receipt_confirm_ms=r.receipt_confirm_ms,
+                 receipt_explorer_url=explorer_url("tx", r.receipt_signature) if r.receipt_signature else None)
         for r in trades_for_user(db, user.user_id, since_t=since_t, symbol=symbol, limit=limit)
     ]
 

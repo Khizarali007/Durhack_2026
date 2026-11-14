@@ -202,18 +202,33 @@ These come from Person 1's prototype and Person 4's interfaces.
 - **Checked:** the live server's `/chain/status` reached devnet (balance 0.0, `ready: false`), and a new guest got its own wallet.
 - **Funded:** claimed 5 SOL from faucet.solana.com, and the setup script reports `Ready`. That pays for about a million receipts.
 
-## ⬜ P2-09 · Level 0 receipts for human trades
+## ✅ P2-09 · Level 0 receipts for human trades
 - **Gate:** G2
-- **Depends on:** P2-06, P2-08
-- **What:**
-  - After each human fill, queue a Memo transaction on a background asyncio queue. The memo is short JSON: who, symbol, side, qty, price.
-  - Send it, measure the confirmation time, and fill in `receipt_signature` and `receipt_confirm_ms`.
-  - Retry failures with backoff.
-  - **Trades never wait for Solana.** `receipt_status` goes `pending` → `confirmed`, or `failed` after retries.
-- **Done when:**
-  - A trade fills instantly.
-  - It flips to confirmed within seconds.
-  - The Explorer link opens the real devnet transaction.
+- **What was built** (`trading/chain/receipts.py`, `trading/chain/worker.py`):
+  - **One Memo transaction per human order** (not per fill), covering every fill of that order.
+    - The memo is short JSON: `app, v, kind, order, wallet, sym, side, qty, avg, fee, fills, h, t`.
+    - `h` is a sha256 of the fill list, so anyone can check the receipt against our database.
+    - It stays under 400 bytes even for a 45-fill order.
+  - **Signatures:** the fee payer signs and pays, and **the player's wallet co-signs**, so the Explorer shows whose trade it was. Cost: 10,000 lamports (0.00001 SOL) per receipt.
+  - **Trades never wait for Solana.** The order returns in about 30 ms with `receipt_status: "pending"`.
+    - Two sender tasks submit receipts, and the signature is saved straight away.
+    - **One checker** asks devnet about every in-flight receipt in **one batched request** every 0.4 s.
+    - When it sees a receipt confirmed, every fill of the order becomes `confirmed`, with the signature and the measured send-to-confirm time.
+  - **Never sent twice.** A receipt is only re-sent if the send failed (backoff 1/2/4/8 s), the chain rejected it, or it never landed within 60 s (by then its blockhash has expired, so a duplicate can't land). After 5 attempts it's `failed`, and the trade itself still stands.
+  - **Rate limiting:** all devnet calls go through one limiter (5 per second, pausing 3 s after a 429). The free public devnet server rejects bursts of more than about 10 status calls.
+  - **Restarts:** pending receipts are picked up on startup. Ones that already have a signature are checked, not re-sent.
+  - **API:**
+    - `GET /trading/orders/{order_id}/receipt` returns `{status, signature, explorer_url, confirm_ms}` (your own orders only, otherwise 404). The frontend can poll it until P2-13's WebSocket.
+    - `GET /trading/trades` adds `receipt_explorer_url`.
+  - `SOLANA_RECEIPTS=off` runs without Solana.
+- **Tests:** 21 in `test_receipts.py` with a fake sender: retries, chain rejection, never landing, rate-limited checks without re-sending, restart without re-sending, batching, trades not waiting. `HOOP_DEVNET_TESTS=1` adds a real devnet send and confirm, which passed. 133 pass in total, 3 runs in a row.
+- **Checked on a live server against real devnet:**
+  - 3 orders filled in about 30 ms each.
+  - Their receipts confirmed in 1054, 689 and 804 ms.
+  - The 6 old pending receipts in the local database also confirmed, with no errors.
+  - Reading one back from devnet showed both signers and the memo.
+  - Example: https://explorer.solana.com/tx/37j1Z8S1U3dGAWri7Dz4QWDtNpEf3pM9z7XTSw2EQGBxzUKdN6JmG3mM7pza9bSbuvRfcdvCkAtL8egEVKS6Mj7u?cluster=devnet
+- **Lesson learned:** the first version checked each receipt every 0.25 s from 3 workers and hit devnet's rate limit (429). The batched checker fixed it. If devnet is still a problem during the demo, set `SOLANA_RPC_URL` to a free dedicated RPC (e.g. Helius) instead of the public one.
 
 ## ⬜ P2-10 · Bundled bot-trade receipts
 - **Gate:** G2

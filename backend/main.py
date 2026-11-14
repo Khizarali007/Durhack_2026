@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from trading import router as trading_router
+from trading.chain import worker as receipt_worker
 from trading.db import Database
 from trading.market_provider import get_market
 
@@ -26,12 +27,21 @@ async def lifespan(app: FastAPI):
     app.state.trading_db = Database()
     market = get_market()
     market_task = asyncio.create_task(market.run())
+
+    # Solana receipts (P2-09). SOLANA_RECEIPTS=off runs without them.
+    app.state.receipts = None
+    if receipt_worker.receipts_enabled():
+        app.state.receipts = receipt_worker.ReceiptWorker(app.state.trading_db, receipt_worker.sender_factory())
+        await app.state.receipts.start()
+
     # Person 4 plugs in here at merge (see docs/person4-interfaces.md on their branch):
     #   configure_learning(market_adapter, trades_adapter)
     try:
         yield
     finally:
         # Person 4: await shutdown_learning()
+        if app.state.receipts:
+            await app.state.receipts.stop()
         market_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await market_task
