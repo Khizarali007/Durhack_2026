@@ -5,7 +5,12 @@ Run from the repository root after generating the local box-score database:
 ```bash
 python3 scripts/import_player_box.py
 python3 scripts/simulate_market.py --player Wembanyama --player Doncic
+python3 scripts/market_graph.py
 ```
+
+Open `http://127.0.0.1:8765` to watch an animated replay of the generated
+daily prices. Search for any player, change playback speed, or drag the date
+slider. Re-run the simulator and restart the graph server to load a new seed.
 
 The simulation prints the selected players' daily closing prices and writes
 `data/market_daily_prices.csv` for every player and replay date. The same seed

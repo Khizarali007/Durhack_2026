@@ -9,6 +9,7 @@ Completed: selected the 2024-25 season and the 19 January–20 March 2025 window
 created a reproducible local box-score import. The database retains all 57
 source columns, a typed game table, and derived shooting percentages and Game Score.
 Added a Python bot market with three makers per player and dated news-event input.
+Added a local animated graph for every player's daily simulated prices.
 
 Next: agree the player universe and the shared quote/trade contract with
 Persons 2–4. Then expose market state and trades through the backend API.
@@ -20,3 +21,4 @@ Verification: both tables contain 11,226 player-game rows, 425 games, 549
 distinct players, and exactly 30 NBA teams. Checked a sample line and confirmed
 DNPs do not receive Game Score. The market run checks cash/share conservation.
 Generated database and price CSV are local and ignored by Git.
+Verified the graph server loads all 549 players and 30 Wembanyama daily prices.
