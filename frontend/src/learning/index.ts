@@ -32,3 +32,11 @@ export type { MissionHandle, UseMissionOptions } from './hooks/useMission'
 export { useLearningSocket } from './hooks/useLearningSocket'
 export type { SocketStatus } from './hooks/useLearningSocket'
 
+// Learn mode (guided tutorials over Person 3's screens)
+export { LearnMode } from './learn/LearnMode'
+export { TourPromptCard } from './learn/TourPromptCard'
+export { TourOverlay, tour, useTourState, TUTORIALS } from './tour'
+export type { Tutorial, TourStepDef, StepCompletion } from './tour'
+export { GlossaryTerm } from './glossary/GlossaryTerm'
+export type { GlossaryTermProps } from './glossary/GlossaryTerm'
+export { GLOSSARY, findTerm, termKey, missionLesson } from './content'
