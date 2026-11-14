@@ -109,6 +109,8 @@ class Estimate:
 
 def estimate_order(db: Database, market: MarketEngine, user_id: str, symbol: str, side: OrderSide,
                    qty: int, leverage: int = 1) -> Estimate:
+    if getattr(market, "supports_advanced_trading", True) is False and (side not in ("buy", "sell") or leverage != 1):
+        raise OrderError(400, "This prototype supports ordinary buys and sells at 1x leverage only")
     if symbol not in {p.symbol for p in market.players()}:
         raise OrderError(404, f"unknown symbol {symbol!r}")
     to_engine = engine_side(side)

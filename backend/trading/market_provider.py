@@ -1,13 +1,12 @@
-"""The one place that decides which market engine Person 2's code talks to.
+"""One shared historical LiveMarket for the combined backend.
 
-Everything in Person 2's code gets the market through ``get_market()``. When
-Person 1's real engine is ready, change the import and constructor below.
-That should be the only change.
+Tests may inject FakeMarket with use_market. Production startup never falls
+back to synthetic data when the local historical dataset is missing.
 """
 
 from __future__ import annotations
 
-from .fake_market import FakeMarket
+import os
 from .market_contract import MarketEngine
 
 _market: MarketEngine | None = None
@@ -16,7 +15,8 @@ _market: MarketEngine | None = None
 def get_market() -> MarketEngine:
     global _market
     if _market is None:
-        _market = FakeMarket()  # TODO: swap for Person 1's engine when it lands
+        from market.engine import LiveMarket
+        _market = LiveMarket(day_seconds=float(os.environ.get("MARKET_DAY_SECONDS", "60")))
     return _market
 
 

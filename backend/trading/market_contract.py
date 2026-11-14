@@ -7,7 +7,7 @@ See docs/person1-contract-guesses.md for which is which.
 
 Conventions shared with Person 4 (docs/person4-interfaces.md):
 - ``t`` is market time in epoch seconds (float). Market time runs 12x real time.
-- Prices here are floats in HOOP, 2 decimal places. Person 1 stores integer
+- Prices here are floats in virtual dollars, 2 decimal places. Person 1 stores integer
   cents internally; Person 2's ledger does too. Convert at the edges.
 - Players are addressed by ``symbol`` (str), the key Person 4 and the frontend
   use. Person 1 keys by ESPN ``player_id`` (int); ``Player`` carries both.

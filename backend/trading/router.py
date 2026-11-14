@@ -104,7 +104,7 @@ class OrderOut(BaseModel):
     position_qty: int = Field(description="Shares of this player you hold after the order (negative = short)")
     fills: list[FillOut]
     reason: str | None = Field(None, description="Why the order was only partly filled")
-    receipt_status: Literal["pending", "confirmed", "failed"] = Field(
+    receipt_status: Literal["pending", "confirmed", "failed", "disabled"] = Field(
         description="Solana receipt. Always pending here: poll GET /trading/orders/{order_id}/receipt")
     quoted_best_price: float | None = Field(
         description="Best price when you placed the order: the ask to buy or cover, the bid to sell or short")
@@ -276,7 +276,7 @@ class TradeOut(BaseModel):
     reason: Literal["market", "limit", "stop", "liquidation"]
     order_id: str
     counterparty: str | None
-    receipt_status: Literal["pending", "confirmed", "failed"] = Field(
+    receipt_status: Literal["pending", "confirmed", "failed", "disabled"] = Field(
         description="Solana receipt: pending until P2-09 writes it on-chain")
     receipt_signature: str | None
     receipt_confirm_ms: int | None
@@ -430,7 +430,7 @@ async def place_order(order: OrderIn, request: Request, user: User = Depends(cur
         fills=[FillOut(trade_id=f.trade_id, qty=f.qty, price=to_hoop(f.price_cents), fee=to_hoop(f.fee_cents),
                        t=f.t, counterparty=f.counterparty) for f in outcome.fills],
         reason=outcome.reason,
-        receipt_status="pending",
+        receipt_status="pending" if request.app.state.receipts else "disabled",
         quoted_best_price=to_hoop(outcome.quoted_best_cents) if outcome.quoted_best_cents is not None else None,
         slippage=round(outcome.slippage_cents / 100, 4) if outcome.slippage_cents is not None else None,
         slippage_pct=(round(100 * outcome.slippage_cents / outcome.quoted_best_cents, 2)

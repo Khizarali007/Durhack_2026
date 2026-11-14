@@ -44,6 +44,7 @@ the market, so the route that calls this is ``async``.
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 import math
 import secrets
 from dataclasses import dataclass, field
@@ -210,6 +211,16 @@ def check_direction(side: OrderSide, symbol: str, held: int, qty: int) -> None:
 
 
 def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol: str, side: OrderSide,
+                       qty: int, **kwargs) -> OrderOutcome:
+    if getattr(market, "supports_advanced_trading", True) is False:
+        if side not in ("buy", "sell") or kwargs.get("leverage", 1) != 1:
+            raise OrderError(400, "This prototype supports ordinary buys and sells at 1x leverage only")
+    transaction = getattr(market, "order_transaction", None)
+    with transaction(symbol) if transaction else nullcontext():
+        return _place_market_order(db, market, user_id, symbol, side, qty, **kwargs)
+
+
+def _place_market_order(db: Database, market: MarketEngine, user_id: str, symbol: str, side: OrderSide,
                        qty: int, *, reason: str = "market", limit_price_cents: int | None = None,
                        own_open_order: str | None = None, leverage: int = 1) -> OrderOutcome:
     """Trade now at the market's best price.
@@ -287,7 +298,7 @@ def _in_chunks(market: MarketEngine, user_id: str, symbol: str, side: Literal["b
         # +1 cent a share covers per-fill fee rounding (matches open_orders.buy_reservation)
         worst_cost_per_share = worst_price * (1 + float(FEE_RATE)) + 1
         affordable = remaining if cash is None else math.floor((cash - committed) / worst_cost_per_share)
-        chunk = min(remaining, BUY_CHUNK, affordable)
+        chunk = min(remaining, 1 if limit_price_cents is not None else getattr(market, "execution_chunk_size", BUY_CHUNK), affordable)
         if chunk <= 0:
             return fills, NOT_ENOUGH_CASH if buying else NOT_ENOUGH_COLLATERAL
         result = market.submit_order(account_id=user_id, symbol=symbol, side=side, qty=chunk)
@@ -315,7 +326,7 @@ def _sell(market: MarketEngine, user_id: str, symbol: str, qty: int,
             return fills, "market makers ran out of cash"
         if to_cents(bid) < limit_price_cents:
             return fills, PRICE_MOVED
-        result = market.submit_order(account_id=user_id, symbol=symbol, side="sell", qty=min(remaining, BUY_CHUNK))
+        result = market.submit_order(account_id=user_id, symbol=symbol, side="sell", qty=1)
         fills.extend(result.fills)
         remaining -= result.filled_qty
         if result.status != "filled":

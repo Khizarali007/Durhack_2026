@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -23,15 +24,16 @@ from trading.chain.bot_bundles import BotBundleRecorder
 from trading.db import Database
 from trading.live import LiveHub, receipt_notifier
 from trading.margin import MarginMonitor
-from trading.market_provider import get_market
+from trading.market_provider import get_market, use_market
 from trading.open_orders import OrderWatcher
 from trading.payouts import PayoutProcessor
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.trading_db = Database()
     market = get_market()
+    fresh = getattr(market, "requires_fresh_session", False)
+    app.state.trading_db = Database(":memory:" if fresh else None)
     market_task = asyncio.create_task(market.run())
 
     # Live updates over /trading/ws (P2-13).
@@ -40,7 +42,7 @@ async def lifespan(app: FastAPI):
 
     # Solana receipts (P2-09). SOLANA_RECEIPTS=off runs without them.
     app.state.receipts = None
-    if receipt_worker.receipts_enabled():
+    if receipt_worker.receipts_enabled() and (not fresh or os.environ.get("SOLANA_RECEIPTS", "off").lower() == "on"):
         app.state.receipts = receipt_worker.ReceiptWorker(
             app.state.trading_db, receipt_worker.sender_factory(),
             notify=receipt_notifier(app.state.trading_db, app.state.live))
@@ -60,13 +62,15 @@ async def lifespan(app: FastAPI):
     # Performance payouts to holders (P2-22), announced live.
     payouts = PayoutProcessor(app.state.trading_db, market, notify_user=app.state.live.publish_user,
                               notify_public=app.state.live.publish_public)
-    await payouts.start()
+    if getattr(market, "supports_payouts", True):
+        await payouts.start()
 
     # Margin calls and liquidation for leveraged and short positions (P2-15).
     margin = MarginMonitor(app.state.trading_db, market,
                            on_fill=app.state.receipts.enqueue if app.state.receipts else None,
                            notify_user=app.state.live.publish_user)
-    await margin.start()
+    if getattr(market, "supports_advanced_trading", True):
+        await margin.start()
 
     # Person 4's TradesAdapter (P2-21). At merge, Person 4 plugs in here (see
     # docs/person4-interfaces.md on their branch):
@@ -86,9 +90,14 @@ async def lifespan(app: FastAPI):
         with contextlib.suppress(asyncio.CancelledError):
             await market_task
         app.state.trading_db.close()
+        if fresh:
+            use_market(None)
 
 
 app = FastAPI(title="HoopStreet", lifespan=lifespan)
+from market.router import router as market_router
+
 app.include_router(trading_router)
+app.include_router(market_router)
 # Still to add: Person 1's market routes, Person 4's learning router,
 # and the built frontend served as static files from the same URL.
