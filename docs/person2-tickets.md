@@ -160,17 +160,30 @@ These come from Person 1's prototype and Person 4's interfaces.
 
 ---
 
-## ⬜ P2-07 · Accounts: sign-up, login, guest
+## ✅ P2-07 · Accounts: sign-up, login, guest
 - **Gate:** G2
-- **Depends on:** P2-03
-- **What:**
-  - `POST /trading/signup` and `POST /trading/login` (username and password, **hashed** with bcrypt or argon2)
-  - `POST /trading/guest` (one tap)
-  - All return a session token.
-- **Done when:**
-  - A wrong password is rejected.
-  - Passwords are never stored as plain text.
-  - Guests can trade.
+- **What was built:**
+  - **`POST /trading/signup {username, password}`** (201) creates an account with 100,000 HOOP and logs in.
+    - Usernames: 3–20 letters, digits, `_` or `-`, **unique ignoring case**. A taken name gets `409`.
+    - Passwords: 6–128 characters. Bad input gets `422`.
+  - **`POST /trading/login {username, password}`** returns a new token, and the username's letter case doesn't matter.
+    - A wrong password and an unknown user get the **same** `401 "wrong username or password"`.
+    - A dummy hash check runs for unknown users, so response timing doesn't reveal which usernames exist.
+    - Your portfolio is exactly as you left it.
+  - **`POST /trading/guest`** (201) is one tap, no form. `POST /trading/session` still works and does the same.
+  - **`POST /trading/logout`** (204) ends that session only. Other sessions keep working.
+  - All of these return `{token, user_id, username, is_guest, cash}`. `/me` shows `username` and `is_guest`.
+  - **Passwords** are hashed with **scrypt** from Python's standard library (`trading/passwords.py`).
+    - It's a slow, memory-hard hash in the same class as bcrypt and argon2, and needs no extra install.
+    - Each password gets a random salt, and the comparison takes the same time whether or not it matches.
+    - Stored as `scrypt$16384$8$1$<salt>$<hash>`.
+- **Not done:** turning a guest into a full account (keeping the guest's portfolio), and limiting repeated login attempts. Neither matters for the demo.
+- **Tests:** 22 in `test_accounts.py`. 103 pass in total, 3 runs in a row.
+- **Checked on a live server:**
+  - Signed up, and the same name in capitals was refused with 409.
+  - A wrong password gave 401. Logging in worked, and logging out made the token return 401.
+  - Guest worked.
+  - The stored password starts `scrypt$16384$8$1$…`.
 
 ## ⬜ P2-08 · Solana setup: fee payer and per-account keypairs
 - **Gate:** G2

@@ -8,9 +8,17 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from .accounts import User, create_guest_user, create_session
+from .accounts import (
+    User,
+    UsernameTaken,
+    authenticate,
+    create_account,
+    create_guest_user,
+    create_session,
+    delete_session,
+)
 from .db import Database
-from .deps import current_user, get_db
+from .deps import current_token, current_user, get_db
 from .market_provider import get_market
 from .money import to_hoop
 from .orders import OrderError, place_market_order
@@ -23,7 +31,20 @@ router = APIRouter(prefix="/trading", tags=["trading"])
 class SessionOut(BaseModel):
     token: str
     user_id: str
+    username: str | None
+    is_guest: bool
     cash: float
+
+
+class CredentialsIn(BaseModel):
+    username: str = Field(min_length=3, max_length=20, pattern=r"^[A-Za-z0-9_-]+$",
+                          description="3-20 letters, digits, _ or -. Unique ignoring case")
+    password: str = Field(min_length=6, max_length=128)
+
+
+def _session_for(db: Database, user: User) -> SessionOut:
+    return SessionOut(token=create_session(db, user.user_id), user_id=user.user_id,
+                      username=user.username, is_guest=user.is_guest, cash=to_hoop(user.cash_cents))
 
 
 class MeOut(BaseModel):
@@ -126,15 +147,44 @@ def health(db: Database = Depends(get_db)) -> dict:
     }
 
 
-@router.post("/session", status_code=status.HTTP_201_CREATED)
-def new_session(db: Database = Depends(get_db)) -> SessionOut:
-    """Start playing: creates a temporary account with 100,000 HOOP and returns its token.
+@router.post("/guest", status_code=status.HTTP_201_CREATED)
+def guest(db: Database = Depends(get_db)) -> SessionOut:
+    """Play as guest: one tap, no form. A new account with 100,000 HOOP.
 
     Send the token on every later request as `Authorization: Bearer <token>`.
     """
-    user = create_guest_user(db)
-    token = create_session(db, user.user_id)
-    return SessionOut(token=token, user_id=user.user_id, cash=to_hoop(user.cash_cents))
+    return _session_for(db, create_guest_user(db))
+
+
+@router.post("/session", status_code=status.HTTP_201_CREATED)
+def new_session(db: Database = Depends(get_db)) -> SessionOut:
+    """Same as `POST /trading/guest` (kept so P2-03 callers keep working)."""
+    return _session_for(db, create_guest_user(db))
+
+
+@router.post("/signup", status_code=status.HTTP_201_CREATED)
+def signup(credentials: CredentialsIn, db: Database = Depends(get_db)) -> SessionOut:
+    """Create an account with 100,000 HOOP and log in. `409` if the username is taken."""
+    try:
+        user = create_account(db, credentials.username, credentials.password)
+    except UsernameTaken:
+        raise HTTPException(status.HTTP_409_CONFLICT, "that username is taken") from None
+    return _session_for(db, user)
+
+
+@router.post("/login")
+def login(credentials: CredentialsIn, db: Database = Depends(get_db)) -> SessionOut:
+    """Log in and get a new token. Your portfolio is exactly as you left it."""
+    user = authenticate(db, credentials.username, credentials.password)
+    if user is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "wrong username or password")
+    return _session_for(db, user)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(token: str = Depends(current_token), db: Database = Depends(get_db)) -> None:
+    """End this session. The token stops working; other sessions are unaffected."""
+    delete_session(db, token)
 
 
 @router.get("/me")
