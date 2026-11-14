@@ -34,7 +34,7 @@
       "hint": "TODO",
       "grading": {},
       "debrief": {},
-      "lesson": "TODO"
+      "lesson": "Every trade pays the spread. Check the bid and ask before you click, and use a limit order when you're not in a hurry."
     },
     {
       "number": 3,
@@ -46,7 +46,7 @@
       "hint": "TODO",
       "grading": {},
       "debrief": {},
-      "lesson": "TODO"
+      "lesson": "Don't put all your HOOP on one team. A spread-out portfolio rides out one bad night."
     },
     {
       "number": 4,
@@ -58,7 +58,7 @@
       "hint": "TODO",
       "grading": {},
       "debrief": {},
-      "lesson": "TODO"
+      "lesson": "Price is what people pay; fair value is what the player is worth. News and rumours open a gap, and big gaps tend to close."
     },
     {
       "number": 5,
@@ -70,7 +70,7 @@
       "hint": "TODO",
       "grading": {},
       "debrief": {},
-      "lesson": "TODO"
+      "lesson": "Early warnings come before storms. Set your stop-loss while the sky is still cloudy, not after the price has gapped down."
     },
     {
       "number": 6,
@@ -82,7 +82,7 @@
       "hint": "TODO",
       "grading": {},
       "debrief": {},
-      "lesson": "TODO"
+      "lesson": "Leverage multiplies losses as fast as gains. A 3x position can be wiped out by a dip you'd shrug off without it."
     }
   ]
 }

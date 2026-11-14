@@ -1,5 +1,5 @@
 {
-  "_notes": "Seed glossary for tooltips. Terms used in Mission 1 plus a few basics. Expand as missions land.",
+  "_notes": "Single source for tooltips, the glossary on /learn and the learning API. Terms used by the tutorials and missions.",
   "terms": [
     {
       "term": "Stock",
@@ -48,6 +48,62 @@
     {
       "term": "Volatility",
       "short": "How jumpy a price is. High volatility = stormy weather on the ticker."
+    },
+    {
+      "term": "Cash",
+      "short": "HOOP you haven't spent. Buying uses it up, selling brings it back."
+    },
+    {
+      "term": "Equity",
+      "short": "Cash plus what all your shares are worth right now. Your real score."
+    },
+    {
+      "term": "Market maker",
+      "short": "A trader who always quotes a price to buy and a price to sell. Three of them stand behind every player."
+    },
+    {
+      "term": "Slippage",
+      "short": "The extra you pay when a big order eats through the best price and fills at worse ones."
+    },
+    {
+      "term": "Limit order",
+      "short": "An order with your price on it. It waits until the market comes to you, and never pays more than your limit."
+    },
+    {
+      "term": "Stop-loss",
+      "short": "A safety net: it sells your shares automatically if the bid falls to the price you set."
+    },
+    {
+      "term": "Hype",
+      "short": "How far the price sits above fair value. Hype gaps tend to close."
+    },
+    {
+      "term": "Early warning",
+      "short": "A headline that hints trouble is coming. Storms usually follow within a few market minutes."
+    },
+    {
+      "term": "Storm Radar",
+      "short": "The weather icon next to a player: calm, cloudy after a warning, stormy when bad news lands."
+    },
+    {
+      "term": "Candlestick",
+      "short": "One bar on the chart: where the price opened, closed, and how high and low it went in that time."
+    },
+    {
+      "term": "Diversification",
+      "short": "Spreading your HOOP across players and teams, so one bad night can't sink you."
+    },
+    {
+      "term": "Short",
+      "short": "Betting a price will fall: sell shares you've borrowed now, buy them back later. Losses have no ceiling."
+    },
+    {
+      "term": "Leverage",
+      "short": "Trading with borrowed HOOP. 3x leverage triples your gains and your losses."
+    },
+    {
+      "term": "Margin call",
+      "short": "When losses on a leveraged or short position get too big, it's closed for you at a loss."
     }
   ]
 }
