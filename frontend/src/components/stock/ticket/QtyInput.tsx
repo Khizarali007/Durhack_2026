@@ -26,7 +26,7 @@ export default function QtyInput({ value, onChange, inputRef, onKeyDown, max, in
   }
 
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} data-tour="ticket-qty">
       <label className={styles.label} htmlFor={id}>Quantity (shares)</label>
       <div className={`${styles.row} ${invalid ? styles.invalid : ''}`}>
         <button type="button" className={styles.step} onClick={() => step(-1)} aria-label="One share fewer">−</button>

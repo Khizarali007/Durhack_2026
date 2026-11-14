@@ -194,7 +194,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         : 'Place stop-loss'
 
   return (
-    <aside className={styles.ticket} aria-label={`Order ticket for ${player.name}`}>
+    <aside className={styles.ticket} aria-label={`Order ticket for ${player.name}`} data-tour="ticket">
       <div className={styles.head}>
         <span className={styles.title}>Trade {symbol}</span>
         <span className={styles.keys} title="Keyboard: B for buy, S for sell, Enter in the quantity box to confirm">
@@ -211,7 +211,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         onChange={v => selectSide(v as Side)}
       />
 
-      <div className={styles.tabs} role="tablist" aria-label="Order type">
+      <div className={styles.tabs} role="tablist" aria-label="Order type" data-tour="ticket-order-type">
         {MODES.map(m => (
           <button
             key={m.value}
@@ -219,6 +219,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
             role="tab"
             aria-selected={mode === m.value}
             className={`${styles.tab} ${mode === m.value ? styles.tabActive : ''}`}
+            data-tour={`ticket-tab-${m.value}`}
             onClick={() => selectMode(m.value)}
           >
             {m.label}
@@ -237,7 +238,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
       />
 
       {mode !== 'market' && (
-        <div className={styles.field}>
+        <div className={styles.field} data-tour="ticket-price">
           <label className={styles.fieldLabel} htmlFor="ticket-price">
             {mode === 'limit' ? 'Limit price' : 'Stop price'}
           </label>
@@ -269,7 +270,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         </div>
       )}
 
-      <div className={styles.estimate}>
+      <div className={styles.estimate} data-tour="ticket-estimate">
         <span className={styles.estimateLabel}>{headlineLabel}</span>
         <span className={styles.estimateValue}>
           {headline !== null ? formatHOOP(headline) : '—'}
@@ -282,7 +283,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
 
       <CostBreakdown lines={lines} totalLabel={totalLabel} total={headline} footnote={footnote} />
 
-      <dl className={styles.account}>
+      <dl className={styles.account} data-tour="ticket-account">
         <div>
           <dt>Cash free to spend</dt>
           <dd>{freeCash === null ? '—' : formatHOOP(freeCash)}</dd>

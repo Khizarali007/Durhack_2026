@@ -45,7 +45,7 @@ export default function PlayerCard({ player }: PlayerCardProps) {
 
   return (
     <section className={styles.card} aria-label={`${player.name} summary`}>
-      <div className={styles.identity}>
+      <div className={styles.identity} data-tour="stock-identity">
         <Badge initials={playerInitials(player.name)} color={teamColor(player.team)} size="lg" />
         <div className={styles.names}>
           <h1 className={styles.name}>{player.name}</h1>
@@ -58,7 +58,7 @@ export default function PlayerCard({ player }: PlayerCardProps) {
         </div>
       </div>
 
-      <div className={styles.priceBlock}>
+      <div className={styles.priceBlock} data-tour="stock-price">
         <div className={`${styles.price} ${flashClass(flash)}`} aria-live="off">
           {formatPrice(quote?.last)}
           <span className={styles.unit}>HOOP</span>
@@ -68,17 +68,17 @@ export default function PlayerCard({ player }: PlayerCardProps) {
           : <Pill variant="neutral">— today</Pill>}
       </div>
 
-      <div className={styles.valueLine}>
+      <div className={styles.valueLine} data-tour="stock-value-line">
         <span>Price <strong className={styles.num}>{formatPrice(quote?.last)}</strong></span>
         <span className={styles.dot}>·</span>
         <span>Fair value <strong className={styles.num}>{formatPrice(quote?.fair_value)}</strong></span>
         <span className={styles.dot}>·</span>
-        <span className={`${styles.hype} ${hypeClass}`}>
+        <span className={`${styles.hype} ${hypeClass}`} data-tour="stock-hype">
           {hype === null ? '—' : `${hype > 0 ? '▲' : hype < 0 ? '▼' : ''} ${formatPct(hype)} ${hypeWord}`}
         </span>
       </div>
 
-      <div className={styles.reason} title={reason?.text}>
+      <div className={styles.reason} title={reason?.text} data-tour="stock-why-moved">
         <span className={styles.reasonLabel}>Why did it move?</span>
         <span className={styles.reasonText}>
           {reason === null ? 'Waiting for the first price…' : <><span aria-hidden="true">{reasonIcon}</span> {reason.text}</>}

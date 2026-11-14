@@ -23,13 +23,14 @@ export default function LeftNav() {
   const { pathname } = useLocation()
 
   return (
-    <nav className={styles.nav} aria-label="Main navigation">
+    <nav className={styles.nav} aria-label="Main navigation" data-tour="nav">
       {NAV_ITEMS.map(({ label, to, glyph, also }) => {
         const alsoActive = also?.some(prefix => pathname.startsWith(prefix)) ?? false
         return (
           <NavLink
             key={to}
             to={to}
+            data-tour={`nav-${label.toLowerCase()}`}
             end={to === '/'}
             className={({ isActive }) =>
               isActive || alsoActive ? `${styles.link} ${styles.active}` : styles.link

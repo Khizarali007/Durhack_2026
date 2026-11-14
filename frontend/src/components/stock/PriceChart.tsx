@@ -289,7 +289,7 @@ export default function PriceChart({ symbol, events = NO_EVENTS }: PriceChartPro
   }, [events, timeframe, liveTime, loadedKey, theme, projector])
 
   return (
-    <section className={styles.panel} aria-label={`${symbol} price chart`}>
+    <section className={styles.panel} aria-label={`${symbol} price chart`} data-tour="stock-chart">
       <div className={styles.toolbar}>
         <div className={styles.timeframes} role="group" aria-label="Candle size">
           {TIMEFRAMES.map(tf => (
