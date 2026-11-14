@@ -29,9 +29,9 @@
 </head>
 <body>
 <main>
-  <header><div class="brand">HOOPSTREET <span style="color:#f9a869">◉</span></div><div class="tag">SIMULATED MARKET · 2024–25</div></header>
+  <header><div class="brand">HOOPSTREET <span style="color:#f9a869">◉</span></div><div class="tag">SIMULATED MARKET · VIRTUAL DOLLARS · 2024–25</div></header>
   <h1>Watch the market move.</h1><p>Replay each day of the 2024–25 regular season and compare up to four players. <a href="/values" style="color:#65e2b9">See all opening values →</a> · <a href="/injuries" style="color:#65e2b9">Browse official injury reports →</a></p>
-  <div class="toolbar"><label>Main player<input id="search" type="search" list="player-list" placeholder="Search all 580 players…" autocomplete="off"><datalist id="player-list"></datalist></label><label>Playback speed<select id="speed"><option value="4000">1 day / 4 sec</option><option value="2000" selected>1 day / 2 sec</option><option value="1000">1 day / 1 sec</option><option value="400">1 day / 0.4 sec</option></select></label><label>Chart scale<select id="scale"><option value="price">Price in HOOP</option><option value="return">% since opening</option></select></label></div>
+  <div class="toolbar"><label>Main player<input id="search" type="search" list="player-list" placeholder="Search all 580 players…" autocomplete="off"><datalist id="player-list"></datalist></label><label>Playback speed<select id="speed"><option value="4000">1 day / 4 sec</option><option value="2000" selected>1 day / 2 sec</option><option value="1000">1 day / 1 sec</option><option value="400">1 day / 0.4 sec</option></select></label><label>Chart scale<select id="scale"><option value="price">Price in $</option><option value="return">% since opening</option></select></label></div>
   <div class="compare"><label>Add comparison player<input id="compare-search" type="search" list="player-list" placeholder="Search another player…" autocomplete="off"></label><button id="add">+ Add player</button></div>
   <section class="card">
     <div class="top"><div><div class="player" id="player">Loading…</div><div class="sub" id="team"></div></div><div><div class="price" id="price">—</div><div class="change" id="change"></div></div></div>
@@ -46,15 +46,15 @@
     <h2 id="season-title">Every player · full-season performance</h2>
     <p>22 October 2024 opening valuation → 13 April 2025 closing price. Rankings use simulated price changes, excluding payouts and fees. This table always shows the full season, regardless of the replay slider.</p>
     <div class="leaders"><article class="card"><h3 class="up">Biggest gainers · %</h3><div id="gainers"></div></article><article class="card"><h3 class="down">Biggest fallers · %</h3><div id="fallers"></div></article></div>
-    <div class="toolbar"><label>Filter players<input id="season-search" type="search" placeholder="Player or team…"></label><label>Sort by<select id="season-sort"><option value="gainPct">Biggest gain · %</option><option value="fallPct">Biggest fall · %</option><option value="gain">Biggest gain · HOOP</option><option value="fall">Biggest fall · HOOP</option><option value="end">Highest end price</option><option value="name">Player name</option></select></label><span id="season-count" class="season-count"></span></div>
-    <div class="tablewrap"><table><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Opening · HOOP</th><th>End · HOOP</th><th>Change · HOOP</th><th>Change · %</th><th>Season volume</th><th>Last trade</th></tr></thead><tbody id="season-rows"></tbody></table></div>
+    <div class="toolbar"><label>Filter players<input id="season-search" type="search" placeholder="Player or team…"></label><label>Sort by<select id="season-sort"><option value="gainPct">Biggest gain · %</option><option value="fallPct">Biggest fall · %</option><option value="gain">Biggest gain · $</option><option value="fall">Biggest fall · $</option><option value="end">Highest end price</option><option value="name">Player name</option></select></label><span id="season-count" class="season-count"></span></div>
+    <div class="tablewrap"><table><thead><tr><th>#</th><th>Player</th><th>Team</th><th>Opening · $</th><th>End · $</th><th>Change · $</th><th>Change · %</th><th>Season volume</th><th>Last trade</th></tr></thead><tbody id="season-rows"></tbody></table></div>
     <p class="explainer">Click a player to inspect their complete price history above. A closing price can be stale when no trade occurred; the last-trade date is shown for each player.</p>
   </section>
 </main>
 <script>
 const $=id=>document.getElementById(id);let players=[],series=[],index=0,timer=null;
 const colors=['#5ce0aa','#f9ad67','#8aa6ff','#f48fb1'];
-const money=n=>`${n.toFixed(2)} HOOP`;
+const money=n=>`$${n.toFixed(2)}`;
 let season=[];
 const signed=n=>`${n>=0?'+':''}${n.toFixed(2)}`;
 async function showSeasonPlayer(id){const p=players.find(p=>p.id===id);if(!p)return;await choose(p);index=series[0].rows.length-1;draw();$('player').scrollIntoView({behavior:'smooth',block:'start'})}

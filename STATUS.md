@@ -34,6 +34,9 @@ against buy-and-hold. Decisions and limitations are in
 `docs/market-model-decisions.md`. No payouts or human-order interface added.
 
 The graph now includes a searchable full-season table for all 580 players,
-percentage leaders and fallers, HOOP-change sorting, and links to each price
+percentage leaders and fallers, dollar-change sorting, and links to each price
 history. Returns consistently use pre-season opening valuations. Verified
 all 580 summary calculations and confirmed the table renders in the browser.
+
+Currency display: graph and opening-value table now show virtual dollars ($),
+with identical numeric prices. Internal data contracts are unchanged.
