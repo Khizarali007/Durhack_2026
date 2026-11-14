@@ -86,6 +86,17 @@ and a real minus sign (U+2212) for negatives.
 
 ## 6. Things I noticed (no action needed unless you agree)
 
+- **Root `node_modules/` is committed** on `frontend`: 301 files (react,
+  react-router, lightweight-charts, ...), plus a root `package.json` and
+  `package-lock.json`.
+  - It looks like an `npm install` run at the repo root instead of in
+    `frontend/`.
+  - A test merge with my branch goes through cleanly, but it would bring all
+    of that into `main`.
+  - Suggested fix: `git rm -r --cached node_modules package.json package-lock.json`
+    at the root. My branch's root `.gitignore` already ignores `node_modules`.
+- **`.claude/settings.local.json` is committed.** It holds machine-specific
+  paths and is usually kept out of git.
 - **`useTheme`:** it reads and writes `localStorage` without try/catch. Some
   private-browsing modes throw there and would blank the app. Worth wrapping.
 - **Mobile vs laptop-only:** `CLAUDE.md` says laptop-only, while
