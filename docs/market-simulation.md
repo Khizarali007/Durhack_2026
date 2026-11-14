@@ -50,15 +50,17 @@ under the ignored `data/source` directory.
 
 The replay spans **22 October 2024 through 13 April 2025**, including days
 without games: 174 calendar dates, 580 player markets. Three finite-inventory
-market makers quote a bid and ask for each player. Twenty finite-cash bots
-share accounts across all markets and trade using value, momentum, casual,
+market makers quote a bid and ask for each player. Thirty finite-cash bots
+share accounts across all markets and trade using value, momentum,
 risk-averse, injury-news and contrarian strategies. The displayed market price
 is the last executed trade; basketball results never overwrite it directly.
 
 Each day incorporates the latest published official injury status, then bot
 trades, the reveal of real box scores, more trades and a saved close. Played
-games move projected Game Score 4% toward the result. Rest days and DNPs are
-not zero-score games. The [SportsDataverse NBA injury-report archive](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/nba_stats_injury_report)
+games update recent form, which is blended with prior-season quality according
+to how much new evidence exists. Limited-history players learn faster. Rest days
+and DNPs are not zero-score games. See [the model decisions](market-model-decisions.md)
+for equations, liquidity settings and bot rules. The [SportsDataverse NBA injury-report archive](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/nba_stats_injury_report)
 contains historical versions of official NBA reports. The importer keeps the
 last version on each report date for each player and regular-season game. It
 retains Injury/Illness and Concussion Protocol entries: 16,952 daily listings,
@@ -68,8 +70,8 @@ keeps their reports. This is a list of reported statuses, not every injury.
 
 Status and reason are historical data. The impact classification and valuation
 factors are game assumptions, not medical severity ratings. An Out status sets
-a target factor of 0.90, 0.82 or 0.70 for minor, moderate or severe keyword
-classes. Other statuses have smaller discounts; Available restores 1.00. A
+a target factor of 0.898, 0.822 or 0.699 for minor, moderate or severe keyword
+classes, calculated from an explicit assumed near-term availability fraction. Other statuses have smaller discounts; Available restores 1.00. A
 played box score clears a stale discount. Each report replaces the current
 factor instead of multiplying it, so repeated Out reports do not compound.
 Bots trade on the changed valuation and makers quote around it; the market
@@ -85,3 +87,7 @@ it is not a live trading service.
 These are player markets with shared bot accounts, not a persistent limit-order book. Human
 orders, portfolios, fees, on-chain receipts, dividends and shorting are not
 implemented in this prototype.
+
+The replay also writes `data/bot_performance.csv`, comparing each bot with
+holding its original portfolio. Run `python3 -m unittest discover -s tests -v`
+for model invariant checks.

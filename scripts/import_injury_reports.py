@@ -31,11 +31,14 @@ MODERATE = (
     "sprain", "strain", "concussion", "dislocation", "tendinitis",
     "tendonitis", "inflammation", "bone bruise", "stress reaction",
 )
-STATUS_FACTORS = {
-    "minor": {"Available": 1.0, "Probable": .99, "Questionable": .97, "Doubtful": .94, "Out": .90},
-    "moderate": {"Available": 1.0, "Probable": .98, "Questionable": .93, "Doubtful": .87, "Out": .82},
-    "severe": {"Available": 1.0, "Probable": .95, "Questionable": .85, "Doubtful": .77, "Out": .70},
+# Assumed chance of near-term availability, not an NBA or medical estimate.
+# A severe Out report implies a longer likely absence than a minor Out report.
+AVAILABILITY = {
+    "minor": {"Available": 1.00, "Probable": .97, "Questionable": .91, "Doubtful": .83, "Out": .71},
+    "moderate": {"Available": 1.00, "Probable": .94, "Questionable": .80, "Doubtful": .63, "Out": .49},
+    "severe": {"Available": 1.00, "Probable": .86, "Questionable": .57, "Doubtful": .34, "Out": .14},
 }
+NEAR_TERM_VALUE_WEIGHT = .35
 
 
 def normalized_name(name: str) -> str:
@@ -83,7 +86,7 @@ def main() -> None:
             if not (row["reason"].startswith("Injury/Illness") or
                     row["reason"].startswith("Concussion Protocol")):
                 continue
-            if row["current_status"] not in STATUS_FACTORS["minor"]:
+            if row["current_status"] not in AVAILABILITY["minor"]:
                 continue
             # The NBA posts multiple PDF versions each day. Keep the last
             # published state for that player and game on each report day.
@@ -95,6 +98,7 @@ def main() -> None:
         norm = normalized_name(row["report_player_name"])
         player_id = ids_by_name.get(ALIASES.get(norm, norm))
         level = impact_level(row["reason"])
+        availability = AVAILABILITY[level][row["current_status"]]
         records.append({
             "report_date": max(START, report_day),
             "report_datetime": row["report_datetime"],
@@ -106,7 +110,8 @@ def main() -> None:
             "status": row["current_status"],
             "reason": row["reason"],
             "impact_level": level,
-            "target_factor": STATUS_FACTORS[level][row["current_status"]],
+            "availability_probability": availability,
+            "target_factor": round(1 - NEAR_TERM_VALUE_WEIGHT * (1 - availability), 3),
         })
     fields = list(records[0])
     args.output.parent.mkdir(parents=True, exist_ok=True)
