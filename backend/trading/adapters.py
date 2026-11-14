@@ -82,13 +82,14 @@ class TradesAdapter:
         )
 
     def apply_start_state(self, user_id: str, cash: float, positions: list) -> None:
-        """``positions``: anything with ``symbol``, ``qty`` and ``avg_cost`` (Person 4's Position model)."""
+        """``positions``: anything with ``symbol``, ``qty`` and ``avg_cost`` (Person 4's Position model).
+        Negative ``qty`` is a short, with ``avg_cost`` the price it was sold at (P2-14)."""
         start = []
         for p in positions:
             qty = int(round(p.qty))
             if qty != p.qty:
                 raise ValueError(f"positions must be whole shares, got {p.qty} {p.symbol}")
-            start.append((p.symbol, qty, round(qty * to_cents(p.avg_cost))))
+            start.append((p.symbol, qty, round(abs(qty) * to_cents(p.avg_cost))))  # short: qty < 0
         reset_account(self.db, self._market(), user_id, to_cents(cash), start)
 
     def restore_start_state(self, user_id: str) -> bool:

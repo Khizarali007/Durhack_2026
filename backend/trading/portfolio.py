@@ -5,10 +5,17 @@ Every figure is in integer cents, so this always holds exactly:
     equity - starting cash == realised + unrealised - fees paid + payouts received
 
 - **Unrealised:** for shares still held, `qty x last price - cost basis`.
+  For a short (P2-14) it's reversed: `what they were sold for - what buying
+  them back costs now`, so it grows as the price falls and shrinks (then goes
+  negative, without limit) as it rises.
 - **Realised:** for shares already sold, sale proceeds minus the cost basis
-  removed. Rebuilt from the user's trades with the same average-cost rule that
-  ``orders.py`` uses.
+  removed. For covered shorts, what they were sold for minus what buying them
+  back cost. Rebuilt from the user's trades with the same average-cost rule
+  that ``orders.py`` uses.
 - **Fees** are reported separately and are not in the cost basis.
+
+A short's sale proceeds sit in cash and its market value is negative (you owe
+the shares), so `equity = cash + positions value` still holds.
 
 ``build_portfolio`` is also what P2-21's TradesAdapter will hand to Person 4
 (cash, equity, positions[symbol, qty, avg_cost]).
@@ -30,21 +37,28 @@ class PositionView:
     symbol: str
     name: str | None
     team: str | None
-    qty: int
-    cost_basis_cents: int
+    qty: int                     # negative = short (P2-14)
+    cost_basis_cents: int        # always positive: paid for a long, received for a short
     last_price_cents: int
 
     @property
+    def is_short(self) -> bool:
+        return self.qty < 0
+
+    @property
     def avg_cost_cents(self) -> float:
-        return self.cost_basis_cents / self.qty
+        """Average entry price per share: paid (long) or sold at (short)."""
+        return self.cost_basis_cents / abs(self.qty)
 
     @property
     def market_value_cents(self) -> int:
+        """Negative for a short: what you'd owe to buy the shares back."""
         return self.qty * self.last_price_cents
 
     @property
     def unrealised_cents(self) -> int:
-        return self.market_value_cents - self.cost_basis_cents
+        signed_basis = -self.cost_basis_cents if self.is_short else self.cost_basis_cents
+        return self.market_value_cents - signed_basis
 
 
 @dataclass(frozen=True)
@@ -103,10 +117,10 @@ def build_portfolio(db: Database, market: MarketEngine, user_id: str) -> Portfol
     positions = []
     for symbol, qty, basis in rows:
         player = players.get(symbol)
-        last = to_cents(market.last_price(symbol)) if player else round(basis / qty)
+        last = to_cents(market.last_price(symbol)) if player else round(basis / abs(qty))
         positions.append(PositionView(symbol, player.name if player else None,
                                       player.team if player else None, qty, basis, last))
-    positions.sort(key=lambda p: p.market_value_cents, reverse=True)
+    positions.sort(key=lambda p: abs(p.market_value_cents), reverse=True)  # biggest exposure first
 
     seeds = json.loads(user["start_positions_json"]) if user["start_positions_json"] else []
     realised, fees = _realised_and_fees(trades, seeds)
@@ -134,5 +148,12 @@ def _realised_and_fees(trades, seeds=()) -> tuple[int, int]:
             realised += price * qty - removed
             basis[symbol] -= removed
             held[symbol] -= qty
-        # short / cover: P2-14
+        elif side == "short":
+            held[symbol] -= qty
+            basis[symbol] += price * qty
+        elif side == "cover":
+            removed = round(basis[symbol] * qty / -held[symbol])
+            realised += removed - price * qty
+            basis[symbol] -= removed
+            held[symbol] += qty
     return realised, fees

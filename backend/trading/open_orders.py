@@ -43,8 +43,9 @@ from .orders import (
     PRICE_MOVED,
     OrderError,
     _balance,
+    check_direction,
+    free_cash,
     place_market_order,
-    reserved_cash,
     reserved_shares,
 )
 
@@ -106,11 +107,12 @@ def create_open_order(db: Database, market: MarketEngine, user_id: str, *, symbo
     if order_type == "stop" and price_cents >= last:
         raise OrderError(400, f"a stop-loss must be below the current price ({last / 100:.2f})")
 
-    cash, held, _ = _balance(db, user_id, symbol)
+    _, held, _ = _balance(db, user_id, symbol)
+    check_direction(side, symbol, held, qty)  # no buy limits while short, no sells of a short (P2-14)
     reserve = 0
     if side == "buy":
         reserve = buy_reservation(qty, price_cents)
-        if reserve > cash - reserved_cash(db, user_id):
+        if reserve > free_cash(db, market, user_id):
             raise OrderError(400, f"not enough cash: this order holds back {reserve / 100:.2f} HOOP")
     else:
         already = reserved_shares(db, user_id, symbol)

@@ -8,8 +8,22 @@ How a buy works:
   or the makers run out of shares, the order stops and comes back
   ``partially_filled``.
 
-A sell is checked against the user's holdings and sent in one go. Short
-selling arrives in P2-14.
+A sell is checked against the user's holdings and sent in one go.
+
+**Short selling (P2-14):**
+- ``short`` sells shares you don't own. To the engine it's a plain ``sell``
+  (a maker buys them with its cash). Your position goes negative and the sale
+  proceeds are added to your cash.
+- ``cover`` buys them back. To the engine it's a ``buy``.
+- You can't short while you hold shares of that player (sell first), and you
+  can't buy while you're short (cover first), as in Person 4's mock.
+- **Collateral:** while a short is open, 200% of its current value is held
+  back from your cash: the sale proceeds plus the same again of your own
+  money. So, with no leverage, your total exposure (long plus short) can't go
+  over your equity. The hold-back follows the price, so a rising price ties up
+  more cash. P2-15 adds 3x leverage and margin calls on top.
+- Shorts are sent in chunks with a collateral check before each, like buys.
+  Covering only needs the cash to pay for it, so you can always get out.
 
 Every fill becomes a row in ``trades``. Cash and the position are updated in
 the same database transaction.
@@ -25,13 +39,26 @@ import secrets
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
+from typing import Literal
+
 from .db import Database
-from .market_contract import Fill, MarketEngine, Side
+from .market_contract import Fill, MarketEngine
 from .money import to_cents
 
+OrderSide = Literal["buy", "sell", "short", "cover"]   # the engine only sees buy / sell
+
 FEE_RATE = Decimal("0.001")      # 0.10% of notional (matches Person 4's mission copy)
-BUY_CHUNK = 10                   # shares per engine call for buys
+BUY_CHUNK = 10                   # shares per engine call for buys and shorts
 CHUNK_PRICE_BUFFER = 0.02        # allow 2% slippage within one chunk when checking cash
+SHORT_COLLATERAL_FACTOR = 2      # hold back 200% of a short's value: its proceeds + the same again (P2-14)
+
+NOT_ENOUGH_CASH = "not enough cash"
+NOT_ENOUGH_COLLATERAL = "not enough free cash to back this short (shorts hold back 200% of their value)"
+
+
+def engine_side(side: OrderSide) -> Literal["buy", "sell"]:
+    """What the engine sees: a short is a sale, a cover is a purchase."""
+    return "buy" if side in ("buy", "cover") else "sell"
 
 
 class OrderError(Exception):
@@ -56,13 +83,13 @@ class OrderOutcome:
     order_id: str
     status: str                  # "filled" | "partially_filled"
     symbol: str
-    side: Side
+    side: OrderSide
     requested_qty: int
     cash_cents_after: int
     position_qty_after: int
     fills: list[RecordedFill] = field(default_factory=list)
     reason: str | None = None    # why it was only partly filled
-    quoted_best_cents: int | None = None  # best price when the order was placed (ask to buy, bid to sell)
+    quoted_best_cents: int | None = None  # best price when placed: ask to buy/cover, bid to sell/short
 
     @property
     def slippage_cents(self) -> float | None:
@@ -70,7 +97,7 @@ class OrderOutcome:
         if self.quoted_best_cents is None or not self.filled_qty:
             return None
         diff = self.average_price_cents - self.quoted_best_cents
-        return diff if self.side == "buy" else -diff
+        return diff if engine_side(self.side) == "buy" else -diff
 
     @property
     def filled_qty(self) -> int:
@@ -112,11 +139,39 @@ def reserved_shares(db: Database, user_id: str, symbol: str, exclude: str | None
     return row[0]
 
 
-def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol: str, side: Side, qty: int,
-                       *, reason: str = "market", limit_price_cents: int | None = None,
+def short_collateral(db: Database, market: MarketEngine, user_id: str) -> int:
+    """Cash held back for the user's open shorts: 200% of their value at the last price (P2-14)."""
+    with db.lock:
+        rows = db.conn.execute(
+            "SELECT symbol, qty FROM positions WHERE user_id = ? AND qty < 0", (user_id,)).fetchall()
+    return sum(SHORT_COLLATERAL_FACTOR * -qty * to_cents(market.last_price(symbol)) for symbol, qty in rows)
+
+
+def free_cash(db: Database, market: MarketEngine, user_id: str, exclude: str | None = None) -> int:
+    """Cash the user can put into a new buy or short: cash minus what open buy limits
+    and open shorts hold back. Can be negative if a short's price has risen."""
+    cash, _, _ = _balance(db, user_id, None)
+    return cash - reserved_cash(db, user_id, exclude) - short_collateral(db, market, user_id)
+
+
+def check_direction(side: OrderSide, symbol: str, held: int, qty: int) -> None:
+    """Long and short don't mix in one player (as in Person 4's mock). Raises a 400 OrderError."""
+    if side == "buy" and held < 0:
+        raise OrderError(400, f"you're short {-held} {symbol}: use cover to buy them back")
+    if side == "sell" and held < 0:
+        raise OrderError(400, f"you're short {-held} {symbol}: there's nothing to sell (use cover)")
+    if side == "short" and held > 0:
+        raise OrderError(400, f"you hold {held} {symbol}: sell them before shorting")
+    if side == "cover" and qty > -min(held, 0):
+        raise OrderError(400, f"you're short {-min(held, 0)} {symbol}, so you can't cover {qty}")
+
+
+def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol: str, side: OrderSide,
+                       qty: int, *, reason: str = "market", limit_price_cents: int | None = None,
                        own_open_order: str | None = None) -> OrderOutcome:
     """Trade now at the market's best price.
 
+    - ``side``: ``buy`` / ``sell``, or ``short`` / ``cover`` (P2-14).
     - ``reason`` is recorded on the trades: ``market``, or ``limit`` / ``stop``
       when an open order fires.
     - ``limit_price_cents`` stops filling once the price is worse than the limit.
@@ -125,57 +180,76 @@ def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol:
     """
     if symbol not in {p.symbol for p in market.players()}:
         raise OrderError(404, f"unknown symbol {symbol!r}")
+    if side not in ("buy", "sell", "short", "cover"):
+        raise OrderError(400, f"side must be buy, sell, short or cover, not {side!r}")
     cash, held, _ = _balance(db, user_id, symbol)
+    check_direction(side, symbol, held, qty)
     order_id = f"ord_{secrets.token_hex(6)}"
     quote = market.quote(symbol)
-    quoted = quote.ask if side == "buy" else quote.bid
+    quoted = quote.ask if engine_side(side) == "buy" else quote.bid
     quoted_cents = to_cents(quoted) if quoted is not None else None
 
     if side == "buy":
+        available = free_cash(db, market, user_id, exclude=own_open_order)
+        engine_fills, why = _in_chunks(market, user_id, symbol, "buy", qty, available, limit_price_cents)
+    elif side == "cover":  # only needs the cash to pay: getting out of a short is always allowed
         available = cash - reserved_cash(db, user_id, exclude=own_open_order)
-        engine_fills, why = _buy_in_chunks(market, user_id, symbol, qty, available, limit_price_cents)
-    elif side == "sell":
+        engine_fills, why = _in_chunks(market, user_id, symbol, "buy", qty, available, limit_price_cents)
+    elif side == "short":  # each share shorted ties up its price (+ fee) of free cash, like a buy
+        available = free_cash(db, market, user_id, exclude=own_open_order)
+        engine_fills, why = _in_chunks(market, user_id, symbol, "sell", qty, available, limit_price_cents)
+    else:
         reserved = reserved_shares(db, user_id, symbol, exclude=own_open_order)
         if qty > held - reserved:
             note = f" ({reserved} reserved for open orders)" if reserved else ""
             raise OrderError(400, f"you hold {held} {symbol}{note}, so you can't sell {qty}")
         engine_fills, why = _sell(market, user_id, symbol, qty, limit_price_cents)
-    else:
-        raise OrderError(400, f"side must be 'buy' or 'sell', not {side!r}")
 
     if not engine_fills:
-        raise OrderError(400 if why == "not enough cash" else 409, why or "the order could not be filled")
+        status = 400 if why in (NOT_ENOUGH_CASH, NOT_ENOUGH_COLLATERAL) else 409
+        raise OrderError(status, why or "the order could not be filled")
     return _record(db, order_id, user_id, symbol, side, qty, engine_fills, why, reason, quoted_cents)
 
 
-def _buy_in_chunks(market: MarketEngine, user_id: str, symbol: str, qty: int, cash: int,
-                   limit_price_cents: int | None = None) -> tuple[list[Fill], str | None]:
+def _in_chunks(market: MarketEngine, user_id: str, symbol: str, side: Literal["buy", "sell"], qty: int,
+               cash: int, limit_price_cents: int | None = None) -> tuple[list[Fill], str | None]:
+    """Send ``qty`` to the engine in chunks, never committing more than ``cash``.
+
+    Buying a share costs its price plus the fee. Shorting one ties up the same
+    amount of free cash (the proceeds come in, 200% of the value is held back),
+    so both use the same budget rule. The check uses the current best price plus
+    a 2% buffer, and the real fills are counted after each chunk.
+    """
+    buying = side == "buy"
     fills: list[Fill] = []
     committed = 0
     remaining = qty
     while remaining > 0:
-        ask = market.quote(symbol).ask
-        if ask is None:
-            return fills, "market makers ran out of shares"
-        if limit_price_cents is not None and to_cents(ask) > limit_price_cents:
+        quote = market.quote(symbol)
+        best = quote.ask if buying else quote.bid
+        if best is None:
+            return fills, "market makers ran out of shares" if buying else "market makers ran out of cash"
+        if limit_price_cents is not None and (to_cents(best) > limit_price_cents if buying
+                                              else to_cents(best) < limit_price_cents):
             return fills, PRICE_MOVED
-        worst_price = to_cents(ask) * (1 + CHUNK_PRICE_BUFFER)
-        if limit_price_cents is not None:
+        worst_price = to_cents(best) * (1 + CHUNK_PRICE_BUFFER)
+        if limit_price_cents is not None and buying:
             worst_price = min(worst_price, limit_price_cents)  # never pays over the limit
         # +1 cent a share covers per-fill fee rounding (matches open_orders.buy_reservation)
         worst_cost_per_share = worst_price * (1 + float(FEE_RATE)) + 1
         affordable = math.floor((cash - committed) / worst_cost_per_share)
         chunk = min(remaining, BUY_CHUNK, affordable)
         if chunk <= 0:
-            return fills, "not enough cash"
-        result = market.submit_order(account_id=user_id, symbol=symbol, side="buy", qty=chunk)
+            return fills, NOT_ENOUGH_CASH if buying else NOT_ENOUGH_COLLATERAL
+        result = market.submit_order(account_id=user_id, symbol=symbol, side=side, qty=chunk)
         for fill in result.fills:
             notional = to_cents(fill.price) * fill.qty
             committed += notional + fee_cents(notional)
             fills.append(fill)
         remaining -= result.filled_qty
         if result.status != "filled":
-            return fills, result.reason or "market makers ran out of shares"
+            return fills, result.reason or ("market makers ran out of shares" if buying
+                                            else "market makers ran out of cash")
     return fills, None
 
 
@@ -200,8 +274,9 @@ def _sell(market: MarketEngine, user_id: str, symbol: str, qty: int,
     return fills, None
 
 
-def _balance(db: Database, user_id: str, symbol: str) -> tuple[int, int, int]:
-    """(cash_cents, position qty, position cost basis cents)."""
+def _balance(db: Database, user_id: str, symbol: str | None) -> tuple[int, int, int]:
+    """(cash_cents, position qty, position cost basis cents). Negative qty = short;
+    the cost basis is always positive (for a short, what the shares were sold for)."""
     with db.lock:
         cash = db.conn.execute("SELECT cash_cents FROM users WHERE user_id = ?", (user_id,)).fetchone()
         pos = db.conn.execute(
@@ -213,7 +288,7 @@ def _balance(db: Database, user_id: str, symbol: str) -> tuple[int, int, int]:
     return cash[0], (pos[0] if pos else 0), (pos[1] if pos else 0)
 
 
-def _record(db: Database, order_id: str, user_id: str, symbol: str, side: Side, qty: int,
+def _record(db: Database, order_id: str, user_id: str, symbol: str, side: OrderSide, qty: int,
             engine_fills: list[Fill], why: str | None, fill_reason: str = "market",
             quoted_cents: int | None = None) -> OrderOutcome:
     recorded: list[RecordedFill] = []
@@ -227,10 +302,18 @@ def _record(db: Database, order_id: str, user_id: str, symbol: str, side: Side, 
                 cash -= notional + fee
                 held += fill.qty
                 basis += notional
-            else:
+            elif side == "sell":
                 cash += notional - fee
                 basis -= round(basis * fill.qty / held)
                 held -= fill.qty
+            elif side == "short":     # proceeds come in; basis = what the shares were sold for
+                cash += notional - fee
+                held -= fill.qty
+                basis += notional
+            else:                     # cover: pay to buy back; release that share of the basis
+                cash -= notional + fee
+                basis -= round(basis * fill.qty / -held)
+                held += fill.qty
             trade = RecordedFill(f"t_{secrets.token_hex(6)}", fill.qty, price, fee, fill.t, fill.counterparty)
             db.conn.execute(
                 "INSERT INTO trades (trade_id, order_id, user_id, symbol, side, qty, price_cents,"

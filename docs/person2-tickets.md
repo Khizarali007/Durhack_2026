@@ -118,7 +118,7 @@ These come from Person 1's prototype and Person 4's interfaces.
     - `400`: not enough cash, or not enough shares
     - `404`: unknown symbol
     - `409`: the makers couldn't fill any of it
-    - `422`: bad input (qty ≤ 0, not whole, over 10,000, or side not buy/sell; short and cover come in P2-14)
+    - `422`: bad input (qty ≤ 0, not whole, over 10,000, or side not buy/sell/short/cover)
     - `401`: no token
   - The route is `async` on purpose: engine calls run on the same thread that ticks the market, so they never race with it. **Keep this rule for any route that calls the engine.**
   - Tests get a fresh `FakeMarket` each time (`market_provider.use_market`).
@@ -140,7 +140,7 @@ These come from Person 1's prototype and Person 4's interfaces.
   - **Realised profit** is rebuilt from the trades, using the same average-cost rule as orders, so it always matches the stored positions.
   - Everything is computed in cents, so `equity − starting cash = realised + unrealised − fees` holds **exactly**. A test checks this after 25 random trades.
   - `build_portfolio()` returns cents and covers what Person 4's `Portfolio` needs (`cash`, `equity`, `positions[symbol, qty, avg_cost]`), ready for P2-21.
-- **Not yet:** payouts received (P2-22), and shorts (P2-14). `total_pnl` assumes everyone starts with 100,000, so P2-21's `apply_start_state` will need its own starting value.
+- **Since added:** payouts received (P2-22) and shorts (P2-14). `total_pnl` assumes everyone starts with 100,000, so P2-21's `apply_start_state` will need its own starting value.
 - **Tests:** 9 in `test_portfolio.py`. 69 pass in total, 3 runs in a row.
 - **Checked on a live server:** after buying 30 WEMBY, buying 10 SGA and selling 4 SGA, the portfolio showed both positions with values and weights. Its totals added up: 28.90 = −5.96 realised + 40.16 unrealised − 5.30 fees. No token gave 401.
 
@@ -356,7 +356,7 @@ These come from Person 1's prototype and Person 4's interfaces.
     - Open limit/stop orders are cancelled, so nothing stays reserved.
     - Trades are kept (Person 4 reads only the mission window), but **profit/loss restarts from the mission's start**. New `users` columns hold the baseline, the first trade after it, the starting positions, and any carried-over profit/fees, added by migration.
     - **`POST /trading/account/restore`** (and `adapter.restore_start_state(user_id)`) puts the real account back exactly: cash, positions, profit, fees. It returns `404` if no mission reset the account.
-  - Only long positions for now: short start states wait for P2-14. Fractional shares and unknown symbols are rejected.
+  - Short start states (negative `qty`) work since P2-14. Fractional shares and unknown symbols are rejected.
   - `main.py` creates `app.state.trades_adapter`. At merge: `configure_learning(market_adapter, app.state.trades_adapter)`.
 - **Tests:** 12 in `test_adapters.py`, covering:
   - Fields, inclusive `since_t`, and the portfolio matching the API.
@@ -376,7 +376,7 @@ These come from Person 1's prototype and Person 4's interfaces.
   - **`PayoutProcessor`** listens for the engine's `PerformancePayout(t, symbol, hoop_per_share, game_score, reason)`.
     - It pays **every human holder `qty × hoop_per_share`**, rounded half up to the cent per holder, all in one database transaction.
     - Each payment is a `payouts` row: `payout_id, user_id, symbol, qty_held, hoop_per_share, amount_cents, game_score, reason, t`.
-    - Short sellers (negative qty) are charged the same amount. The maths is in place, and it switches on with P2-14.
+    - Short sellers (negative qty) are charged the same amount (live since P2-14).
   - **Fake market (guessed design):** at each **final whistle** (every 12 market minutes = 1 real minute):
     - About 60% of players "play", scoring around fair value / 5.
     - Each pays **0.02 HOOP per Game Score point per share**. A 30-point game pays 0.60 per share, about 0.4% of a 150 price. Bad games pay 0.
@@ -393,15 +393,46 @@ These come from Person 1's prototype and Person 4's interfaces.
 
 ---
 
-## ⬜ P2-14 · Short selling and cover
+## ✅ P2-14 · Short selling and cover
 - **Gate:** G3
-- **Depends on:** P2-04, and Person 1 confirming that the engine accepts sells from humans with no holdings (P2-00 question 3). The fake accepts them.
-- **What:**
-  - `short` and `cover` sides, negative positions, and a collateral check.
-  - Profit/loss is reversed for shorts.
-  - A short sale is a `sell` to the engine (makers need cash to buy it), and a cover is a `buy`.
-  - Shorts pay performance payouts while they're open (see P2-22).
-- **Done when:** shorting before a price drop makes money, and the loss keeps growing if the price keeps rising.
+- **What was built** (`trading/orders.py`, plus `portfolio.py`, `estimates.py`, `open_orders.py`, `resets.py`):
+  - **`POST /trading/orders` takes `side: short | cover`.**
+    - A short sells shares you don't own. To the engine it's a plain `sell`: a maker buys them with its cash.
+    - Your position goes negative, and the proceeds (minus the 0.10% fee) go into your cash.
+    - A cover buys them back. To the engine it's a `buy`.
+    - Trades are recorded as `short` / `cover`, and their Solana receipts say so (`"side":"short"`).
+  - **Long and short don't mix in one player**, as in Person 4's mock. Each of these gets a `400` with a plain message:
+    - shorting a player you hold ("sell them before shorting")
+    - buying or selling one you're short ("use cover")
+    - covering more than you're short
+  - **Collateral: 200% of each short's current value is held back from cash.** That's the proceeds plus the same again of your own money.
+    - With no leverage, your gross exposure (long + short) can't go over your equity. A test checks this.
+    - The hold-back follows the last price, so a rising price ties up more cash.
+    - Buys, new shorts and buy-limit reservations can only use **free cash** = cash − open-order reservations − short collateral.
+    - Shorts go to the engine in 10-share chunks with a collateral check before each, like buys. If free cash runs out, the order comes back `partially_filled` ("not enough free cash to back this short").
+    - **Covering only needs the cash to pay for it**, so you can always get out, even when the price has run away and free cash is negative.
+  - **Profit/loss is reversed for shorts.** A short's cost basis is what the shares sold for (always positive), and `avg_cost` is the price you sold at.
+    - Unrealised = sold for − cost to buy back now. Covering realises it.
+    - Market value is negative (you owe the shares), so equity = cash + positions value still holds.
+    - The exact identity **`total_pnl = realised + unrealised − fees + payouts`** still holds. A test checks it after 60 random buy/sell/short/cover trades with price shocks.
+  - **Portfolio:** positions gain `side: long | short`, and they're sorted by size of exposure. The totals gain `short_collateral`, and `available_cash` now subtracts it (never below 0). `weight_pct` is negative for shorts.
+  - **Order ticket estimate** (`POST /orders/quote`): short is priced at the bid and cover at the ask. It shows `position_qty`, `can_afford_qty` for short/cover, wrong-side warnings, and always "if the price rises, your loss keeps growing…" on a short.
+  - **Open orders:** no buy limits while short, and no sell limits or stops on a short. Buy limits can't reserve cash that's backing a short.
+  - **Payouts:** shorts pay them (negative `payouts` rows), as planned in P2-22.
+  - **Missions:** `apply_start_state` accepts shorts (negative `qty`, `avg_cost` = price sold at). The starting equity marks them at that price, and restore works.
+- **Not done:** cover-stops (a buy stop that closes a short: the "stop-loss" for shorts), borrow fees, and margin calls when collateral runs short (P2-15).
+- **Still to confirm with Person 1** (question 4): that their engine accepts sells from humans with no holdings. The fake does.
+- **Tests:** 25 in `test_shorts.py`, covering:
+  - Shorting before a drop makes money. The loss keeps growing while the price rises, past what the short sold for.
+  - Partial covers, collateral (twice the value, follows the price, caps shorts, blocks buys), gross exposure ≤ equity, and covering when under-collateralised.
+  - Wrong-side refusals with no trades made, open-order rules, payouts charged to shorts, the estimate equalling the real short, missions with a short start state, and the API plus the receipt's side end to end.
+
+  245 pass in total, 3 runs in a row.
+- **Checked on a live server** (receipts off):
+  - Shorted 40 WEMBY: estimated 103.2125, filled at exactly 103.2125. Cash rose to 104,124.37 and 8,204 was held back as collateral.
+  - The position showed `short`, −40, market value −4,102.
+  - Buy, sell and over-cover were refused with clear messages.
+  - Covered 40 after the market moved. `total_pnl` −26.17 = −17.90 realised − 8.27 fees, exactly.
 
 ## ⬜ P2-15 · 3x leverage and margin calls
 - **Gate:** G3

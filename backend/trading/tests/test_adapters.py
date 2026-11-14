@@ -143,8 +143,8 @@ def test_reset_validation(setup):
     db, market, user_id, adapter = setup
     with pytest.raises(ValueError, match="unknown symbol"):
         adapter.apply_start_state(user_id, 1000.0, [pos("NOPE", 1, 10.0)])
-    with pytest.raises(ValueError, match="short positions"):
-        adapter.apply_start_state(user_id, 1000.0, [pos("SGA", -5, 150.0)])
+    with pytest.raises(ValueError, match="can't be negative"):
+        adapter.apply_start_state(user_id, 1000.0, [pos("SGA", -5, -150.0)])
     with pytest.raises(ValueError, match="whole shares"):
         adapter.apply_start_state(user_id, 1000.0, [pos("SGA", 2.5, 150.0)])
     with pytest.raises(KeyError):

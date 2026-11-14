@@ -157,7 +157,7 @@ def test_unknown_symbol_is_404(client, player):
     {"symbol": "SGA", "side": "buy", "qty": -3},
     {"symbol": "SGA", "side": "buy", "qty": 2.5},
     {"symbol": "SGA", "side": "buy", "qty": 20_000},
-    {"symbol": "SGA", "side": "short", "qty": 1},  # arrives in P2-14
+    {"symbol": "SGA", "side": "lend", "qty": 1},
     {"symbol": "SGA", "side": "buy"},
 ])
 def test_invalid_orders_are_422(client, player, payload):

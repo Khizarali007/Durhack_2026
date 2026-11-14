@@ -34,6 +34,8 @@ I went with **resetting the player's own account**, like your mock does. The pla
 
 - **Fees:** 0.10% of each fill's notional, as in your mock and mission copy.
 - **Fill prices:** market buys fill at the best ask and sells at the best bid, but my market has 3 makers with limited stock. **Big orders slip**: 300 SGA averages about 5% over the ask. Use small quantities (1 to 100) in mission copy, or mention slippage. `POST /trading/orders/quote` shows the expected average before confirming.
-- **Short start states** (negative `qty`) are rejected until I add short selling (P2-14). Fractional shares and unknown symbols are rejected too.
+- **Short selling is live** (P2-14): `POST /trading/orders` takes `side: short | cover`, as in your mock (no shorting while long, no buying while short). Shorts hold back 200% of their value from cash as collateral.
+- **Short start states work:** pass a negative `qty` with `avg_cost` = the price it was sold at, e.g. `Position(symbol="WEMBY", qty=-40, avg_cost=105.0)` for the danger-zone mission. `portfolio()` returns shorts the same way (negative `qty`, positive `avg_cost`). Fractional shares and unknown symbols are rejected.
+- **Your `round_trip` evaluator** only counts `buy`/`sell`, so mission 6 will need short/cover handling: realised = (sold for − bought back for) per share, with fees separate.
 - **Symbols:** my fake market uses your placeholders (`SGA`, `JOKIC`, `TATUM`, `WEMBY`, `ANT`, …). Real tickers depend on Person 1.
 - **Live updates:** my WebSocket at `/trading/ws?token=` pushes `fill`, `open_order` and `receipt` messages, so your mission UI can react to the player's trades instantly instead of polling.

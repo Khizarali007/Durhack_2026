@@ -51,13 +51,14 @@ def _set_positions(db: Database, user_id: str, positions: list[list]) -> None:
 
 def reset_account(db: Database, market: MarketEngine, user_id: str, cash_cents: int,
                   positions: list[tuple[str, int, int]]) -> None:
-    """positions: (symbol, qty, cost_basis_cents). Long positions only until short selling (P2-14)."""
+    """positions: (symbol, qty, cost_basis_cents). Negative qty = short (P2-14), with a
+    positive cost basis: what the shares were sold for."""
     known = {p.symbol for p in market.players()}
-    for symbol, qty, _ in positions:
+    for symbol, qty, basis in positions:
         if symbol not in known:
             raise ValueError(f"unknown symbol {symbol!r}")
-        if qty < 0:
-            raise ValueError("short positions aren't supported yet (P2-14)")
+        if basis < 0:
+            raise ValueError("cost basis can't be negative (a short's is what the shares were sold for)")
     if cash_cents < 0:
         raise ValueError("cash can't be negative")
 
@@ -81,7 +82,9 @@ def reset_account(db: Database, market: MarketEngine, user_id: str, cash_cents: 
             "UPDATE users SET cash_cents = ?, baseline_cents = ?, start_trade_rowid = ?, start_positions_json = ?,"
             " carried_realised_cents = 0, carried_fees_cents = 0, start_payout_rowid = ?,"
             " carried_payouts_cents = 0 WHERE user_id = ?",
-            (cash_cents, cash_cents + sum(b for _, _, b in start), _max_trade_rowid(db), json.dumps(start),
+            # Starting equity marks each position at its entry price: + for longs, - for shorts.
+            (cash_cents, cash_cents + sum(b if q > 0 else -b for _, q, b in start), _max_trade_rowid(db),
+             json.dumps(start),
              _max_payout_rowid(db), user_id),
         )
 

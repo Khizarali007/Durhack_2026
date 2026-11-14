@@ -33,7 +33,7 @@ from .money import to_hoop
 from .money import to_cents
 from .open_orders import OpenOrder, cancel_open_order, create_open_order, list_open_orders
 from .estimates import estimate_order
-from .orders import FEE_RATE, OrderError, place_market_order, reserved_cash
+from .orders import FEE_RATE, OrderError, place_market_order, reserved_cash, short_collateral
 from .portfolio import build_portfolio
 from .resets import restore_account
 from .trades import trades_for_user
@@ -73,7 +73,8 @@ class MeOut(BaseModel):
 
 class OrderIn(BaseModel):
     symbol: str = Field(examples=["SGA"])
-    side: Literal["buy", "sell"]
+    side: Literal["buy", "sell", "short", "cover"] = Field(
+        description="buy / sell shares you hold, or short (sell shares you don't own) / cover (buy them back)")
     qty: int = Field(gt=0, le=10_000, description="Whole shares")
 
 
@@ -90,19 +91,19 @@ class OrderOut(BaseModel):
     order_id: str
     status: Literal["filled", "partially_filled"]
     symbol: str
-    side: Literal["buy", "sell"]
+    side: Literal["buy", "sell", "short", "cover"]
     requested_qty: int
     filled_qty: int
     average_price: float
     total_fee: float
     cash: float = Field(description="Your cash after the order")
-    position_qty: int = Field(description="Shares of this player you hold after the order")
+    position_qty: int = Field(description="Shares of this player you hold after the order (negative = short)")
     fills: list[FillOut]
     reason: str | None = Field(None, description="Why the order was only partly filled")
     receipt_status: Literal["pending", "confirmed", "failed"] = Field(
         description="Solana receipt. Always pending here: poll GET /trading/orders/{order_id}/receipt")
     quoted_best_price: float | None = Field(
-        description="Best price when you placed the order: the ask when buying, the bid when selling")
+        description="Best price when you placed the order: the ask to buy or cover, the bid to sell or short")
     slippage: float | None = Field(description="Per share: how much worse your average was than the best price")
     slippage_pct: float | None
 
@@ -118,14 +119,14 @@ class EstimateOut(BaseModel):
     """What an order would cost right now. Nothing is traded."""
 
     symbol: str
-    side: Literal["buy", "sell"]
+    side: Literal["buy", "sell", "short", "cover"]
     qty: int
     method: str = Field(description="'engine preview' (exact) or 'maker quotes (approximate)'")
     best_bid: float | None
     best_ask: float | None
     spread: float | None = Field(description="best_ask - best_bid")
     spread_pct: float | None = Field(description="Spread as a % of the mid price")
-    best_price: float | None = Field(description="The ask when buying, the bid when selling")
+    best_price: float | None = Field(description="The ask to buy or cover, the bid to sell or short")
     estimated_fillable_qty: int
     estimated_avg_price: float | None
     estimated_slippage: float = Field(description="Per share, how much worse the average is than the best price")
@@ -133,10 +134,14 @@ class EstimateOut(BaseModel):
     estimated_notional: float
     estimated_fee: float
     fee_rate_pct: float
-    estimated_total: float = Field(description="Buy: what you'd pay incl. fee. Sell: what you'd receive after the fee")
-    available_cash: float
-    can_afford_qty: int | None = Field(description="Buys: how many shares your available cash covers")
+    estimated_total: float = Field(
+        description="Buy/cover: what you'd pay incl. fee. Sell/short: what you'd receive after the fee")
+    available_cash: float = Field(
+        description="Cash this order can use: after open orders and short collateral (cover: after open orders)")
+    can_afford_qty: int | None = Field(
+        description="Buy/short/cover: how many shares your available cash covers (a short holds back 200% of its value)")
     sellable_qty: int | None = Field(description="Sells: shares you hold that aren't reserved for open orders")
+    position_qty: int = Field(description="Shares of this player you hold now (negative = short)")
     ok: bool = Field(description="True if the whole order would go through as asked")
     warnings: list[str] = Field(description="Plain-English heads-ups for the order ticket")
     makers: list[MakerQuoteOut]
@@ -188,20 +193,24 @@ class PositionOut(BaseModel):
     symbol: str
     name: str | None
     team: str | None
-    qty: int
-    avg_cost: float = Field(description="Average price paid per share, fees not included")
+    side: Literal["long", "short"] = Field(description="long: you own the shares. short: you sold shares you owe")
+    qty: int = Field(description="Negative = short")
+    avg_cost: float = Field(description="Average price per share, fees not included: paid (long) or sold at (short)")
     last_price: float = Field(description="Last traded price: what each share is worth now")
-    market_value: float
-    unrealised_pnl: float
+    market_value: float = Field(description="qty x last price. Negative for a short: what buying back would cost")
+    unrealised_pnl: float = Field(description="For a short, this grows as the price falls")
     unrealised_pnl_pct: float
-    weight_pct: float = Field(description="Share of your total equity in this player")
+    weight_pct: float = Field(description="Share of your total equity in this player (negative for a short)")
 
 
 class PortfolioOut(BaseModel):
     user_id: str
     cash: float
     reserved_cash: float = Field(description="Part of cash held back for open buy limits")
-    available_cash: float = Field(description="cash - reserved_cash: what you can spend now")
+    short_collateral: float = Field(
+        description="Part of cash held back for open shorts: 200% of their value at the last price")
+    available_cash: float = Field(
+        description="cash - reserved_cash - short_collateral (never below 0): what you can spend or short now")
     positions_value: float
     equity: float = Field(description="cash + positions_value")
     starting_cash: float
@@ -341,10 +350,18 @@ def me(user: User = Depends(current_user), db: Database = Depends(get_db)) -> Me
 @router.post("/orders")
 async def place_order(order: OrderIn, request: Request, user: User = Depends(current_user),
                       db: Database = Depends(get_db)) -> OrderOut:
-    """Buy or sell at the market's best price.
+    """Buy or sell at the market's best price, or short and cover.
 
-    Errors: `400` not enough cash or shares, `404` unknown symbol, `409` the
-    market makers couldn't fill any of it. A big order can come back
+    - `short` sells shares you don't own: the proceeds go into your cash and
+      your position goes negative. While it's open, 200% of its value is held
+      back from your cash as collateral. You profit if the price falls; if it
+      rises, the loss keeps growing.
+    - `cover` buys them back.
+    - You can't short a player you hold (sell first) or buy one you're short (cover first).
+
+    Errors: `400` not enough cash, shares or collateral, or the wrong side for
+    your position; `404` unknown symbol; `409` the market makers couldn't fill
+    any of it. A big order can come back
     `partially_filled` with a `reason`. The Solana receipt is written in the
     background: the order never waits for it.
     """
@@ -387,7 +404,6 @@ async def quote_order(order: OrderIn, user: User = Depends(current_user),
     except OrderError as error:
         raise HTTPException(error.status_code, error.message) from error
     best = e.best_price_cents
-    ok = e.fillable_qty == e.qty and (e.affordable_qty >= e.qty if e.side == "buy" else e.sellable_qty >= e.qty)
     return EstimateOut(
         symbol=e.symbol, side=e.side, qty=e.qty, method=e.method,
         best_bid=to_hoop(e.best_bid_cents) if e.best_bid_cents is not None else None,
@@ -404,9 +420,10 @@ async def quote_order(order: OrderIn, user: User = Depends(current_user),
         fee_rate_pct=float(FEE_RATE * 100),
         estimated_total=to_hoop(e.total_cents),
         available_cash=to_hoop(e.available_cash_cents),
-        can_afford_qty=e.affordable_qty if e.side == "buy" else None,
+        can_afford_qty=e.affordable_qty if e.side != "sell" else None,
         sellable_qty=e.sellable_qty if e.side == "sell" else None,
-        ok=ok,
+        position_qty=e.position_qty,
+        ok=e.ok,
         warnings=e.warnings,
         makers=[MakerQuoteOut(maker_id=m.maker_id, bid=m.bid, ask=m.ask, shares=m.shares) for m in e.makers],
     )
@@ -529,14 +546,17 @@ def order_receipt(order_id: str, user: User = Depends(current_user),
 @router.get("/portfolio")
 async def portfolio(user: User = Depends(current_user), db: Database = Depends(get_db)) -> PortfolioOut:
     """Your cash, holdings marked at the last trade price, and profit/loss."""
-    view = build_portfolio(db, get_market(), user.user_id)
+    market = get_market()
+    view = build_portfolio(db, market, user.user_id)
     equity = view.equity_cents
     reserved = reserved_cash(db, user.user_id)
+    collateral = short_collateral(db, market, user.user_id)
     return PortfolioOut(
         user_id=view.user_id,
         cash=to_hoop(view.cash_cents),
         reserved_cash=to_hoop(reserved),
-        available_cash=to_hoop(view.cash_cents - reserved),
+        short_collateral=to_hoop(collateral),
+        available_cash=to_hoop(max(view.cash_cents - reserved - collateral, 0)),
         positions_value=to_hoop(view.positions_value_cents),
         equity=to_hoop(equity),
         starting_cash=to_hoop(view.starting_cash_cents),
@@ -548,7 +568,7 @@ async def portfolio(user: User = Depends(current_user), db: Database = Depends(g
         payouts_received=to_hoop(view.payouts_cents),
         positions=[
             PositionOut(
-                symbol=p.symbol, name=p.name, team=p.team, qty=p.qty,
+                symbol=p.symbol, name=p.name, team=p.team, side="short" if p.is_short else "long", qty=p.qty,
                 avg_cost=round(p.avg_cost_cents / 100, 4),
                 last_price=to_hoop(p.last_price_cents),
                 market_value=to_hoop(p.market_value_cents),

@@ -13,6 +13,8 @@
 - **Slippage:** how much worse the average fill is than the best price, because
   a big order works through several makers' quotes.
 - **Fee:** 0.10% of what's traded.
+- **Short / cover (P2-14):** a short is priced like a sell (at the bid), a
+  cover like a buy (at the ask).
 """
 
 from __future__ import annotations
@@ -22,7 +24,17 @@ from dataclasses import dataclass, field
 from .db import Database
 from .market_contract import MakerQuote, MarketEngine, Side
 from .money import to_cents
-from .orders import FEE_RATE, OrderError, _balance, fee_cents, reserved_cash, reserved_shares
+from .orders import (
+    FEE_RATE,
+    OrderError,
+    OrderSide,
+    _balance,
+    engine_side,
+    fee_cents,
+    free_cash,
+    reserved_cash,
+    reserved_shares,
+)
 
 SLIPPAGE_WARNING_PCT = 1.0
 WIDE_SPREAD_PCT = 2.0
@@ -31,20 +43,37 @@ WIDE_SPREAD_PCT = 2.0
 @dataclass
 class Estimate:
     symbol: str
-    side: Side
+    side: OrderSide
     qty: int
     method: str                       # "engine preview" or "maker quotes (approximate)"
     best_bid_cents: int | None
     best_ask_cents: int | None
-    best_price_cents: int | None      # the ask when buying, the bid when selling
+    best_price_cents: int | None      # the ask to buy/cover, the bid to sell/short
     fillable_qty: int
     notional_cents: int
     fee_cents: int
-    available_cash_cents: int
+    available_cash_cents: int         # what this side can use: free cash, or (cover) cash not reserved
     sellable_qty: int                 # shares held minus those reserved for open orders
-    affordable_qty: int               # buys: how many of the fillable shares the cash covers
+    affordable_qty: int               # buy/short/cover: how many of the fillable shares the cash covers
     makers: tuple[MakerQuote, ...]
+    position_qty: int = 0             # held now, negative = short
     warnings: list[str] = field(default_factory=list)
+
+    @property
+    def allowed_qty(self) -> int:
+        """The most this account may trade on this side right now (ignoring liquidity)."""
+        if self.side == "sell":
+            return self.sellable_qty
+        if (self.side == "buy" and self.position_qty < 0) or (self.side == "short" and self.position_qty > 0):
+            return 0
+        if self.side == "cover":
+            return min(self.affordable_qty, max(-self.position_qty, 0))
+        return self.affordable_qty
+
+    @property
+    def ok(self) -> bool:
+        """True if the whole order would go through as asked."""
+        return self.fillable_qty == self.qty and self.allowed_qty >= self.qty
 
     @property
     def spread_cents(self) -> int | None:
@@ -68,41 +97,45 @@ class Estimate:
         if not self.fillable_qty or self.best_price_cents is None:
             return 0.0
         diff = self.avg_price_cents - self.best_price_cents
-        return diff if self.side == "buy" else -diff
+        return diff if engine_side(self.side) == "buy" else -diff
 
     @property
     def total_cents(self) -> int:
-        """Buys: what you'd pay, fee included. Sells: what you'd receive after the fee."""
-        return self.notional_cents + self.fee_cents if self.side == "buy" else self.notional_cents - self.fee_cents
+        """Buy/cover: what you'd pay, fee included. Sell/short: what you'd receive after the fee."""
+        if engine_side(self.side) == "buy":
+            return self.notional_cents + self.fee_cents
+        return self.notional_cents - self.fee_cents
 
 
-def estimate_order(db: Database, market: MarketEngine, user_id: str, symbol: str, side: Side,
+def estimate_order(db: Database, market: MarketEngine, user_id: str, symbol: str, side: OrderSide,
                    qty: int) -> Estimate:
     if symbol not in {p.symbol for p in market.players()}:
         raise OrderError(404, f"unknown symbol {symbol!r}")
+    to_engine = engine_side(side)
     quote = market.quote(symbol)
     bid = to_cents(quote.bid) if quote.bid is not None else None
     ask = to_cents(quote.ask) if quote.ask is not None else None
-    best = ask if side == "buy" else bid
+    best = ask if to_engine == "buy" else bid
 
     preview = getattr(market, "preview_order", None)
     if preview is not None:
-        result = preview(symbol=symbol, side=side, qty=qty)
+        result = preview(symbol=symbol, side=to_engine, qty=qty)
         fills = [(f.qty, to_cents(f.price)) for f in result.fills]
         method = "engine preview"
     else:
-        fills = _walk_quotes(quote.makers, side, qty)
+        fills = _walk_quotes(quote.makers, to_engine, qty)
         method = "maker quotes (approximate)"
 
     cash, held, _ = _balance(db, user_id, symbol)
-    available = cash - reserved_cash(db, user_id)
+    # Covering only needs cash to pay; buying and shorting use free cash (after short collateral).
+    available = cash - reserved_cash(db, user_id) if side == "cover" else free_cash(db, market, user_id)
     sellable = held - reserved_shares(db, user_id, symbol)
     fillable = sum(q for q, _ in fills)
     notional = sum(q * p for q, p in fills)
     fee = sum(fee_cents(q * p) for q, p in fills)
 
     affordable, spent = 0, 0
-    for fill_qty, price in fills:  # how far the cash goes through the same fills
+    for fill_qty, price in fills:  # how far the cash goes through the same fills (a short uses it up the same way)
         per_share = price * (1 + float(FEE_RATE)) + 1
         take = min(fill_qty, int((available - spent) // per_share))
         affordable += take
@@ -111,7 +144,7 @@ def estimate_order(db: Database, market: MarketEngine, user_id: str, symbol: str
             break
 
     estimate = Estimate(symbol, side, qty, method, bid, ask, best, fillable, notional, fee, available,
-                        max(sellable, 0), affordable, quote.makers)
+                        max(sellable, 0), affordable, quote.makers, position_qty=held)
     estimate.warnings = _warnings(estimate, held)
     return estimate
 
@@ -144,10 +177,23 @@ def _warnings(e: Estimate, held: int) -> list[str]:
                          "A limit order caps the price you pay")
     if e.mid_cents and e.spread_cents is not None and 100 * e.spread_cents / e.mid_cents >= WIDE_SPREAD_PCT:
         notes.append("the spread is wide right now, so buying and selling straight back costs more than usual")
-    if e.side == "buy" and e.affordable_qty < e.fillable_qty:
+    if e.side == "buy" and held < 0:
+        notes.append(f"you're short {-held} {e.symbol}: use cover to buy them back")
+    elif e.side == "short" and held > 0:
+        notes.append(f"you hold {held} {e.symbol}: sell them before shorting")
+    elif e.side == "cover" and e.qty > -min(held, 0):
+        notes.append(f"you're short {-min(held, 0)} {e.symbol}, so you can cover at most that")
+    elif e.side in ("buy", "cover") and e.affordable_qty < e.fillable_qty:
         notes.append(f"not enough cash for all of it: you can afford about {e.affordable_qty}")
-    if e.side == "sell" and e.qty > e.sellable_qty:
+    elif e.side == "short" and e.affordable_qty < e.fillable_qty:
+        notes.append(f"not enough free cash to back all of it: you can short about {e.affordable_qty}"
+                     " (a short holds back 200% of its value)")
+    if e.side == "sell" and held < 0:
+        notes.append(f"you're short {-held} {e.symbol}: use cover to buy them back")
+    elif e.side == "sell" and e.qty > e.sellable_qty:
         reserved = held - e.sellable_qty
         note = f", {reserved} reserved for open orders" if reserved else ""
         notes.append(f"you can sell {e.sellable_qty} (you hold {held}{note})")
+    if e.side == "short":
+        notes.append("if the price rises, your loss keeps growing: there's no limit to how high it can go")
     return notes
