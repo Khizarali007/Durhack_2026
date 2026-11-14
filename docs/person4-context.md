@@ -132,9 +132,34 @@ uvicorn learning.dev_app:app --app-dir backend --port 8001 --reload
 - `/learning/mock/*` debug routes are mounted only by `dev_app.py` and are
   marked **remove at merge**.
 
+- **Frontend components** (`frontend/src/learning/`):
+  - Plain React: `.jsx` + one `learning.css` with `hs-learn-` classes.
+    Dark by default, `data-theme="light"` and `data-projector="true"` hooks,
+    all sizes in em.
+  - `useMission` is server-driven: every WebSocket mission message triggers a
+    status refetch, and the feed is `status.messages` (the latest 10). The
+    countdown is interpolated locally from `seconds_left`. It falls back to
+    polling every 2 s while running if the socket is down.
+  - `useLearningSocket` shares one socket per URL, uses exponential-backoff
+    reconnect (0.5-5 s), and closes 250 ms after the last user (StrictMode-safe).
+  - Headline styles by event kind: hot_streak = "Heat advisory" (striped
+    hazard banner), early_warning = "Weather watch", injury = "Storm warning",
+    rest_day = "Calm spell", trade_rumour = "Fog advisory".
+  - "Need a hint?" reveals the mission's `hint` from `missions.json`.
+    Scheduled hints appear by themselves under "Coach's tips".
+  - Passed missions are tracked client-side (`passedIds`) for the session only.
+- **Sandbox** (`learning-sandbox/`, throwaway): Vite 8 + React 19, port 5174.
+  Imports the components via the `@learning` alias, with
+  `resolve.dedupe: ['react','react-dom']` and `server.fs.allow: ['..']`.
+- **Tooling:** Node is installed via Homebrew (`brew install node`; v26 at the
+  time).
+- **Verified end to end** in headless Chrome (with puppeteer-core from a
+  scratch dir, not committed): buy low/sell high gives a "Mission passed!"
+  debrief, never buying gives the `never_bought` debrief, and Retry and Stop
+  work. There's no horizontal overflow at 375 px.
+
 ## Next steps
 
-- Sandbox frontend on :5174 (mission panel, ticker, debrief).
 - Report card; Composition panel and grade.
 - Coach Hoops (Gemini); missions 2-6 scenarios, evaluators and copy.
 - Reconcile with teammates at the end: see the open items in
