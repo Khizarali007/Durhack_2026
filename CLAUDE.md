@@ -62,11 +62,60 @@ This file covers the **frontend only**. I own it on the `frontend` branch. Perso
 - `npm run build`: production bundle (must succeed before every merge)
 
 ## Visual design direction
-Look and feel: modelled on a modern retail broker app (clean, spacious, beginner-friendly), with reference screenshots in docs/design-refs/. Copy the layout patterns and feel, NOT any brand assets. Our brand is HoopStreet: own name, own colours, own wordmark, never another company's logo or name.
-- Desktop: three columns. Left = market list/watchlist, centre = chart + player card, right = order ticket. Below the chart, tabs for Positions / Open orders / History. Selecting a player updates chart, card and ticket together.
-- Mobile: bottom nav (Home / Market / Portfolio / Learn). Single-stock page = chart + stats, with sticky Buy and Sell buttons that open a bottom-sheet ticket.
-- Progressive disclosure: the ticket defaults to a simple market order. Limit, stop-loss, short and leverage sit behind tabs, never all visible at once.
-- Always visible: current price, cash, and cash tied up in pending orders.
-- Dark theme by default, with a light theme toggle. Green = up, red = down.
-- Use CSS variables for every colour, spacing and radius value (design tokens), so the whole look can be re-themed in one file.
-- Generous whitespace, one accent colour, rounded cards, large readable numbers, tabular numerals for prices.
+
+Target: a modern retail broker terminal (clean, spacious, beginner-friendly), in the spirit of Trading 212's web platform. Copy the layout patterns and the feel, never brand assets. Our brand is HoopStreet: our own name, colours and wordmark. Never another company's logo, name or colours.
+
+**This app is built for a laptop screen only.** Optimise for 1280-1920px wide. Do not build mobile layouts, bottom navigation, bottom sheets or touch-first patterns. A narrow window may look cramped, and that is acceptable. Still include a projector mode (larger fonts, higher contrast) for the demo.
+
+### Layout
+
+Three columns on every trading screen, full viewport height, no page scrolling of the whole app. Each panel scrolls internally.
+
+- **Header**, 56px tall, fixed: HoopStreet wordmark left; market clock centre ("Day 2 · 14:32"); cash, equity and today's P&L right; user menu far right.
+- **Left column**, 280-320px fixed: the market list / watchlist. Scrolls internally.
+- **Centre column**, flexible, takes the remaining width: player card on top (about 120px), chart filling the rest, with a tab strip beneath it for Positions / Open orders / History.
+- **Right column**, 320-360px fixed: the order ticket, pinned, always visible, never a modal.
+- Selecting a player in the left column updates the centre and right columns together. No page navigation.
+- Portfolio, Leaderboard and Learn are full-width pages without the three-column split.
+
+### Market list rows
+
+One row, 44-48px tall: a 32px rounded square with the player's initials in their team colour, then name (medium weight) with team beneath in small muted text, then price right-aligned, then % change right-aligned in a small coloured pill. Hover gives a subtle background change. The selected row gets a left accent border plus a raised background.
+
+### Order ticket
+
+- Buy / Sell as a two-button segmented control at the top, filling the width. Buy is green, sell is red, only the active one is filled.
+- Order type as a quiet tab row underneath: Market / Limit / Stop-loss (and later Short / Cover).
+- Quantity input, large, with a stepper. Below it, estimated cost in large type.
+- A bordered box showing best bid and best ask side by side, with the three market-maker quotes beneath in small muted rows.
+- A cost breakdown (spread, slippage, fee), collapsed by default, each line with a "?" tooltip.
+- One large confirm button at the bottom, full width, 44px tall.
+
+### Colours and tokens
+
+Define everything as CSS variables in one file so the whole look can be re-themed in one place.
+
+- Dark theme by default, light theme toggle.
+- Dark: page background near-black but not pure black (around #0D1117), panels one step lighter (around #161B22), borders subtle (around #30363D).
+- Up is green, down is red, and both need a muted "pill" variant for backgrounds as well as a solid text variant.
+- One accent colour for primary actions and the active state. Pick something that is not green or red, so it never reads as a price move.
+- Muted text for labels, bright text for numbers.
+
+### Typography
+
+- One sans-serif family throughout (Inter or the system stack).
+- **All prices, percentages and quantities use tabular numerals** (`font-variant-numeric: tabular-nums`), so digits don't jitter as prices tick.
+- Prices are the largest text on any panel. Labels are small, muted and uppercase with slight letter-spacing.
+
+### Motion
+
+- Price changes flash the background green or red for about 200ms, then fade. Never animate layout, because things that move while you read them are hostile in a trading UI.
+- No loading spinners on live data. Show the last value and a subtle stale indicator instead.
+
+### Rules that don't bend
+
+- No NBA logos or headshots anywhere. Player identity is initials plus team colours only.
+- Always visible on screen: current price, cash, and cash tied up in pending orders.
+- Progressive disclosure: the ticket defaults to a simple market order. Limit, stop-loss, short and leverage live behind tabs, never all on screen at once.
+- Every jargon term gets a "?" tooltip.
+- Silly copy is welcome in headlines, tickers and debriefs. UI labels and numbers stay plain and clear.
