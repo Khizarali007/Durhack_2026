@@ -96,16 +96,46 @@ uvicorn learning.dev_app:app --app-dir backend --port 8001 --reload
   copy is scanned against a whole-word block-list. "tear" and "charged" are
   deliberately *not* blocked ("on a tear", "charged up"); "torn" and
   "ligament" are. "Thunder" and "tornado" are fine.
-- **M1 grading rules** (to implement next): see `_notes.outcome_rules` in
-  `content/missions.json`. `passed_great` needs a ≥ 8% return on the sold
-  shares. On the mock, M1 peaks at about +17% around t=25-30 and ends about
-  3% below the peak.
-- `/learning/mock/*` debug routes are mounted only by `dev_app.py`.
+- **M1 grading** (`learning/evaluators.py`, `evaluate_m1`):
+  - The outcome order is in `_notes.outcome_rules` in `content/missions.json`.
+  - Pass = realised P&L after fees > 0 on the goal symbol. Average cost is
+    used: buy fees go into the cost basis, sell fees come off the proceeds.
+  - Score (0-100) = (avg sell fill - avg buy fill) / (highest price at or
+    after the hot streak fired - lowest price at or before it), clamped.
+  - `passed_great` means score ≥ `grading.great_min_score` (60). This
+    replaced the earlier "≥ 8% return" rule.
+  - On the mock, M1 peaks at about +17% around t=25-30 and ends about 3%
+    below the peak. Buying at t≈5 and selling at t≈27 scores about 90.
+- **Evaluator registry:** `EVALUATORS[mission_number]`. A mission is
+  `available` only if its status is `ready`, its scenario file exists and it
+  has an evaluator.
+- **Mission runner** (`learning/missions.py`, `MissionManager`):
+  - It is tick-driven. `tick()` reads an injectable `Clock`, fires due steps,
+    records the price path and ends the mission at `duration_s`.
+  - In the app, a background task ticks every 0.1 s and starts lazily on the
+    first mission start. Tests use `ManualClock` plus manual `market.step()`
+    with `autorun=False`.
+  - Market steps are injected with `t = market_time()` at fire time (no
+    future scheduling), so a stop cancels the remaining steps.
+  - One active mission per user. A finished or stopped mission can be
+    restarted. A stopped mission is still evaluated (state `stopped`).
+  - The price path re-reads `recent_ticks(sym, 240)` each tick, keyed by `t`.
+- **`TradesAdapter.apply_start_state`** was added (the only write the learning
+  layer makes). Mission start resets cash and positions to the scenario's
+  `start_state`.
+- **WebSocket `/learning/ws`:** sends a snapshot on connect, mission messages
+  through per-user `asyncio.Queue` fan-out, and ticks at 2 Hz for the mission
+  symbols (or `?symbols=`).
+- **CORS** in `dev_app.py` allows `http://localhost:5174` (my sandbox frontend).
+- **Known open issue:** the market is shared, so one user's mission events move
+  prices for everyone. That's fine for the demo; to decide at merge.
+- `/learning/mock/*` debug routes are mounted only by `dev_app.py` and are
+  marked **remove at merge**.
 
 ## Next steps
 
-- Mission runner: start a mission, fire timeline steps on the MarketAdapter,
-  and stream hints/messages to the UI.
-- M1 grader + debrief selection; report card.
-- Composition panel/grade, Coach Hoops (Gemini), missions 2-6 content.
-- Frontend pieces once Person 3's app exists.
+- Sandbox frontend on :5174 (mission panel, ticker, debrief).
+- Report card; Composition panel and grade.
+- Coach Hoops (Gemini); missions 2-6 scenarios, evaluators and copy.
+- Reconcile with teammates at the end: see the open items in
+  `docs/person4-interfaces.md`.
