@@ -1,0 +1,58 @@
+@import './styles/tokens.css';
+
+/* ---- Reset ---- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ---- Base ---- */
+body {
+  margin: 0;
+  font-family: var(--hs-font-family);
+  font-size: var(--hs-font-size-md);
+  line-height: var(--hs-line-height-normal);
+  color: var(--hs-color-text-secondary);
+  background: var(--hs-color-bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ---- Utility: tabular numerals ---- */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ---- Utility: label style ---- */
+.label {
+  font-size: var(--hs-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  color: var(--hs-color-text-secondary);
+  font-weight: var(--hs-font-weight-medium);
+}
+
+/* ---- Price flash animations ---- */
+@keyframes hs-flash-up {
+  0%   { background-color: var(--hs-color-up-muted); }
+  100% { background-color: transparent; }
+}
+
+@keyframes hs-flash-down {
+  0%   { background-color: var(--hs-color-down-muted); }
+  100% { background-color: transparent; }
+}
+
+.flash-up {
+  animation: hs-flash-up var(--hs-duration-flash) var(--hs-ease-default) forwards;
+}
+
+.flash-down {
+  animation: hs-flash-down var(--hs-duration-flash) var(--hs-ease-default) forwards;
+}
