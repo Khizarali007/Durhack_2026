@@ -37,7 +37,7 @@ def pos(symbol, qty, avg_cost):
 
 def assert_pnl_adds_up(db, market, user_id):
     v = build_portfolio(db, market, user_id)
-    assert v.total_pnl_cents == v.realised_cents + v.unrealised_cents - v.fees_cents
+    assert v.total_pnl_cents == v.realised_cents + v.unrealised_cents - v.fees_cents + v.payouts_cents
 
 
 # --- Reading ---------------------------------------------------------------------------

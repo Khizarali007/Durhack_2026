@@ -24,6 +24,7 @@ from trading.db import Database
 from trading.live import LiveHub, receipt_notifier
 from trading.market_provider import get_market
 from trading.open_orders import OrderWatcher
+from trading.payouts import PayoutProcessor
 
 
 @asynccontextmanager
@@ -55,6 +56,11 @@ async def lifespan(app: FastAPI):
                            notify_user=app.state.live.publish_user)
     await watcher.start()
 
+    # Performance payouts to holders (P2-22), announced live.
+    payouts = PayoutProcessor(app.state.trading_db, market, notify_user=app.state.live.publish_user,
+                              notify_public=app.state.live.publish_public)
+    await payouts.start()
+
     # Person 4's TradesAdapter (P2-21). At merge, Person 4 plugs in here (see
     # docs/person4-interfaces.md on their branch):
     #   configure_learning(market_adapter, app.state.trades_adapter)
@@ -63,6 +69,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         # Person 4: await shutdown_learning()
+        await payouts.stop()
         await watcher.stop()
         await bundles.stop()
         if app.state.receipts:

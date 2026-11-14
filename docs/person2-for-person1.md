@@ -22,7 +22,7 @@ From: Person 2 (accounts, trading, Solana). Branch: `person2branch`.
 | Wallets | One server-held devnet wallet per player, plus a funded fee-payer wallet. `GET /chain/status` | ✅ |
 | Live updates | WebSocket with each player's fills, order fires and receipt status | ⬜ P2-13 |
 | Person 4 adapter | `trades_for_user`, `portfolio`, `apply_start_state` for missions | ⬜ P2-21 |
-| Performance payouts | Credit holders when a player performs (your target design) | ⬜ P2-22, **needs your input** |
+| Performance payouts | Pays human holders on each `PerformancePayout`, records it, adds it to profit, pushes it live. Built on guessed rates (question 6) | ✅ P2-22 |
 | Short selling, 3x leverage, margin calls | | ⬜ P2-14, P2-15 |
 | Equity history, leaderboard, on-chain portfolios | | ⬜ P2-16 to P2-18 |
 
@@ -117,11 +117,12 @@ Use `put_nowait` and drop the event if a queue is full, so one slow listener nev
 3. **Shorting:** OK to accept sells from humans with no holdings?
 4. **Maker stock:** 3 × 150 = 450 shares per player. **One judge buying 500 shares empties a player's asks** (I tested it: buying 600 FOX filled 450 at +8.6% slippage, then nothing). Is that intended, or should makers restock?
 5. **Your bots' starting shares:** your bots start with 1 share each, so they can barely sell back to the makers after a big human buy. My fake gives bots unlimited stock to keep prices moving. What do you want in the real thing?
-6. **Payouts:**
-   - When do they happen: each revealed box score, each final whistle, or daily?
-   - How much: HOOP per Game Score point per share? Do bad games pay zero, or cost money?
-   - Do short sellers pay the payout?
-   - Does fair value drop by the payout afterwards, like real dividends?
+6. **Payouts:** I've built my side (paying human holders, recording, portfolio, live messages) on these **guesses**. Please confirm or correct them:
+   - **When:** at each game day's final whistle, with one `PerformancePayout` per player who played.
+   - **How much:** 0.02 HOOP per Game Score point per share, so a 30-point game pays 0.60 per share (about 0.4% of a 150 price). **Bad games pay 0** rather than costing money.
+   - **Short sellers pay the payout**, like dividends on a real stock.
+   - Still open: does fair value drop by the payout afterwards, like real dividends? My fake doesn't do this.
+   - Your engine pays its own bots and makers. I only pay humans.
 7. **Live clock:** when will the 12-market-minute sessions and final whistle exist? Can the replay start on a chosen day (the demo starts the day before the Wembanyama news)?
 8. **Resets:** when the market restarts or jumps to a day, should players' portfolios reset too? I'd add an admin reset on my side if so.
 9. **Person 4:** they also need a `MarketAdapter` from you (`get_tick`, `recent_ticks`, `inject_event`, `set_fair_value_shift`, `recent_events`). See `docs/person4-interfaces.md` on `person4-learning`. Their tick shape `{t, symbol, price, fair_value, best_bid, best_ask}` is a subset of my `Quote`, so one engine can serve both of us.

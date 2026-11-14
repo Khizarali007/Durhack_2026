@@ -120,7 +120,8 @@ class BotTradeSummary:
 class PerformancePayout:
     """GUESS (Person 1's target design, not built yet): holders earn HOOP when a
     player performs. Person 2 credits every human holder ``qty x hoop_per_share``
-    and debits shorts the same. Not sent by the fake market yet (ticket P2-22)."""
+    and debits shorts the same (P2-22). The fake market sends one per player who
+    played at each final whistle."""
 
     t: float
     symbol: str

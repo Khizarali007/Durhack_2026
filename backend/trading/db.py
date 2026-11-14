@@ -102,6 +102,22 @@ CREATE TABLE IF NOT EXISTS open_orders (
 );
 CREATE INDEX IF NOT EXISTS open_orders_by_status ON open_orders (status, symbol);
 
+-- P2-22: performance payouts. One row per holder per payout, so a player can see
+-- exactly why their cash changed. Negative amounts are short sellers paying.
+CREATE TABLE IF NOT EXISTS payouts (
+    payout_id        TEXT PRIMARY KEY,
+    user_id          TEXT NOT NULL REFERENCES users (user_id),
+    symbol           TEXT NOT NULL,
+    qty_held         INTEGER NOT NULL,            -- negative = short
+    hoop_per_share   REAL NOT NULL,
+    amount_cents     INTEGER NOT NULL,            -- qty_held x hoop_per_share, in cents
+    game_score       REAL,
+    reason           TEXT NOT NULL,               -- e.g. "Shai Gilgeous-Alexander: 31.4 Game Score"
+    t                REAL NOT NULL,               -- market time
+    created_at       REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS payouts_by_user ON payouts (user_id);
+
 -- P2-21: a player's real account, saved when a mission first resets it, so it
 -- can be restored afterwards. One snapshot per user; restoring deletes it.
 CREATE TABLE IF NOT EXISTS account_snapshots (
@@ -144,7 +160,7 @@ CREATE TABLE IF NOT EXISTS bot_trades (
 );
 """
 
-TABLES = ("users", "sessions", "wallets", "positions", "trades", "open_orders", "account_snapshots",
+TABLES = ("users", "sessions", "wallets", "positions", "trades", "open_orders", "payouts", "account_snapshots",
           "bot_bundles", "bot_trades")
 
 # Columns added after a table first shipped. CREATE TABLE IF NOT EXISTS won't add
@@ -159,6 +175,10 @@ MIGRATIONS = (
     ("users", "start_positions_json", "TEXT"),
     ("users", "carried_realised_cents", "INTEGER NOT NULL DEFAULT 0"),
     ("users", "carried_fees_cents", "INTEGER NOT NULL DEFAULT 0"),
+    # P2-22: payouts count towards profit from the latest start too.
+    ("users", "start_payout_rowid", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "carried_payouts_cents", "INTEGER NOT NULL DEFAULT 0"),
+    ("account_snapshots", "payouts_cents", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 

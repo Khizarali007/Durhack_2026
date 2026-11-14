@@ -38,7 +38,7 @@ def test_new_player_has_only_cash(client, player):
         "user_id": user_id, "cash": 100_000.0, "reserved_cash": 0.0, "available_cash": 100_000.0,
         "positions_value": 0.0, "equity": 100_000.0,
         "starting_cash": 100_000.0, "total_pnl": 0.0, "total_pnl_pct": 0.0, "unrealised_pnl": 0.0,
-        "realised_pnl": 0.0, "fees_paid": 0.0, "positions": [],
+        "realised_pnl": 0.0, "fees_paid": 0.0, "payouts_received": 0.0, "positions": [],
     }
 
 
@@ -115,7 +115,8 @@ def test_pnl_identity_holds_after_random_trading(client, db, player):
             held[symbol] += order(client, headers, symbol, "buy", rng.randint(1, 25))["filled_qty"]
 
         view = build_portfolio(db, get_market(), user_id)  # cents, no rounding at all
-        assert view.total_pnl_cents == view.realised_cents + view.unrealised_cents - view.fees_cents
+        assert view.total_pnl_cents == (view.realised_cents + view.unrealised_cents - view.fees_cents
+                                        + view.payouts_cents)
         assert {p.symbol: p.qty for p in view.positions} == {s: q for s, q in held.items() if q}
 
 

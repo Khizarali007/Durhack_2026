@@ -41,6 +41,7 @@ from .market_contract import (
     MarketEvent,
     MarketTick,
     OrderResult,
+    PerformancePayout,
     Player,
     Quote,
     Side,
@@ -77,6 +78,13 @@ MAKER_OFFSETS = (-0.007, 0.0, 0.007)
 MAKER_SPREADS = (0.020, 0.025, 0.030)
 INVENTORY_SKEW = 0.15
 MIN_PRICE_CENTS = 1_000
+
+# Performance payouts (P2-22), a GUESS at Person 1's target design: at each game
+# day's final whistle (12 market minutes = 1 real minute, as in the plan), players
+# who "played" pay holders 0.02 HOOP per Game Score point per share. Bad games pay nothing.
+SESSION_MARKET_MINUTES = 12
+PAYOUT_HOOP_PER_GAME_SCORE = 0.02
+PLAY_PROBABILITY = 0.6
 
 FILL_CHUNK = 10              # shares per fill before makers re-quote (gives smooth slippage)
 FAIR_VALUE_VOL = 0.002       # random drift of fair value per tick (stand-in for real news)
@@ -238,6 +246,8 @@ class FakeMarket:
         self._run_bots()
 
         events: list[MarketEvent] = [MarketTick(self._t, {s: self.quote(s) for s in self._markets})]
+        if self._tick % (TICKS_PER_MARKET_MINUTE * SESSION_MARKET_MINUTES) == 0:
+            events.extend(self._payouts())
         if self._tick % TICKS_PER_MARKET_MINUTE == 0:
             trades = tuple(self._bot_trades)
             self._bot_trades.clear()
@@ -248,7 +258,34 @@ class FakeMarket:
             self._publish(event)
         return events
 
+    def final_whistle(self, game_scores: dict[str, float] | None = None) -> list[PerformancePayout]:
+        """End a game day now: publish a payout for each player who played.
+
+        ``game_scores`` picks exactly who played and how well (tests use this).
+        Otherwise about 60% of players play, scoring around fair value / 5.
+        """
+        events = self._payouts(game_scores)
+        for event in events:
+            self._publish(event)
+        return events
+
     # --- Internals ------------------------------------------------------------------
+
+    def _payouts(self, game_scores: dict[str, float] | None = None) -> list[PerformancePayout]:
+        if game_scores is None:
+            game_scores = {
+                symbol: round(self._rng.gauss(market.fair_cents / 500, 6), 1)
+                for symbol, market in self._markets.items() if self._rng.random() < PLAY_PROBABILITY
+            }
+        events = []
+        for symbol, score in game_scores.items():
+            if symbol not in self._markets:
+                continue
+            player = self._players[symbol]
+            hoop = round(max(score, 0.0) * PAYOUT_HOOP_PER_GAME_SCORE, 4)
+            events.append(PerformancePayout(self._t, symbol, hoop, score,
+                                            f"{player.name}: {score:g} Game Score"))
+        return events
 
     def _execute(self, order_id: str, symbol: str, side: Side, qty: int) -> list[Fill]:
         """Fill against the best maker in chunks, re-quoting after each chunk."""

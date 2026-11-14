@@ -369,19 +369,27 @@ These come from Person 1's prototype and Person 4's interfaces.
 - **Checked on a live server:** the local database gained the new columns and table on startup, and restore with no mission gave the expected 404.
 - **Note for Person 4:** see `docs/person2-for-person4.md`.
 
-## ⬜ P2-22 · Performance payouts to holders (new)
-- **Gate:** G2 if Person 1 has defined payouts by then, otherwise G3. Person 1 calls them part of the core loop ("player performances pay holders").
-- **Depends on:** P2-05, P2-06, and Person 1 answering question 9 in the guesses doc
+## ✅ P2-22 · Performance payouts to holders
+- **Gate:** G2 (done to finish Gate 2, built on guesses while Person 1's answers are pending)
 - **Why:** a share is worth something because holding it earns HOOP from that player's future performances. Players can hold for payouts or sell when the price is good.
-- **What:**
-  - Listen for a payout event from the engine. The guessed shape is `PerformancePayout(t, symbol, hoop_per_share, game_score, reason)` in `market_contract.py`, sent when a player's real box score is revealed.
-  - Credit every holder `qty × hoop_per_share` (in cents) in one database transaction.
-  - Add a `payouts` table to `db.py`: `user_id, symbol, qty_held, cents_per_share, amount_cents, t, reason`. Players can then see exactly why their balance changed.
-  - Show payouts in the portfolio (total and recent) and as a message over the WebSocket (P2-13).
-  - Add `payouts_for_user` for Person 4 if the report card wants it.
-  - **Shorts:** someone short a player **pays** the payout, like dividends on a real stock. Debit `abs(qty) × hoop_per_share`. Do this with P2-14.
-  - Add payout events to the fake market, e.g. at each simulated final whistle, so you can build before Person 1's version exists.
-- **Done when:** holding a player through a big game increases cash by the right amount, a short position pays it, and each payout appears in the portfolio and payout history.
+- **What was built** (`trading/payouts.py`):
+  - **`PayoutProcessor`** listens for the engine's `PerformancePayout(t, symbol, hoop_per_share, game_score, reason)`.
+    - It pays **every human holder `qty × hoop_per_share`**, rounded half up to the cent per holder, all in one database transaction.
+    - Each payment is a `payouts` row: `payout_id, user_id, symbol, qty_held, hoop_per_share, amount_cents, game_score, reason, t`.
+    - Short sellers (negative qty) are charged the same amount. The maths is in place, and it switches on with P2-14.
+  - **Fake market (guessed design):** at each **final whistle** (every 12 market minutes = 1 real minute):
+    - About 60% of players "play", scoring around fair value / 5.
+    - Each pays **0.02 HOOP per Game Score point per share**. A 30-point game pays 0.60 per share, about 0.4% of a 150 price. Bad games pay 0.
+    - `market.final_whistle({"SGA": 31.5})` triggers one exactly, for tests or a demo.
+  - **Portfolio:** new `payouts_received`. The exact identity is now **`total_pnl = realised + unrealised − fees + payouts`**. Payouts follow the same "since the latest start" rules as profit, so mission resets start at 0 and restores bring the real account's payouts back (migration columns added).
+  - **`GET /trading/payouts`** (`?symbol=`, `?limit=`) lists your payouts, newest first.
+  - **Live updates:**
+    - Private `payout` to each holder: `{symbol, qty_held, hoop_per_share, amount, cash, game_score, reason}`.
+    - Public `payout_announced` to everyone, for a ticker: `{symbol, hoop_per_share, game_score, reason}`.
+- **Fixed along the way:** the WebSocket endpoint left an uncollected "client left" error when a client disconnected mid-send, which printed a traceback in the log. Now it's collected, and a send to a just-closed socket counts as a normal disconnect. Checked with 15 rapid connect/trade/disconnect cycles: clean log, server fine.
+- **Waiting on Person 1** (question 6 in `docs/person2-for-person1.md`): the real timing, rate, whether bad games cost money, and whether fair value drops after a payout. Only the fake market's constants would change, plus the event if their shape differs.
+- **Tests:** 11 in `test_payouts.py`, covering the fake market's payouts and timing, paying the right holders the right amounts, rounding, recording, the profit identity, survival through mission reset and restore, notifications, and the API plus WebSocket end to end. 220 pass in total, 3 runs in a row.
+- **Checked on a live server:** holding SGA 20, JOKIC 10, WEMBY 30 and CURRY 15, the first final whistle (59.5 s) paid SGA +10.64 (26.6 GS) and CURRY +7.26 (24.2 GS). JOKIC and WEMBY didn't play. There were 8 public announcements, and the portfolio identity held exactly (−22.25 = 0 − 30.75 − 9.40 + 17.90).
 
 ---
 

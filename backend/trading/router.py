@@ -205,11 +205,12 @@ class PortfolioOut(BaseModel):
     positions_value: float
     equity: float = Field(description="cash + positions_value")
     starting_cash: float
-    total_pnl: float = Field(description="equity - starting_cash (= realised + unrealised - fees)")
+    total_pnl: float = Field(description="equity - starting_cash (= realised + unrealised - fees + payouts)")
     total_pnl_pct: float
     unrealised_pnl: float
     realised_pnl: float
     fees_paid: float
+    payouts_received: float = Field(description="HOOP earned from player performances while holding their shares")
     positions: list[PositionOut] = Field(description="Largest holding first")
 
 
@@ -495,13 +496,17 @@ async def live_updates(websocket: WebSocket, token: str | None = None) -> None:
                 if text.strip().lower() in ("ping", '{"type":"ping"}', '{"type": "ping"}'):
                     await websocket.send_json({"type": "pong"})
                 receiver = asyncio.create_task(websocket.receive_text())
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):  # RuntimeError: sending to a socket that just closed
         pass
     finally:
         hub.unsubscribe(user_id, queue)
         for task in (receiver, getter):
-            if task and not task.done():
+            if task is None:
+                continue
+            if not task.done():
                 task.cancel()
+            elif not task.cancelled():
+                task.exception()  # collect "client left" so asyncio doesn't warn it was never retrieved
 
 
 @router.get("/orders/{order_id}/receipt")
@@ -540,6 +545,7 @@ async def portfolio(user: User = Depends(current_user), db: Database = Depends(g
         unrealised_pnl=to_hoop(view.unrealised_cents),
         realised_pnl=to_hoop(view.realised_cents),
         fees_paid=to_hoop(view.fees_cents),
+        payouts_received=to_hoop(view.payouts_cents),
         positions=[
             PositionOut(
                 symbol=p.symbol, name=p.name, team=p.team, qty=p.qty,
@@ -609,6 +615,32 @@ async def solana_status() -> ChainStatus:
     """Is the backend ready to write receipts to Solana devnet? Shows the fee-payer
     wallet, its SOL balance and whether devnet answered (5 s timeout)."""
     return await chain_status()
+
+
+class PayoutOut(BaseModel):
+    payout_id: str
+    symbol: str
+    qty_held: int = Field(description="Shares you held when it paid out (negative = short)")
+    hoop_per_share: float
+    amount: float = Field(description="HOOP added to your cash (negative if you were short)")
+    game_score: float | None
+    reason: str
+    t: float = Field(description="Market time, epoch seconds")
+
+
+@router.get("/payouts")
+def payouts(user: User = Depends(current_user), db: Database = Depends(get_db),
+            symbol: str | None = Query(None), limit: int = Query(100, ge=1, le=1000)) -> list[PayoutOut]:
+    """Your performance payouts, newest first: why your cash went up while you held."""
+    sql, params = "SELECT * FROM payouts WHERE user_id = ?", [user.user_id]
+    if symbol:
+        sql += " AND symbol = ?"
+        params.append(symbol)
+    with db.lock:
+        rows = db.conn.execute(sql + " ORDER BY rowid DESC LIMIT ?", (*params, limit)).fetchall()
+    return [PayoutOut(payout_id=r["payout_id"], symbol=r["symbol"], qty_held=r["qty_held"],
+                      hoop_per_share=r["hoop_per_share"], amount=to_hoop(r["amount_cents"]),
+                      game_score=r["game_score"], reason=r["reason"], t=r["t"]) for r in rows]
 
 
 @router.post("/account/restore")

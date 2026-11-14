@@ -2,7 +2,7 @@
 
 Every figure is in integer cents, so this always holds exactly:
 
-    equity - starting cash == realised + unrealised - fees paid
+    equity - starting cash == realised + unrealised - fees paid + payouts received
 
 - **Unrealised:** for shares still held, `qty x last price - cost basis`.
 - **Realised:** for shares already sold, sale proceeds minus the cost basis
@@ -54,6 +54,7 @@ class PortfolioView:
     realised_cents: int
     fees_cents: int
     starting_cash_cents: int = STARTING_CASH_CENTS
+    payouts_cents: int = 0          # performance payouts received since the latest start (P2-22)
     positions: list[PositionView] = field(default_factory=list)
 
     @property
@@ -81,8 +82,13 @@ def build_portfolio(db: Database, market: MarketEngine, user_id: str) -> Portfol
     with db.lock:
         user = db.conn.execute(
             "SELECT cash_cents, baseline_cents, start_trade_rowid, start_positions_json,"
-            " carried_realised_cents, carried_fees_cents FROM users WHERE user_id = ?", (user_id,)
+            " carried_realised_cents, carried_fees_cents, start_payout_rowid, carried_payouts_cents"
+            " FROM users WHERE user_id = ?", (user_id,)
         ).fetchone()
+        payouts = db.conn.execute(
+            "SELECT coalesce(sum(amount_cents), 0) FROM payouts WHERE user_id = ? AND rowid > ?",
+            (user_id, user["start_payout_rowid"] if user else 0),
+        ).fetchone()[0]
         rows = db.conn.execute(
             "SELECT symbol, qty, cost_basis_cents FROM positions WHERE user_id = ?", (user_id,)
         ).fetchall()
@@ -106,7 +112,8 @@ def build_portfolio(db: Database, market: MarketEngine, user_id: str) -> Portfol
     realised, fees = _realised_and_fees(trades, seeds)
     baseline = user["baseline_cents"] if user["baseline_cents"] is not None else STARTING_CASH_CENTS
     return PortfolioView(user_id, user["cash_cents"], realised + user["carried_realised_cents"],
-                         fees + user["carried_fees_cents"], starting_cash_cents=baseline, positions=positions)
+                         fees + user["carried_fees_cents"], starting_cash_cents=baseline,
+                         payouts_cents=payouts + user["carried_payouts_cents"], positions=positions)
 
 
 def _realised_and_fees(trades, seeds=()) -> tuple[int, int]:

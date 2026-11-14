@@ -31,6 +31,10 @@ def _max_trade_rowid(db: Database) -> int:
     return db.conn.execute("SELECT coalesce(max(rowid), 0) FROM trades").fetchone()[0]
 
 
+def _max_payout_rowid(db: Database) -> int:
+    return db.conn.execute("SELECT coalesce(max(rowid), 0) FROM payouts").fetchone()[0]
+
+
 def _cancel_open_orders(db: Database, user_id: str) -> None:
     db.conn.execute(
         "UPDATE open_orders SET status = 'cancelled', reserved_cash_cents = 0, reason = 'account reset',"
@@ -66,17 +70,19 @@ def reset_account(db: Database, market: MarketEngine, user_id: str, cash_cents: 
                 "SELECT symbol, qty, cost_basis_cents FROM positions WHERE user_id = ?", (user_id,)).fetchall()
             db.conn.execute(
                 "INSERT INTO account_snapshots (user_id, cash_cents, positions_json, baseline_cents,"
-                " realised_cents, fees_cents, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                " realised_cents, fees_cents, payouts_cents, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (user_id, view.cash_cents, json.dumps([list(r) for r in current]), view.starting_cash_cents,
-                 view.realised_cents, view.fees_cents, time.time()),
+                 view.realised_cents, view.fees_cents, view.payouts_cents, time.time()),
             )
         _cancel_open_orders(db, user_id)
         start = [[symbol, int(qty), int(basis)] for symbol, qty, basis in positions if qty]
         _set_positions(db, user_id, start)
         db.conn.execute(
             "UPDATE users SET cash_cents = ?, baseline_cents = ?, start_trade_rowid = ?, start_positions_json = ?,"
-            " carried_realised_cents = 0, carried_fees_cents = 0 WHERE user_id = ?",
-            (cash_cents, cash_cents + sum(b for _, _, b in start), _max_trade_rowid(db), json.dumps(start), user_id),
+            " carried_realised_cents = 0, carried_fees_cents = 0, start_payout_rowid = ?,"
+            " carried_payouts_cents = 0 WHERE user_id = ?",
+            (cash_cents, cash_cents + sum(b for _, _, b in start), _max_trade_rowid(db), json.dumps(start),
+             _max_payout_rowid(db), user_id),
         )
 
 
@@ -91,9 +97,10 @@ def restore_account(db: Database, user_id: str) -> bool:
         _set_positions(db, user_id, positions)
         db.conn.execute(
             "UPDATE users SET cash_cents = ?, baseline_cents = ?, start_trade_rowid = ?, start_positions_json = ?,"
-            " carried_realised_cents = ?, carried_fees_cents = ? WHERE user_id = ?",
+            " carried_realised_cents = ?, carried_fees_cents = ?, start_payout_rowid = ?,"
+            " carried_payouts_cents = ? WHERE user_id = ?",
             (snap["cash_cents"], snap["baseline_cents"], _max_trade_rowid(db), json.dumps(positions),
-             snap["realised_cents"], snap["fees_cents"], user_id),
+             snap["realised_cents"], snap["fees_cents"], _max_payout_rowid(db), snap["payouts_cents"], user_id),
         )
         db.conn.execute("DELETE FROM account_snapshots WHERE user_id = ?", (user_id,))
     return True
