@@ -32,3 +32,8 @@ New model: prior/form shrinkage, explicit assumed availability, finite bot
 attention and position limits, deeper maker liquidity, and per-bot performance
 against buy-and-hold. Decisions and limitations are in
 `docs/market-model-decisions.md`. No payouts or human-order interface added.
+
+The graph now includes a searchable full-season table for all 580 players,
+percentage leaders and fallers, HOOP-change sorting, and links to each price
+history. Returns consistently use pre-season opening valuations. Verified
+all 580 summary calculations and confirmed the table renders in the browser.

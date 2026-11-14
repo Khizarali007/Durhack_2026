@@ -50,6 +50,18 @@ def handler_for(players: list[dict], prices: dict[str, list[dict]], values: list
     html = (ROOT / "web" / "market_graph.html").read_bytes()
     values_html = (ROOT / "web" / "starting_values.html").read_bytes()
     injuries_html = (ROOT / "web" / "injury_reports.html").read_bytes()
+    opening_values = {row["player_id"]: float(row["starting_price"]) for row in values}
+    season = []
+    for player in players:
+        player["startPrice"] = opening_values[player["id"]]
+        rows = prices[player["id"]]
+        start, end = player["startPrice"], rows[-1]["close"]
+        season.append({**player, "endPrice": end, "change": round(end - start, 2),
+                       "changePct": 100 * (end / start - 1),
+                       "volume": sum(row["volume"] for row in rows),
+                       "lastTradeDate": next((row["date"] for row in reversed(rows)
+                                               if row["trades"]), "No trades"),
+                       "endDate": rows[-1]["date"]})
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -65,6 +77,9 @@ def handler_for(players: list[dict], prices: dict[str, list[dict]], values: list
                 content_type, status = "application/json", 200
             elif request.path == "/api/values":
                 body = json.dumps(values).encode()
+                content_type, status = "application/json", 200
+            elif request.path == "/api/season":
+                body = json.dumps(season).encode()
                 content_type, status = "application/json", 200
             elif request.path == "/api/injuries":
                 body = json.dumps(injuries).encode()
