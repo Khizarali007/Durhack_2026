@@ -1,0 +1,6 @@
+# Person 4 (learning layer) dependencies. Python 3.11+.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6,<3
+pytest>=8.0
+httpx>=0.27

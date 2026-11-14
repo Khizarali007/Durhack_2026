@@ -1,0 +1,53 @@
+{
+  "_notes": "Seed glossary for tooltips. Terms used in Mission 1 plus a few basics. Expand as missions land.",
+  "terms": [
+    {
+      "term": "Stock",
+      "short": "A tiny slice of a player. Its price moves as the market decides what they're worth."
+    },
+    {
+      "term": "HOOP",
+      "short": "HoopStreet's play money. You start with 100,000. It's not real, so be brave."
+    },
+    {
+      "term": "Bid",
+      "short": "The best price someone will pay right now. You sell at the bid."
+    },
+    {
+      "term": "Ask",
+      "short": "The best price someone will sell for right now. You buy at the ask."
+    },
+    {
+      "term": "Spread",
+      "short": "The gap between bid and ask. A small toll you pay every time you trade."
+    },
+    {
+      "term": "Fair value",
+      "short": "What the market thinks a player is really worth, based on how they actually play."
+    },
+    {
+      "term": "Market order",
+      "short": "Buy or sell right now at the best available price. Fast, no haggling."
+    },
+    {
+      "term": "Fee",
+      "short": "A small cut (0.10%) taken on every trade. Lots of tiny trades add up."
+    },
+    {
+      "term": "Realised profit",
+      "short": "Profit you've locked in by selling. Money in the bank."
+    },
+    {
+      "term": "Unrealised profit",
+      "short": "Profit on shares you still hold. It can still vanish if the price drops."
+    },
+    {
+      "term": "Hot streak",
+      "short": "A run of big games. Prices often jump - and the hype often fades a bit afterwards."
+    },
+    {
+      "term": "Volatility",
+      "short": "How jumpy a price is. High volatility = stormy weather on the ticker."
+    }
+  ]
+}

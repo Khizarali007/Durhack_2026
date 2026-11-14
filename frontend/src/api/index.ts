@@ -56,3 +56,13 @@ export type {
   LeaderboardRow, MarginState, MarginStatus, EquityPoint,
   OrderUpdateMessage, ReceiptMessage, MarginCallMessage, DirectorResult,
 } from './types'
+
+// --- Learning layer (Person 4): /learning/* REST client and models ---
+export {
+  createLearningApi, learningRequest, learningWsUrl, LearningApiError, DEFAULT_API_BASE as LEARNING_API_BASE,
+} from './learning'
+export type {
+  LearningApi, LearningHealth, MissionState, MissionOutcome, MissionMessageKind, MissionEntry, MissionMessage,
+  MissionStatus, MissionResult, GlossaryTerm, MissionSnapshotMessage, MissionLiveMessage, LearningTickMessage,
+  LearningSocketMessage,
+} from './learning'

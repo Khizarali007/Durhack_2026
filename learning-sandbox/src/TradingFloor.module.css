@@ -1,0 +1,170 @@
+/* Laid out like Person 3's 3-column terminal; single column on a phone. */
+.grid {
+  display: grid;
+  gap: var(--hs-space-4);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'right'
+    'left'
+    'centre';
+}
+
+@media (min-width: 1100px) {
+  .grid {
+    grid-template-columns: var(--hs-layout-col-left) minmax(0, 1fr) var(--hs-layout-col-right);
+    grid-template-areas: 'left centre right';
+    align-items: start;
+  }
+}
+
+.left {
+  grid-area: left;
+}
+
+.centre {
+  grid-area: centre;
+  min-width: 0;
+}
+
+.right {
+  grid-area: right;
+}
+
+.left,
+.right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-4);
+  min-width: 0;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+}
+
+.h {
+  margin: 0;
+}
+
+.player {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-3);
+}
+
+.player p {
+  margin: 0;
+}
+
+.name {
+  color: var(--hs-color-text-primary);
+  font-weight: var(--hs-font-weight-medium);
+}
+
+.team {
+  font-size: var(--hs-font-size-sm);
+}
+
+.priceRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hs-space-2);
+}
+
+.priceBox {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--hs-space-1);
+  padding: 0 var(--hs-space-1);
+  border-radius: var(--hs-radius-md);
+}
+
+.price {
+  color: var(--hs-color-text-primary);
+  font-size: var(--hs-font-size-3xl);
+  font-weight: var(--hs-font-weight-semibold);
+  line-height: var(--hs-line-height-tight);
+}
+
+.unit {
+  font-size: var(--hs-font-size-sm);
+}
+
+/* Bordered box like the ticket's best bid / ask. */
+.book {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  margin: 0;
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-md);
+  overflow: hidden;
+}
+
+.book.stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.book > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--hs-space-2) var(--hs-space-3);
+  border-right: 1px solid var(--hs-color-border-subtle);
+  border-bottom: 1px solid var(--hs-color-border-subtle);
+  min-width: 0;
+}
+
+.book dd {
+  margin: 0;
+  color: var(--hs-color-text-primary);
+  font-weight: var(--hs-font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.book dd.up {
+  color: var(--hs-color-up-text);
+}
+
+.book dd.down {
+  color: var(--hs-color-down-text);
+}
+
+.estimate {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.estimateValue {
+  color: var(--hs-color-text-primary);
+  font-size: var(--hs-font-size-xl);
+  font-weight: var(--hs-font-weight-semibold);
+}
+
+.small {
+  margin: 0;
+  font-size: var(--hs-font-size-sm);
+}
+
+.note {
+  margin: 0;
+  padding: var(--hs-space-2) var(--hs-space-3);
+  border-radius: var(--hs-radius-md);
+  font-size: var(--hs-font-size-sm);
+}
+
+.ok {
+  background: var(--hs-color-up-muted);
+  color: var(--hs-color-up-text);
+}
+
+.err {
+  background: var(--hs-color-down-muted);
+  color: var(--hs-color-down-text);
+}

@@ -1,0 +1,42 @@
+.help {
+  display: inline-flex;
+  vertical-align: middle;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Person 3's Tooltip opens on hover only; also open it on keyboard focus.
+   Structure: Tooltip wrapper span > [trigger, content span]. */
+.help:focus-within > span > span:last-child {
+  opacity: 1;
+  visibility: visible;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hs-space-4);
+  height: var(--hs-space-4);
+  padding: 0;
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-pill);
+  background: transparent;
+  color: var(--hs-color-text-secondary);
+  font-family: var(--hs-font-family);
+  font-size: var(--hs-font-size-xs);
+  font-weight: var(--hs-font-weight-semibold);
+  line-height: 1;
+  cursor: help;
+  transition: var(--hs-transition-default);
+}
+
+.trigger:hover {
+  color: var(--hs-color-text-primary);
+  background: var(--hs-color-bg-hover);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--hs-color-accent);
+  outline-offset: 2px;
+}

@@ -1,0 +1,88 @@
+{
+  "_notes": {
+    "outcome_rules": "Checked in order for the mission's goal symbol, using trades during the mission: (1) no buys -> never_bought; (2) realised P&L after fees > 0 -> passed_great if score >= grading.great_min_score, else passed_ok; (3) still holding shares -> still_holding; (4) otherwise -> sold_at_loss (includes breaking even). Score 0-100 = (avg sell - avg buy) / (highest price after the streak - lowest price before it).",
+    "placeholders": "Missions 2-6 are placeholders. Copy marked TODO is not final."
+  },
+  "missions": [
+    {
+      "number": 1,
+      "id": "m1_buy_low_sell_high",
+      "scenario_id": "m1_buy_low_sell_high",
+      "status": "ready",
+      "title": "Buy low, sell high",
+      "goal": "Buy SGA, then sell it for a profit before the bell.",
+      "hint": "Watch the ticker - a player is heating up.",
+      "grading": {
+        "great_min_score": 60
+      },
+      "debrief": {
+        "never_bought": "The bell rang and your cash never left the bench. Safe? Sure. But SGA went on a heater and you watched from the stands. Next time: spot the move, buy in.",
+        "sold_at_loss": "You bought and sold, so you're officially a trader! But you sold for less than you paid. Ouch. Buying after the big run-up, or panic-selling a small dip, are the classic traps.",
+        "still_holding": "Nice buy! But you were still holding at the bell. Paper profits are like a forecast: nice to look at, not money yet. Selling is what locks it in.",
+        "passed_ok": "Profit in the bag! You bought, you sold, you came out ahead. That's the whole game in one move. Can you catch more of the run next time?",
+        "passed_great": "Huge! You caught the heater and sold near the top, before the hype cooled. The trading floor is applauding. Take a bow."
+      },
+      "lesson": "You only make money when you sell for more than you paid - and hype doesn't last forever."
+    },
+    {
+      "number": 2,
+      "id": "m2_read_the_spread",
+      "scenario_id": null,
+      "status": "placeholder",
+      "title": "Read the spread",
+      "goal": "TODO",
+      "hint": "TODO",
+      "grading": {},
+      "debrief": {},
+      "lesson": "TODO"
+    },
+    {
+      "number": 3,
+      "id": "m3_compose_your_portfolio",
+      "scenario_id": null,
+      "status": "placeholder",
+      "title": "Compose your portfolio",
+      "goal": "TODO",
+      "hint": "TODO",
+      "grading": {},
+      "debrief": {},
+      "lesson": "TODO"
+    },
+    {
+      "number": 4,
+      "id": "m4_hype_vs_fundamentals",
+      "scenario_id": null,
+      "status": "placeholder",
+      "title": "Hype vs fundamentals",
+      "goal": "TODO",
+      "hint": "TODO",
+      "grading": {},
+      "debrief": {},
+      "lesson": "TODO"
+    },
+    {
+      "number": 5,
+      "id": "m5_survive_the_storm",
+      "scenario_id": null,
+      "status": "placeholder",
+      "title": "Survive the storm",
+      "goal": "TODO",
+      "hint": "TODO",
+      "grading": {},
+      "debrief": {},
+      "lesson": "TODO"
+    },
+    {
+      "number": 6,
+      "id": "m6_danger_zone",
+      "scenario_id": null,
+      "status": "placeholder",
+      "title": "Danger zone",
+      "goal": "TODO",
+      "hint": "TODO",
+      "grading": {},
+      "debrief": {},
+      "lesson": "TODO"
+    }
+  ]
+}
