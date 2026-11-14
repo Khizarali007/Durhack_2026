@@ -14,6 +14,7 @@ import ActivityPage from './pages/ActivityPage'
 const StockPage = lazy(() => import('./pages/StockPage'))
 const StyleguidePage = lazy(() => import('./pages/StyleguidePage'))
 const DebugPage = lazy(() => import('./pages/DebugPage'))
+const DirectorPage = lazy(() => import('./pages/DirectorPage'))
 
 export default function App() {
   return (
@@ -47,6 +48,8 @@ export default function App() {
               <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="learn" element={<LearnPage />} />
               <Route path="activity" element={<ActivityPage />} />
+              {/* Demo controls: deliberately not in the nav */}
+              <Route path="director" element={<Suspense fallback={null}><DirectorPage /></Suspense>} />
               <Route
                 path="stock/:symbol"
                 element={

@@ -76,3 +76,15 @@ Changed: `src/pages/StockPage.tsx`, `src/components/market/MarketRow.tsx` (+ com
 - Press B, type 9000: "Only ~350 shares are for sale right now…" and the order comes back partly filled.
 - Click another player in the left list: all three columns change, the address bar changes, the page does not reload.
 - Toggle the theme (sun/moon): the chart recolours.
+
+## Reduced-scope run (14 Nov, late): items 1–5
+
+Scope was cut to: get the build green, stock page, portfolio, home, director. Limit/stop, short/margin, auth, leaderboard and learn are **not** being built in this run. The limit and stop-loss tabs, open-orders table and final-whistle strip that were already finished in the "WIP: partial UI build" commit were kept, because they build and work. Nothing further was added there.
+
+- **Build:** `npm run build` and `npm run lint` pass.
+- **Stock page:** checked in the browser (buy, sell validation, symbol switch, no console errors). No code changes, so no new commit.
+- **Portfolio `/portfolio`:** `AccountStrip` (equity, cash + cash tied up in pending orders, shares worth, P&L money and %), live holdings table (each row priced off its own quote), empty state linking to Home, Person 4 Composition mount point. Files: `src/pages/PortfolioPage.*`, `src/components/account/`.
+- **Home `/`:** the same account strip, a plain-English line on what HoopStreet is, top 5 gainers and fallers as cards (one click opens the chart), Person 4 mission-card mount point. Movers are ranked on the bid/ask midpoint against the opening price and re-ranked once a second. The last trade bounces between bid and ask, so ranking on it reshuffled the list every tick. `/market` is unchanged. Home was added to the nav. Files: `src/pages/HomePage.*`, `src/components/home/`, `src/App.tsx`, `LeftNav.tsx`.
+- **Director `/director`:** not in the nav. "Play Wembanyama storm", "Reset market" and "Reset market and my account". Mock only. Against the real backend the buttons are disabled and the page says so. Files: `src/pages/DirectorPage.*`, `src/App.tsx`.
+
+**Demo caveat:** the mock market runs inside the browser tab. Typing a URL or refreshing restarts it. Use the in-app links and the browser Back button to move between `/director` and the WEMBY chart.
