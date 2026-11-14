@@ -42,6 +42,15 @@
   /* --- Neutral muted --- */
   --hs-color-neutral-muted: rgba(139, 148, 158, 0.15);
 
+  /* --- Warning (amber: cloudy radar, hype, margin warning) --- */
+  --hs-color-warn:       #D29922;
+  --hs-color-warn-muted: rgba(210, 153, 34, 0.15);
+  --hs-color-warn-text:  #E3B341;
+
+  /* --- Overlays --- */
+  --hs-color-overlay: rgba(1, 4, 9, 0.6);
+  --hs-shadow-pop:    0 8px 24px rgba(1, 4, 9, 0.55);
+
   /* --- Spacing --- */
   --hs-space-1:  4px;
   --hs-space-2:  8px;
@@ -83,6 +92,8 @@
 
   /* --- Layout --- */
   --hs-layout-header-height: 56px;
+  --hs-layout-nav-rail:      76px;
+  --hs-layout-ticker-height: 30px;
   --hs-layout-col-left:      300px;
   --hs-layout-col-right:     340px;
   --hs-layout-row-market:    44px;
@@ -140,4 +151,13 @@
 
   /* --- Neutral muted --- */
   --hs-color-neutral-muted: rgba(87, 96, 106, 0.1);
+
+  /* --- Warning --- */
+  --hs-color-warn:       #9A6700;
+  --hs-color-warn-muted: rgba(154, 103, 0, 0.12);
+  --hs-color-warn-text:  #7D4E00;
+
+  /* --- Overlays --- */
+  --hs-color-overlay: rgba(31, 35, 40, 0.35);
+  --hs-shadow-pop:    0 8px 24px rgba(31, 35, 40, 0.18);
 }

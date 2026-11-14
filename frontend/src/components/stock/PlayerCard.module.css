@@ -1,0 +1,133 @@
+.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "identity price"
+    "value    value"
+    "reason   reason";
+  gap: var(--hs-space-2) var(--hs-space-4);
+  padding: var(--hs-space-3) var(--hs-space-4);
+  background: var(--hs-color-bg-panel);
+  border-bottom: 1px solid var(--hs-color-border);
+  flex-shrink: 0;
+}
+
+.identity {
+  grid-area: identity;
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-3);
+  min-width: 0;
+}
+
+.names {
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--hs-font-size-xl);
+  font-weight: var(--hs-font-weight-semibold);
+  color: var(--hs-color-text-primary);
+  line-height: var(--hs-line-height-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hs-space-1) var(--hs-space-2);
+  font-size: var(--hs-font-size-sm);
+  color: var(--hs-color-text-secondary);
+}
+
+.priceBlock {
+  grid-area: price;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--hs-space-1);
+}
+
+/* Fixed line box so a wider digit never shifts the row */
+.price {
+  font-size: var(--hs-font-size-3xl);
+  font-weight: var(--hs-font-weight-semibold);
+  color: var(--hs-color-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  padding: 0 var(--hs-space-2);
+  margin-right: calc(var(--hs-space-2) * -1);
+  border-radius: var(--hs-radius-sm);
+  white-space: nowrap;
+}
+
+.unit {
+  margin-left: var(--hs-space-2);
+  font-size: var(--hs-font-size-xs);
+  font-weight: var(--hs-font-weight-medium);
+  letter-spacing: var(--hs-letter-spacing-label);
+  color: var(--hs-color-text-secondary);
+}
+
+.valueLine {
+  grid-area: value;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--hs-space-2);
+  font-size: var(--hs-font-size-md);
+  color: var(--hs-color-text-secondary);
+}
+
+.num {
+  color: var(--hs-color-text-primary);
+  font-weight: var(--hs-font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.dot {
+  color: var(--hs-color-text-disabled);
+}
+
+.hype {
+  font-weight: var(--hs-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.hypeHot  { color: var(--hs-color-warn-text); }
+.hypeCold { color: var(--hs-color-accent); }
+.hypeFair { color: var(--hs-color-text-secondary); }
+
+.reason {
+  grid-area: reason;
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-2);
+  min-width: 0;
+  padding: var(--hs-space-1) var(--hs-space-3);
+  background: var(--hs-color-accent-muted);
+  border-radius: var(--hs-radius-pill);
+  font-size: var(--hs-font-size-sm);
+  justify-self: start;
+  max-width: 100%;
+}
+
+.reasonLabel {
+  flex-shrink: 0;
+  font-size: var(--hs-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  color: var(--hs-color-accent);
+  font-weight: var(--hs-font-weight-semibold);
+}
+
+.reasonText {
+  color: var(--hs-color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

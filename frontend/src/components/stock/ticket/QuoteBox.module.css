@@ -1,0 +1,117 @@
+.box {
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-lg);
+  background: var(--hs-color-bg-page);
+  overflow: visible;
+}
+
+.best {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--hs-color-border);
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--hs-space-2) var(--hs-space-3);
+  border-bottom: 2px solid transparent;
+}
+
+.side + .side {
+  border-left: 1px solid var(--hs-color-border);
+  align-items: flex-end;
+  text-align: right;
+}
+
+.sideActive {
+  border-bottom-color: var(--hs-color-accent);
+  background: var(--hs-color-accent-muted);
+}
+
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hs-space-1);
+  font-size: var(--hs-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  color: var(--hs-color-text-secondary);
+}
+
+.price {
+  font-size: var(--hs-font-size-xl);
+  font-weight: var(--hs-font-weight-semibold);
+  color: var(--hs-color-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--hs-line-height-tight);
+}
+
+.hint {
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-disabled);
+}
+
+.makers {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--hs-font-size-xs);
+  font-variant-numeric: tabular-nums;
+  table-layout: fixed;
+}
+
+.caption {
+  caption-side: top;
+  text-align: left;
+  padding: var(--hs-space-2) var(--hs-space-3) 0;
+  font-size: var(--hs-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  color: var(--hs-color-text-secondary);
+}
+
+.makers th,
+.makers td {
+  padding: 3px var(--hs-space-3);
+  text-align: right;
+  font-weight: var(--hs-font-weight-normal);
+  color: var(--hs-color-text-secondary);
+}
+
+.makers thead th {
+  color: var(--hs-color-text-disabled);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+}
+
+.makers th:first-child {
+  text-align: left;
+}
+
+.makers tbody tr:last-child td,
+.makers tbody tr:last-child th {
+  padding-bottom: var(--hs-space-2);
+}
+
+/* A maker with nothing left to sell: greyed, struck through, and labelled */
+.depleted th,
+.depleted td {
+  color: var(--hs-color-text-disabled);
+}
+
+.depleted th {
+  text-decoration: line-through;
+}
+
+.soldOut {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+}
+
+.waiting {
+  text-align: center !important;
+  padding: var(--hs-space-3) !important;
+}

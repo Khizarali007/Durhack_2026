@@ -38,6 +38,13 @@ const taken = new Set<string>([
 ])
 
 function makeSymbol(fullName: string, teamAbbr: string): string {
+  // Placeholder roster slots ("WAS Player 10") have no surname to abbreviate
+  const placeholder = /^[A-Z]{3} Player (\d+)$/.exec(fullName)
+  if (placeholder) {
+    const symbol = `${teamAbbr}${placeholder[1]}`
+    taken.add(symbol)
+    return symbol
+  }
   const clean = extractSurname(fullName).normalize('NFD')
     .replace(/\p{Diacritic}/gu, '').toUpperCase().replace(/[^A-Z]/g, '')
   for (const n of [3, 4, 5]) {

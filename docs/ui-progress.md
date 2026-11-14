@@ -49,3 +49,30 @@ Also `src/context/*`, `src/hooks/useTheme.ts`, `src/pages/MarketPage.tsx`, `src/
 - `/market` still lists 300 players and ticks.
 - `/debug` still bootstraps a guest and "Buy 10 SGA" works.
 - Header cash and equity now change right after a trade on `/debug`.
+
+## Phase 2: Stock page `/stock/:symbol` [G1] — done
+
+**What was built**
+- Three columns: compact watchlist (left), player card + candlestick chart (centre), market order ticket (right). Clicking a watchlist row changes the URL param only: card, chart and ticket switch together with no page reload.
+- Player card: initials on team colour, name, team, position, radar icon with its word, live price that flashes, "today" change pill, "Price X · Fair value Y · +Z% hype" (amber for hype, blue for discount, each with an arrow and a word), and the "Why did it move?" chip from `useMoveReason`.
+- Chart: lightweight-charts v5 (`addSeries(CandlestickSeries)`, `createSeriesMarkers`). 1m / 5m / 1h / 1d from `getCandles`; the live candle is bucketed by the active timeframe and updated with `series.update()`; it carries a "now" marker. Sized by a ResizeObserver, colours read from the CSS tokens and re-applied on theme change. One effect per stock + timeframe loads history and subscribes; its cleanup unsubscribes, so there are no duplicate candles or leaked subscriptions.
+- Ticket (market only): buy/sell toggle, quantity with stepper and 10 / 50 / 100 presets (plus Max when selling), estimated cost from `getOrderQuote`, best bid / best ask, the three makers (a sold-out maker is greyed, struck through and labelled), cash free and shares held, a plain-words reason whenever confirm is disabled, and a result panel (fills list, average price, fee, partial-fill reason or the error detail). Keys: B and S switch side, Enter in the quantity box confirms.
+- The nav became a slim 76px icon rail. It was 300px wide, which left no room for three columns on a 1280px laptop.
+- Only the price cell flashes on a tick now (Market rows used to flash the whole row).
+
+**Files touched**
+New: `src/pages/StockPage.module.css`, `src/components/stock/` (`Watchlist`, `PlayerCard`, `PriceChart`, `OrderTicket` + `ticket/QuoteBox`, `QtyInput`, `OrderResult`, `qty.ts`, `types.ts`), `src/components/ui/VirtualList.tsx`, `src/components/market/radarInfo.ts`, `src/hooks/usePriceFlash.ts`, `src/utils/chartTheme.ts`, `src/api/useOrderQuote.ts`.
+Changed: `src/pages/StockPage.tsx`, `src/components/market/MarketRow.tsx` (+ compact variant), `RadarBadge.tsx`, `src/components/layout/LeftNav.*`, `src/styles/tokens.css` (warning, overlay and rail tokens), `src/index.css`, `src/utils/format.ts`, `src/mocks/players.ts`.
+
+**Stubbed / assumed**
+- The estimate uses the PLANNED `POST /trading/orders/quote`. If that endpoint is missing, the ticket falls back to best price × quantity and says "rough: slippage not counted".
+- Mock roster fix: placeholder players ("WAS Player 9", "WAS Player 10") used to share one symbol, which broke React keys. They are now `WAS9`, `WAS10` and so on.
+- The TradingView logo is switched off; the licence is met by the small "Charts: TradingView Lightweight Charts™" link on the chart instead.
+
+**Check in the browser**
+- `/stock/WEMBY`: the chart shows about 90 one-minute candles ending in a "now" arrow that grows every half second; 5m, 1h and 1d each redraw with no gap between history and the live candle.
+- Type 100, press Enter: "Bought 100 WEMBY" with 10 fills; cash in the header drops; "You hold 100 WEMBY".
+- Press S, type 500: confirm is disabled with "You hold 100 WEMBY: you can't sell 500."
+- Press B, type 9000: "Only ~350 shares are for sale right now…" and the order comes back partly filled.
+- Click another player in the left list: all three columns change, the address bar changes, the page does not reload.
+- Toggle the theme (sun/moon): the chart recolours.

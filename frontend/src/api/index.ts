@@ -27,6 +27,8 @@ export type { WhistleEntry } from './eventLog'
 export { useMoveReason } from './useMoveReason'
 export type { MoveReason } from './useMoveReason'
 export { usePlayers } from './usePlayers'
+export { useOrderQuote } from './useOrderQuote'
+export type { OrderEstimate } from './useOrderQuote'
 
 // --- Session and account ---
 export { useSession, joinAsGuest, loginUser, signupUser, logoutUser } from './useSession'

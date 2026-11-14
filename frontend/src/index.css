@@ -56,3 +56,28 @@ body {
 .flash-down {
   animation: hs-flash-down var(--hs-duration-flash) var(--hs-ease-default) forwards;
 }
+
+/* ---- Loading skeleton pulse (opacity only: never moves layout) ---- */
+@keyframes hs-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+.skeleton {
+  background: var(--hs-color-bg-hover);
+  border-radius: var(--hs-radius-sm);
+  animation: hs-pulse 1.4s ease-in-out infinite;
+}
+
+/* ---- Trend colours: always paired with a sign or arrow in the markup ---- */
+.trend-up   { color: var(--hs-color-up-text); }
+.trend-down { color: var(--hs-color-down-text); }
+.trend-flat { color: var(--hs-color-text-secondary); }
+
+@media (prefers-reduced-motion: reduce) {
+  .flash-up,
+  .flash-down,
+  .skeleton {
+    animation: none;
+  }
+}

@@ -1,9 +1,10 @@
-import { memo, useState, useEffect, useRef } from 'react'
-import { Badge } from '../ui'
+import { memo } from 'react'
+import { Badge, Pill } from '../ui'
 import { useQuote, useSparkline, getInitPrice } from '../../api'
 import type { Player } from '../../api'
-import { formatHOOP, formatPct } from '../../utils/format'
+import { formatHOOP, formatPct, formatPrice, trendArrow } from '../../utils/format'
 import { teamColor, playerInitials } from '../../utils/teamColors'
+import { usePriceFlash, flashClass } from '../../hooks/usePriceFlash'
 import SparklineCell from './SparklineCell'
 import RadarBadge from './RadarBadge'
 import styles from './MarketRow.module.css'
@@ -11,39 +12,27 @@ import styles from './MarketRow.module.css'
 interface MarketRowProps {
   player: Player
   isHighlighted: boolean
+  /** Compact four-column form for the watchlist beside the chart. */
+  compact?: boolean
+  /** The stock currently open on the trading screen. */
+  isSelected?: boolean
 }
 
-const MarketRow = memo(function MarketRow({ player, isHighlighted }: MarketRowProps) {
-  const quote = useQuote(player.symbol)
+/** Price, and change since the first price seen today, for one row. */
+function useRowQuote(symbol: string) {
+  const quote = useQuote(symbol)
+  const initPrice = getInitPrice(symbol)
+  const changePct = quote != null && initPrice != null ? ((quote.last - initPrice) / initPrice) * 100 : null
+  const changeAbs = quote != null && initPrice != null ? quote.last - initPrice : null
+  const flash = usePriceFlash(quote?.last ?? null)
+  return { quote, changePct, changeAbs, flash }
+}
+
+const FullRow = memo(function FullRow({ player, isHighlighted }: MarketRowProps) {
+  const { quote, changePct, changeAbs, flash } = useRowQuote(player.symbol)
   const sparkline = useSparkline(player.symbol)
-  const initPrice = getInitPrice(player.symbol)
 
-  const last = quote?.last ?? null
-  const prevLastRef = useRef<number | null>(null)
-  const [flash, setFlash] = useState<'up' | 'down' | null>(null)
-
-  useEffect(() => {
-    if (last === null) return
-    if (prevLastRef.current === null) { prevLastRef.current = last; return }
-    if (last === prevLastRef.current) return
-    setFlash(last > prevLastRef.current ? 'up' : 'down')
-    prevLastRef.current = last
-    const timer = setTimeout(() => setFlash(null), 250)
-    return () => clearTimeout(timer)
-  }, [last])
-
-  const changePct = quote != null && initPrice != null
-    ? ((quote.last - initPrice) / initPrice) * 100
-    : null
-  const changeAbs = quote != null && initPrice != null
-    ? quote.last - initPrice
-    : null
-
-  const rowClass = [
-    styles.row,
-    isHighlighted ? styles.highlighted : '',
-    flash === 'up' ? 'flash-up' : flash === 'down' ? 'flash-down' : '',
-  ].filter(Boolean).join(' ')
+  const rowClass = [styles.row, isHighlighted ? styles.highlighted : ''].filter(Boolean).join(' ')
 
   return (
     <div className={rowClass} role="row">
@@ -58,9 +47,8 @@ const MarketRow = memo(function MarketRow({ player, isHighlighted }: MarketRowPr
 
       <div className={styles.colTeam}>{player.team}</div>
 
-      <div className={styles.colPrice}>
-        {quote != null ? formatHOOP(quote.last) : '—'}
-      </div>
+      {/* Only the price cell flashes: 300 whole rows blinking twice a second is unreadable */}
+      <div className={`${styles.colPrice} ${flashClass(flash)}`}>{formatPrice(quote?.last)}</div>
 
       <div className={styles.colChange}>
         {changePct != null
@@ -72,13 +60,8 @@ const MarketRow = memo(function MarketRow({ player, isHighlighted }: MarketRowPr
           </span>}
       </div>
 
-      <div className={styles.colBid}>
-        {quote?.bid != null ? formatHOOP(quote.bid) : '—'}
-      </div>
-
-      <div className={styles.colAsk}>
-        {quote?.ask != null ? formatHOOP(quote.ask) : '—'}
-      </div>
+      <div className={styles.colBid}>{formatPrice(quote?.bid)}</div>
+      <div className={styles.colAsk}>{formatPrice(quote?.ask)}</div>
 
       <div className={styles.colSpark}>
         <SparklineCell prices={sparkline} />
@@ -89,6 +72,36 @@ const MarketRow = memo(function MarketRow({ player, isHighlighted }: MarketRowPr
       </div>
     </div>
   )
+})
+
+const CompactRow = memo(function CompactRow({ player, isHighlighted, isSelected }: MarketRowProps) {
+  const { quote, changePct, flash } = useRowQuote(player.symbol)
+
+  const rowClass = [
+    styles.compact,
+    isSelected ? styles.selected : '',
+    isHighlighted && !isSelected ? styles.compactHover : '',
+  ].filter(Boolean).join(' ')
+
+  return (
+    <div className={rowClass} aria-current={isSelected ? 'true' : undefined}>
+      <Badge initials={playerInitials(player.name)} color={teamColor(player.team)} size="md" />
+      <div className={styles.colName}>
+        <span className={styles.compactName}>{player.name}</span>
+        <span className={styles.playerName}>{player.team} · {player.symbol}</span>
+      </div>
+      <div className={`${styles.compactPrice} ${flashClass(flash)}`}>{formatPrice(quote?.last)}</div>
+      <div className={styles.compactChange}>
+        {changePct != null
+          ? <Pill variant={changePct >= 0 ? 'up' : 'down'}>{trendArrow(changePct)} {formatPct(changePct)}</Pill>
+          : <Pill variant="neutral">—</Pill>}
+      </div>
+    </div>
+  )
+})
+
+const MarketRow = memo(function MarketRow(props: MarketRowProps) {
+  return props.compact ? <CompactRow {...props} /> : <FullRow {...props} />
 })
 
 export default MarketRow
