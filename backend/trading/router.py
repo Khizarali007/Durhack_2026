@@ -17,6 +17,9 @@ from .accounts import (
     create_session,
     delete_session,
 )
+from .chain.config import explorer_url
+from .chain.status import ChainStatus, chain_status
+from .chain.wallets import ensure_wallet
 from .db import Database
 from .deps import current_token, current_user, get_db
 from .market_provider import get_market
@@ -34,6 +37,7 @@ class SessionOut(BaseModel):
     username: str | None
     is_guest: bool
     cash: float
+    wallet_address: str = Field(description="The user's server-held Solana devnet wallet")
 
 
 class CredentialsIn(BaseModel):
@@ -44,7 +48,8 @@ class CredentialsIn(BaseModel):
 
 def _session_for(db: Database, user: User) -> SessionOut:
     return SessionOut(token=create_session(db, user.user_id), user_id=user.user_id,
-                      username=user.username, is_guest=user.is_guest, cash=to_hoop(user.cash_cents))
+                      username=user.username, is_guest=user.is_guest, cash=to_hoop(user.cash_cents),
+                      wallet_address=ensure_wallet(db, user.user_id))
 
 
 class MeOut(BaseModel):
@@ -52,6 +57,8 @@ class MeOut(BaseModel):
     username: str | None
     is_guest: bool
     cash: float
+    wallet_address: str
+    wallet_explorer_url: str
 
 
 class OrderIn(BaseModel):
@@ -188,10 +195,12 @@ def logout(token: str = Depends(current_token), db: Database = Depends(get_db)) 
 
 
 @router.get("/me")
-def me(user: User = Depends(current_user)) -> MeOut:
-    """Who the token belongs to, and their cash."""
+def me(user: User = Depends(current_user), db: Database = Depends(get_db)) -> MeOut:
+    """Who the token belongs to, their cash and their devnet wallet."""
+    address = ensure_wallet(db, user.user_id)
     return MeOut(user_id=user.user_id, username=user.username, is_guest=user.is_guest,
-                 cash=to_hoop(user.cash_cents))
+                 cash=to_hoop(user.cash_cents), wallet_address=address,
+                 wallet_explorer_url=explorer_url("address", address))
 
 
 @router.post("/orders")
@@ -272,6 +281,13 @@ def trades(
                  receipt_signature=r.receipt_signature, receipt_confirm_ms=r.receipt_confirm_ms)
         for r in trades_for_user(db, user.user_id, since_t=since_t, symbol=symbol, limit=limit)
     ]
+
+
+@router.get("/chain/status")
+async def solana_status() -> ChainStatus:
+    """Is the backend ready to write receipts to Solana devnet? Shows the fee-payer
+    wallet, its SOL balance and whether devnet answered (5 s timeout)."""
+    return await chain_status()
 
 
 @router.get("/debug/quote/{symbol}")

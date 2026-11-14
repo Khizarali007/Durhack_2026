@@ -185,15 +185,22 @@ These come from Person 1's prototype and Person 4's interfaces.
   - Guest worked.
   - The stored password starts `scrypt$16384$8$1$…`.
 
-## ⬜ P2-08 · Solana setup: fee payer and per-account keypairs
+## ✅ P2-08 · Solana setup: fee payer and per-account keypairs
 - **Gate:** G2
-- **Depends on:** P2-07
-- **What:**
-  - Add `solana` and `solders` to `requirements-trading.txt`.
-  - Create the backend fee-payer keypair. Load it from `.env` or a `*keypair*.json` file, never committed.
-  - **Claim devnet SOL early**, because the faucet limits how much you can claim.
-  - Create a devnet keypair per account and store it server-side.
-- **Done when:** the fee payer has devnet SOL and every account has a public key.
+- **What was built** (`backend/trading/chain/`):
+  - `solana` 0.42 and `solders` 0.29 installed and added to `requirements-trading.txt`.
+  - **Fee-payer wallet:** `.solana/fee-payer-keypair.json`.
+    - Solana CLI format, owner-only (0600), ignored by git (`.solana/` and `*keypair*.json`).
+    - Created on first use. Override the path with `SOLANA_FEE_PAYER_KEYPAIR` and the RPC with `SOLANA_RPC_URL`.
+    - **Address: `F5Y97rpM1a2YyHd7c5zqRKLZHgzZ1urmbncm5SrGhs3u`**
+  - **One devnet wallet per user**, created at sign-up or guest (`wallets` table), or the first time an older account is used.
+    - `/me` and every login response include `wallet_address`, and `/me` adds an Explorer link.
+    - The secret key stays server-side and is never sent to clients. Storing it is only acceptable because devnet coins are worthless.
+  - **`GET /trading/chain/status`**: fee-payer address, SOL balance, whether devnet answered (5 s timeout), and `ready` (balance ≥ 0.05 SOL, about 10,000 receipts).
+  - **Setup script:** `python backend/trading/chain/setup_wallet.py` prints the address, balance and next step. `--airdrop` also asks devnet for 1 SOL directly, which is often rate-limited.
+- **Tests:** 13 in `test_chain_setup.py`, none touching the network. `HOOP_DEVNET_TESTS=1` adds a real devnet check, which passed. 115 pass in total.
+- **Checked:** the live server's `/chain/status` reached devnet (balance 0.0, `ready: false`), and a new guest got its own wallet.
+- **Funded:** claimed 5 SOL from faucet.solana.com, and the setup script reports `Ready`. That pays for about a million receipts.
 
 ## ⬜ P2-09 · Level 0 receipts for human trades
 - **Gate:** G2

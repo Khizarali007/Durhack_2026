@@ -40,6 +40,15 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS sessions_by_user ON sessions (user_id);
 
+-- One server-held devnet wallet per user (P2-08). Devnet coins are worthless,
+-- which is the only reason storing the secret here is acceptable.
+CREATE TABLE IF NOT EXISTS wallets (
+    user_id         TEXT PRIMARY KEY REFERENCES users (user_id),
+    address         TEXT NOT NULL UNIQUE,        -- public key, base58
+    secret          TEXT NOT NULL,               -- secret key, base58. Never sent to clients
+    created_at      REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS positions (
     user_id           TEXT NOT NULL REFERENCES users (user_id),
     symbol            TEXT NOT NULL,
@@ -71,7 +80,7 @@ CREATE TABLE IF NOT EXISTS trades (
 CREATE INDEX IF NOT EXISTS trades_by_user_time ON trades (user_id, t);
 """
 
-TABLES = ("users", "sessions", "positions", "trades")
+TABLES = ("users", "sessions", "wallets", "positions", "trades")
 
 
 class Database:

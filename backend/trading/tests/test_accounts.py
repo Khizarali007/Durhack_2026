@@ -22,7 +22,8 @@ def test_signup_creates_an_account_and_logs_in(client):
     body = response.json()
     assert (body["username"], body["is_guest"], body["cash"]) == ("ricky", False, 100_000.0)
     me = client.get("/trading/me", headers=auth(body["token"])).json()
-    assert me == {"user_id": body["user_id"], "username": "ricky", "is_guest": False, "cash": 100_000.0}
+    assert {k: me[k] for k in ("user_id", "username", "is_guest", "cash")} == {
+        "user_id": body["user_id"], "username": "ricky", "is_guest": False, "cash": 100_000.0}
 
 
 @pytest.mark.parametrize("second", ["ricky", "RICKY", "Ricky"])

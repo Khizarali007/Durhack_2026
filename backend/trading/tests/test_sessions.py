@@ -22,7 +22,9 @@ def test_new_session_starts_with_100k_hoop(client):
 def test_token_identifies_the_user(client):
     session = new_session(client)
     me = client.get("/trading/me", headers=auth(session["token"])).json()
-    assert me == {"user_id": session["user_id"], "username": None, "is_guest": True, "cash": 100_000.0}
+    assert {k: me[k] for k in ("user_id", "username", "is_guest", "cash", "wallet_address")} == {
+        "user_id": session["user_id"], "username": None, "is_guest": True, "cash": 100_000.0,
+        "wallet_address": session["wallet_address"]}
 
 
 def test_two_sessions_have_separate_balances(client, db):

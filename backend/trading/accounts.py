@@ -14,6 +14,7 @@ import sqlite3
 import time
 from dataclasses import dataclass
 
+from .chain.wallets import ensure_wallet
 from .db import STARTING_CASH_CENTS, Database
 from .passwords import DUMMY_HASH, hash_password, verify_password
 
@@ -45,6 +46,7 @@ def create_guest_user(db: Database, cash_cents: int = STARTING_CASH_CENTS) -> Us
             "INSERT INTO users (user_id, is_guest, cash_cents, created_at) VALUES (?, 1, ?, ?)",
             (user_id, cash_cents, time.time()),
         )
+    ensure_wallet(db, user_id)
     return User(user_id, None, True, cash_cents)
 
 
@@ -64,6 +66,7 @@ def create_account(db: Database, username: str, password: str,
             " VALUES (?, ?, ?, 0, ?, ?)",
             (user_id, username, password_hash, cash_cents, time.time()),
         )
+    ensure_wallet(db, user_id)
     return User(user_id, username, False, cash_cents)
 
 

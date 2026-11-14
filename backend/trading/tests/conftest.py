@@ -4,8 +4,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 from trading import market_provider
+from trading.chain import config as chain_config
 from trading.db import DB_PATH_ENV
 from trading.fake_market import FakeMarket
+
+
+@pytest.fixture(autouse=True)
+def temp_fee_payer(tmp_path, monkeypatch):
+    """Never create or read the real fee-payer wallet in tests."""
+    path = tmp_path / "fee-payer-keypair.json"
+    monkeypatch.setattr(chain_config, "FEE_PAYER_PATH", path)
+    return path
 
 
 @pytest.fixture
