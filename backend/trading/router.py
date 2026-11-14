@@ -28,13 +28,14 @@ from .chain.receipts import bot_trades_hash
 from .chain.status import ChainStatus, chain_status
 from .chain.wallets import ensure_wallet
 from .db import Database
-from .deps import current_token, current_user, get_db
+from .deps import current_token, current_user, get_db, optional_user
 from .market_provider import get_market
 from .money import to_hoop
 from .money import to_cents
 from .open_orders import OpenOrder, cancel_open_order, create_open_order, list_open_orders
 from .equity import INTERVAL_S, equity_history, max_drawdown
 from .estimates import estimate_order
+from .leaderboard import standing_dict, standings
 from .orders import FEE_RATE, MAX_LEVERAGE, OrderError, place_market_order, reserved_cash, short_collateral
 from .portfolio import build_portfolio
 from .resets import restore_account
@@ -285,6 +286,30 @@ class EquityHistoryOut(BaseModel):
     max_drawdown_pct: float = Field(description="That fall as a % of the peak")
     max_drawdown_peak_t: float | None
     max_drawdown_trough_t: float | None
+
+
+class LeaderboardEntryOut(BaseModel):
+    rank: int
+    user_id: str
+    name: str = Field(description='Username, or "Guest 4085" for guests')
+    is_guest: bool
+    equity: float = Field(description="cash + positions at the last price")
+    total_pnl: float
+    return_pct: float = Field(description="Profit/loss as a % of the account's starting point (100,000)")
+    orders: int = Field(description="Orders that traded")
+    receipts_confirmed: int = Field(description="Of those, how many have a confirmed Solana receipt")
+    wallet_address: str | None = Field(description="The player's devnet wallet (for an Explorer link)")
+    in_mission: bool = Field(description="In a mission: ranked on their real account, not the mission's")
+    chain_verified: bool = Field(description="Read from on-chain accounts. Always false here; P2-18 adds Level 1")
+
+
+class LeaderboardOut(BaseModel):
+    source: Literal["off-chain"] = Field(description="Always works, even with Solana down")
+    market_time: float
+    total_players: int = Field(description="Accounts that have traded or hold a position")
+    entries: list[LeaderboardEntryOut] = Field(description="Highest equity first")
+    you: LeaderboardEntryOut | None = Field(
+        description="Your row, even if you're outside the list (send your token). None if you haven't traded")
 
 
 class TradeOut(BaseModel):
@@ -707,6 +732,23 @@ async def equity_history_route(
         max_drawdown=to_hoop(dd.amount_cents), max_drawdown_pct=dd.pct,
         max_drawdown_peak_t=dd.peak_t, max_drawdown_trough_t=dd.trough_t,
     )
+
+
+@router.get("/leaderboard")
+async def leaderboard(
+    user: User | None = Depends(optional_user),
+    db: Database = Depends(get_db),
+    limit: int = Query(50, ge=1, le=500, description="How many rows from the top"),
+) -> LeaderboardOut:
+    """Players ranked by equity, straight from the database (it never waits on Solana).
+    Public. Send your token to get your own row in `you`. Live updates: the public
+    `leaderboard` WebSocket message, once per market minute when the top 10 changes."""
+    market = get_market()
+    ranked = standings(db, market)
+    mine = next((s for s in ranked if user and s.user_id == user.user_id), None)
+    return LeaderboardOut(source="off-chain", market_time=market.market_time(), total_players=len(ranked),
+                          entries=[LeaderboardEntryOut(**standing_dict(s)) for s in ranked[:limit]],
+                          you=LeaderboardEntryOut(**standing_dict(mine)) if mine else None)
 
 
 @router.get("/bot-bundles")

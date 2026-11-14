@@ -505,11 +505,31 @@ These come from Person 1's prototype and Person 4's interfaces.
   - It showed equity 100,057.58 → 100,136.78 (peak) → 99,996.78 → 99,975.18, a max drawdown of 161.60 (0.16%) from the right peak to the right trough.
   - `since_t` filtered correctly, only the one active account was recorded, and the log was clean.
 
-## ⬜ P2-17 · Off-chain leaderboard
+## ✅ P2-17 · Off-chain leaderboard
 - **Gate:** G3
-- **Depends on:** P2-05
-- **What:** `GET /trading/leaderboard` ranks users by equity. It always works, even if Solana is down.
-- **Done when:** it updates live during a session.
+- **What was built** (`trading/leaderboard.py`):
+  - **`GET /trading/leaderboard`** (public, `?limit=` default 50) ranks players by **equity** (cash + positions at the last price), highest first. Ties go to whoever joined first.
+    - Each row: `rank, user_id, name, is_guest, equity, total_pnl, return_pct, orders, receipts_confirmed, wallet_address, in_mission, chain_verified`.
+    - `name` is the username, or `Guest 4085` (the end of the user id) for guests.
+    - Send your token to get **`you`**: your own row even if you're outside the list. That's for highlighting your row. No token is fine; a bad one gets 401.
+    - `source: "off-chain"`, `market_time`, `total_players`.
+  - **Always works:** it only reads our database and never waits on Solana. A test runs it with devnet "down".
+  - **Who's on it:** anyone who has traded or holds a position. Untouched guests (all on 100,000) are left off.
+  - **Players in a mission** are ranked on their real account (the one saved before the reset, valued at today's prices), so mission sandboxes never appear. `in_mission` flags them.
+  - **Solana bits:** `receipts_confirmed` counts the player's orders with a confirmed devnet receipt. `wallet_address` gives an Explorer link. **`chain_verified` is always `false` until P2-18 (Level 1)**, which answers Person 3's question 6: the badge will come from on-chain portfolio accounts, and this off-chain list is the fallback.
+  - **Live:** `LeaderboardBroadcaster` pushes a public `leaderboard` WebSocket message `{t, total_players, source, entries[top 10]}` once per market minute (every 5 real seconds), only when the top 10 changed. Spectator screens without a token get it too.
+  - Shares one query pattern with P2-16, so it's a handful of queries however many players there are.
+- **Tests:** 10 in `test_leaderboard.py`, covering:
+  - Ranking (idle guests off, names, returns, equity exactly the portfolio's), shorts and 3x valued correctly, and ties.
+  - Missions ranked on the real account that still follows prices, then restore. Orders and confirmed receipts counted.
+  - The broadcaster (once a minute, only on change, top 10).
+  - The API (`you`, `limit`, 401 on a bad token), working with Solana down, and a spectator WebSocket receiving it live.
+
+  293 pass in total, 3 runs in a row.
+- **Checked on a live server** (receipts off): one signed-up player and two guests traded (a long, a short, a 3x long) while a spectator WebSocket listened.
+  - A new board arrived every ~5 s for 22 s, and the order changed four times as prices moved.
+  - The guest who covered mid-session stayed flat at 99,847.13.
+  - REST matched, with the caller's own row in `you`. The log was clean.
 
 ## ⬜ P2-18 · Level 1: on-chain portfolios
 - **Gate:** G3
