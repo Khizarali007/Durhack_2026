@@ -21,6 +21,7 @@ from trading.chain import worker as receipt_worker
 from trading.chain.bot_bundles import BotBundleRecorder
 from trading.db import Database
 from trading.market_provider import get_market
+from trading.open_orders import OrderWatcher
 
 
 @asynccontextmanager
@@ -40,12 +41,18 @@ async def lifespan(app: FastAPI):
                                 on_bundle=app.state.receipts.enqueue_bundle if app.state.receipts else None)
     await bundles.start()
 
+    # Limit and stop-loss orders fire on market ticks (P2-11); their trades get receipts too.
+    watcher = OrderWatcher(app.state.trading_db, market,
+                           on_fill=app.state.receipts.enqueue if app.state.receipts else None)
+    await watcher.start()
+
     # Person 4 plugs in here at merge (see docs/person4-interfaces.md on their branch):
     #   configure_learning(market_adapter, trades_adapter)
     try:
         yield
     finally:
         # Person 4: await shutdown_learning()
+        await watcher.stop()
         await bundles.stop()
         if app.state.receipts:
             await app.state.receipts.stop()

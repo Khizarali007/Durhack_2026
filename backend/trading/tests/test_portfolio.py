@@ -35,7 +35,8 @@ def test_new_player_has_only_cash(client, player):
     headers, user_id = player
     p = portfolio(client, headers)
     assert p == {
-        "user_id": user_id, "cash": 100_000.0, "positions_value": 0.0, "equity": 100_000.0,
+        "user_id": user_id, "cash": 100_000.0, "reserved_cash": 0.0, "available_cash": 100_000.0,
+        "positions_value": 0.0, "equity": 100_000.0,
         "starting_cash": 100_000.0, "total_pnl": 0.0, "total_pnl_pct": 0.0, "unrealised_pnl": 0.0,
         "realised_pnl": 0.0, "fees_paid": 0.0, "positions": [],
     }

@@ -79,6 +79,28 @@ CREATE TABLE IF NOT EXISTS trades (
 );
 CREATE INDEX IF NOT EXISTS trades_by_user_time ON trades (user_id, t);
 
+-- P2-11: limit and stop-loss orders waiting for a price. Person 1's engine has
+-- no resting order book, so these live here and fire as market orders.
+-- While open, a buy limit reserves cash and a sell limit or stop reserves shares.
+CREATE TABLE IF NOT EXISTS open_orders (
+    order_id              TEXT PRIMARY KEY,
+    user_id               TEXT NOT NULL REFERENCES users (user_id),
+    symbol                TEXT NOT NULL,
+    side                  TEXT NOT NULL CHECK (side IN ('buy', 'sell')),
+    order_type            TEXT NOT NULL CHECK (order_type IN ('limit', 'stop')),
+    price_cents           INTEGER NOT NULL CHECK (price_cents > 0),  -- limit price, or stop trigger
+    qty                   INTEGER NOT NULL CHECK (qty > 0),          -- as placed
+    filled_qty            INTEGER NOT NULL DEFAULT 0,
+    reserved_cash_cents   INTEGER NOT NULL DEFAULT 0,                -- buy limits only
+    status                TEXT NOT NULL DEFAULT 'open'
+                          CHECK (status IN ('open', 'filled', 'cancelled', 'failed')),
+    reason                TEXT,                                      -- why it failed
+    last_fill_order_id    TEXT,                                      -- the market order it fired
+    created_t             REAL NOT NULL,                             -- market time
+    updated_at            REAL NOT NULL                              -- real time
+);
+CREATE INDEX IF NOT EXISTS open_orders_by_status ON open_orders (status, symbol);
+
 -- P2-10: every market minute's bot trades, bundled into one Solana receipt.
 -- The receipt holds a sha256 of the bundle's trade list; bot_trades keeps the
 -- full list so anyone can recompute the hash and check it matches.
@@ -109,7 +131,7 @@ CREATE TABLE IF NOT EXISTS bot_trades (
 );
 """
 
-TABLES = ("users", "sessions", "wallets", "positions", "trades", "bot_bundles", "bot_trades")
+TABLES = ("users", "sessions", "wallets", "positions", "trades", "open_orders", "bot_bundles", "bot_trades")
 
 
 class Database:

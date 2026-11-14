@@ -26,7 +26,9 @@ from .db import Database
 from .deps import current_token, current_user, get_db
 from .market_provider import get_market
 from .money import to_hoop
-from .orders import OrderError, place_market_order
+from .money import to_cents
+from .open_orders import OpenOrder, cancel_open_order, create_open_order, list_open_orders
+from .orders import OrderError, place_market_order, reserved_cash
 from .portfolio import build_portfolio
 from .trades import trades_for_user
 
@@ -95,6 +97,40 @@ class OrderOut(BaseModel):
         description="Solana receipt. Always pending here: poll GET /trading/orders/{order_id}/receipt")
 
 
+class OpenOrderIn(BaseModel):
+    symbol: str = Field(examples=["SGA"])
+    side: Literal["buy", "sell"]
+    order_type: Literal["limit", "stop"] = Field(
+        description="limit: buy at or below / sell at or above `price`. stop: stop-loss, sell when the price falls to `price`")
+    qty: int = Field(gt=0, le=10_000)
+    price: float = Field(gt=0, le=100_000, description="Limit price, or the stop-loss trigger, in HOOP")
+
+
+class OpenOrderOut(BaseModel):
+    order_id: str
+    symbol: str
+    side: Literal["buy", "sell"]
+    order_type: Literal["limit", "stop"]
+    price: float
+    qty: int
+    filled_qty: int
+    remaining_qty: int
+    reserved_cash: float = Field(description="Cash held back for this order (buy limits)")
+    status: Literal["open", "filled", "cancelled", "failed"]
+    reason: str | None = Field(description="Why it failed, if it did")
+    last_fill_order_id: str | None = Field(
+        description="The market order it fired; its receipt is at /trading/orders/{id}/receipt")
+    created_t: float
+
+
+def _open_order_out(o: OpenOrder) -> OpenOrderOut:
+    return OpenOrderOut(order_id=o.order_id, symbol=o.symbol, side=o.side, order_type=o.order_type,
+                        price=to_hoop(o.price_cents), qty=o.qty, filled_qty=o.filled_qty,
+                        remaining_qty=o.remaining_qty, reserved_cash=to_hoop(o.reserved_cash_cents),
+                        status=o.status, reason=o.reason, last_fill_order_id=o.last_fill_order_id,
+                        created_t=o.created_t)
+
+
 class ReceiptOut(BaseModel):
     order_id: str
     status: Literal["pending", "confirmed", "failed"]
@@ -119,6 +155,8 @@ class PositionOut(BaseModel):
 class PortfolioOut(BaseModel):
     user_id: str
     cash: float
+    reserved_cash: float = Field(description="Part of cash held back for open buy limits")
+    available_cash: float = Field(description="cash - reserved_cash: what you can spend now")
     positions_value: float
     equity: float = Field(description="cash + positions_value")
     starting_cash: float
@@ -287,6 +325,40 @@ async def place_order(order: OrderIn, request: Request, user: User = Depends(cur
     )
 
 
+@router.post("/orders/open", status_code=status.HTTP_201_CREATED)
+async def place_open_order(order: OpenOrderIn, user: User = Depends(current_user),
+                           db: Database = Depends(get_db)) -> OpenOrderOut:
+    """Place a limit order or a stop-loss. It waits until the price is reached, then trades.
+
+    While open, a buy limit holds back the cash it needs and a sell limit or
+    stop-loss holds back the shares. Errors: `400` not enough cash or shares,
+    or a stop-loss at or above the current price; `404` unknown symbol.
+    """
+    try:
+        created = create_open_order(db, get_market(), user.user_id, symbol=order.symbol, side=order.side,
+                                    order_type=order.order_type, qty=order.qty, price_cents=to_cents(order.price))
+    except OrderError as error:
+        raise HTTPException(error.status_code, error.message) from error
+    return _open_order_out(created)
+
+
+@router.get("/orders/open")
+def open_orders(user: User = Depends(current_user), db: Database = Depends(get_db),
+                include_closed: bool = Query(False, description="Also show filled, cancelled and failed orders")
+                ) -> list[OpenOrderOut]:
+    """Your limit and stop-loss orders, newest first."""
+    return [_open_order_out(o) for o in list_open_orders(db, user.user_id, include_closed)]
+
+
+@router.delete("/orders/{order_id}")
+def cancel_order(order_id: str, user: User = Depends(current_user), db: Database = Depends(get_db)) -> OpenOrderOut:
+    """Cancel an open limit or stop-loss order and release what it held back. `409` if it already filled."""
+    try:
+        return _open_order_out(cancel_open_order(db, user.user_id, order_id))
+    except OrderError as error:
+        raise HTTPException(error.status_code, error.message) from error
+
+
 @router.get("/orders/{order_id}/receipt")
 def order_receipt(order_id: str, user: User = Depends(current_user),
                   db: Database = Depends(get_db)) -> ReceiptOut:
@@ -309,9 +381,12 @@ async def portfolio(user: User = Depends(current_user), db: Database = Depends(g
     """Your cash, holdings marked at the last trade price, and profit/loss."""
     view = build_portfolio(db, get_market(), user.user_id)
     equity = view.equity_cents
+    reserved = reserved_cash(db, user.user_id)
     return PortfolioOut(
         user_id=view.user_id,
         cash=to_hoop(view.cash_cents),
+        reserved_cash=to_hoop(reserved),
+        available_cash=to_hoop(view.cash_cents - reserved),
         positions_value=to_hoop(view.positions_value_cents),
         equity=to_hoop(equity),
         starting_cash=to_hoop(view.starting_cash_cents),

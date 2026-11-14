@@ -76,36 +76,68 @@ class OrderOutcome:
         return sum(f.qty * f.price_cents for f in self.fills) / self.filled_qty
 
 
+PRICE_MOVED = "the price moved past your limit"
+
+
 def fee_cents(notional_cents: int) -> int:
     return int((Decimal(notional_cents) * FEE_RATE).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
-def place_market_order(db: Database, market: MarketEngine, user_id: str,
-                       symbol: str, side: Side, qty: int) -> OrderOutcome:
+def reserved_cash(db: Database, user_id: str, exclude: str | None = None) -> int:
+    """Cash held back for the user's open buy limits (P2-11)."""
+    with db.lock:
+        row = db.conn.execute(
+            "SELECT coalesce(sum(reserved_cash_cents), 0) FROM open_orders"
+            " WHERE user_id = ? AND status = 'open' AND order_id IS NOT ?", (user_id, exclude)
+        ).fetchone()
+    return row[0]
+
+
+def reserved_shares(db: Database, user_id: str, symbol: str, exclude: str | None = None) -> int:
+    """Shares held back for the user's open sell limits and stop-losses (P2-11)."""
+    with db.lock:
+        row = db.conn.execute(
+            "SELECT coalesce(sum(qty - filled_qty), 0) FROM open_orders WHERE user_id = ? AND symbol = ?"
+            " AND side = 'sell' AND status = 'open' AND order_id IS NOT ?", (user_id, symbol, exclude)
+        ).fetchone()
+    return row[0]
+
+
+def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol: str, side: Side, qty: int,
+                       *, reason: str = "market", limit_price_cents: int | None = None,
+                       own_open_order: str | None = None) -> OrderOutcome:
+    """Trade now at the market's best price.
+
+    - ``reason`` is recorded on the trades: ``market``, or ``limit`` / ``stop``
+      when an open order fires.
+    - ``limit_price_cents`` stops filling once the price is worse than the limit.
+    - ``own_open_order`` is the open order that's firing, so its own reserved
+      cash or shares can be used.
+    """
     if symbol not in {p.symbol for p in market.players()}:
         raise OrderError(404, f"unknown symbol {symbol!r}")
     cash, held, _ = _balance(db, user_id, symbol)
     order_id = f"ord_{secrets.token_hex(6)}"
 
     if side == "buy":
-        engine_fills, reason = _buy_in_chunks(market, user_id, symbol, qty, cash)
+        available = cash - reserved_cash(db, user_id, exclude=own_open_order)
+        engine_fills, why = _buy_in_chunks(market, user_id, symbol, qty, available, limit_price_cents)
     elif side == "sell":
-        if qty > held:
-            raise OrderError(400, f"you hold {held} {symbol}, so you can't sell {qty}")
-        result = market.submit_order(account_id=user_id, symbol=symbol, side="sell", qty=qty)
-        engine_fills = list(result.fills)
-        reason = None if result.status == "filled" else result.reason
+        reserved = reserved_shares(db, user_id, symbol, exclude=own_open_order)
+        if qty > held - reserved:
+            note = f" ({reserved} reserved for open orders)" if reserved else ""
+            raise OrderError(400, f"you hold {held} {symbol}{note}, so you can't sell {qty}")
+        engine_fills, why = _sell(market, user_id, symbol, qty, limit_price_cents)
     else:
         raise OrderError(400, f"side must be 'buy' or 'sell', not {side!r}")
 
     if not engine_fills:
-        raise OrderError(400 if reason == "not enough cash" else 409,
-                         reason or "the order could not be filled")
-    return _record(db, order_id, user_id, symbol, side, qty, engine_fills, reason)
+        raise OrderError(400 if why == "not enough cash" else 409, why or "the order could not be filled")
+    return _record(db, order_id, user_id, symbol, side, qty, engine_fills, why, reason)
 
 
-def _buy_in_chunks(market: MarketEngine, user_id: str, symbol: str, qty: int,
-                   cash: int) -> tuple[list[Fill], str | None]:
+def _buy_in_chunks(market: MarketEngine, user_id: str, symbol: str, qty: int, cash: int,
+                   limit_price_cents: int | None = None) -> tuple[list[Fill], str | None]:
     fills: list[Fill] = []
     committed = 0
     remaining = qty
@@ -113,7 +145,13 @@ def _buy_in_chunks(market: MarketEngine, user_id: str, symbol: str, qty: int,
         ask = market.quote(symbol).ask
         if ask is None:
             return fills, "market makers ran out of shares"
-        worst_cost_per_share = to_cents(ask) * (1 + CHUNK_PRICE_BUFFER) * (1 + float(FEE_RATE))
+        if limit_price_cents is not None and to_cents(ask) > limit_price_cents:
+            return fills, PRICE_MOVED
+        worst_price = to_cents(ask) * (1 + CHUNK_PRICE_BUFFER)
+        if limit_price_cents is not None:
+            worst_price = min(worst_price, limit_price_cents)  # never pays over the limit
+        # +1 cent a share covers per-fill fee rounding (matches open_orders.buy_reservation)
+        worst_cost_per_share = worst_price * (1 + float(FEE_RATE)) + 1
         affordable = math.floor((cash - committed) / worst_cost_per_share)
         chunk = min(remaining, BUY_CHUNK, affordable)
         if chunk <= 0:
@@ -126,6 +164,27 @@ def _buy_in_chunks(market: MarketEngine, user_id: str, symbol: str, qty: int,
         remaining -= result.filled_qty
         if result.status != "filled":
             return fills, result.reason or "market makers ran out of shares"
+    return fills, None
+
+
+def _sell(market: MarketEngine, user_id: str, symbol: str, qty: int,
+          limit_price_cents: int | None) -> tuple[list[Fill], str | None]:
+    if limit_price_cents is None:  # plain market sell: one go
+        result = market.submit_order(account_id=user_id, symbol=symbol, side="sell", qty=qty)
+        return list(result.fills), None if result.status == "filled" else result.reason
+    fills: list[Fill] = []
+    remaining = qty
+    while remaining > 0:  # limit sell: chunks, checking the bid before each
+        bid = market.quote(symbol).bid
+        if bid is None:
+            return fills, "market makers ran out of cash"
+        if to_cents(bid) < limit_price_cents:
+            return fills, PRICE_MOVED
+        result = market.submit_order(account_id=user_id, symbol=symbol, side="sell", qty=min(remaining, BUY_CHUNK))
+        fills.extend(result.fills)
+        remaining -= result.filled_qty
+        if result.status != "filled":
+            return fills, result.reason or "market makers ran out of cash"
     return fills, None
 
 
@@ -143,7 +202,7 @@ def _balance(db: Database, user_id: str, symbol: str) -> tuple[int, int, int]:
 
 
 def _record(db: Database, order_id: str, user_id: str, symbol: str, side: Side, qty: int,
-            engine_fills: list[Fill], reason: str | None) -> OrderOutcome:
+            engine_fills: list[Fill], why: str | None, fill_reason: str = "market") -> OrderOutcome:
     recorded: list[RecordedFill] = []
     with db.lock, db.conn:  # one transaction: all fills, cash and position, or nothing
         cash, held, basis = _balance(db, user_id, symbol)
@@ -162,9 +221,9 @@ def _record(db: Database, order_id: str, user_id: str, symbol: str, side: Side, 
             trade = RecordedFill(f"t_{secrets.token_hex(6)}", fill.qty, price, fee, fill.t, fill.counterparty)
             db.conn.execute(
                 "INSERT INTO trades (trade_id, order_id, user_id, symbol, side, qty, price_cents,"
-                " fee_cents, t, reason, counterparty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'market', ?)",
+                " fee_cents, t, reason, counterparty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (trade.trade_id, order_id, user_id, symbol, side, trade.qty, price, fee, trade.t,
-                 trade.counterparty),
+                 fill_reason, trade.counterparty),
             )
             recorded.append(trade)
         if cash < 0:
@@ -181,4 +240,4 @@ def _record(db: Database, order_id: str, user_id: str, symbol: str, side: Side, 
             )
     filled = sum(f.qty for f in recorded)
     return OrderOutcome(order_id, "filled" if filled == qty else "partially_filled", symbol, side,
-                        qty, cash, held, recorded, None if filled == qty else reason)
+                        qty, cash, held, recorded, None if filled == qty else why)

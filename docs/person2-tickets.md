@@ -250,20 +250,33 @@ These come from Person 1's prototype and Person 4's interfaces.
 - **Cost:** 12 bundles a minute × 0.000005 SOL = 0.0036 SOL an hour. The 5 SOL lasts well over a month of nonstop running.
 - **For Person 3:** a live "Day 14: 37 trades settled on Solana ✓" feed can poll `GET /trading/bot-bundles?limit=5` now. P2-13 will push it instead.
 
-## ⬜ P2-11 · Limit and stop-loss orders, cancel, open orders
+## ✅ P2-11 · Limit and stop-loss orders, cancel, open orders
 - **Gate:** G2
-- **Depends on:** P2-04, and the `MarketTick` feed (in the fake)
-- **What:** Person 1's engine has **no resting order book**, so **both limit and stop orders live in your layer**:
-  - Store open orders in the database.
-  - On every `MarketTick`:
-    - A buy limit fires when `ask ≤ limit`.
-    - A sell limit fires when `bid ≥ limit`.
-    - A stop-loss fires when `last ≤ trigger`.
-  - When an order fires, send a market order with `reason` set to `limit` or `stop`.
-  - Reserve the user's cash or shares while an order is open.
-  - `DELETE /trading/orders/{id}` cancels an order. `GET /trading/orders/open` lists open orders.
-- **Note:** a fired limit order can fill slightly worse than its limit if the price slips. Decide whether to cap the quantity to stay within the limit.
-- **Done when:** a stop-loss fires during a price drop, and cancelled orders never fire.
+- **What was built** (`trading/open_orders.py`, plus changes to `trading/orders.py`):
+  - **`POST /trading/orders/open {symbol, side, order_type: limit|stop, qty, price}`** (201) places an order that waits for its price.
+    - **Buy limit:** fires when the ask ≤ the limit.
+    - **Sell limit** (take-profit): fires when the bid ≥ the limit.
+    - **Stop-loss** (sell only): fires when the last price ≤ the trigger. It must be placed below the current price.
+  - **`GET /trading/orders/open`** (`?include_closed=true` for history) and **`DELETE /trading/orders/{order_id}`** to cancel. Cancelling a filled order gives `409`, and someone else's order gives `404`.
+  - **Reservations:** while open, a buy limit holds back `qty × limit × (1 + fee)` plus a cent a share for rounding, and sell limits and stops hold back their shares.
+    - Market orders can't spend reserved cash or sell reserved shares (`"you hold 10 JOKIC (10 reserved for open orders)…"`).
+    - The portfolio now shows `reserved_cash` and `available_cash`.
+  - **Watcher:** subscribes to market ticks and fires triggered orders as market orders (`reason` = `limit` / `stop`). Their trades get Solana receipts like any order.
+  - **Limits never fill past their price.** A buy limit buys in chunks while the ask stays ≤ the limit, and a sell limit sells while the bid stays ≥ it. Whatever doesn't fill stays open and tries again on later ticks.
+  - A stop-loss sells at the market once triggered. Its job is getting out, not getting a price.
+  - If an order can't fill because of liquidity or the price slipping back, it stays open. Any other error marks it `failed` with a reason.
+- **Not done:** buy stops, and one-cancels-the-other pairs (a stop-loss plus take-profit on the same shares). Reservations mean the same shares can't back both. Fine for the demo.
+- **Tests:** 23 in `test_open_orders.py`, covering:
+  - The watcher stepped by hand: buy, sell and stop fire correctly, limits never fill past their price, and partial fills stay open.
+  - Reservations, cancelling, and bad input.
+  - The API with the market running, including a stop-loss fired by a real sell-off from another trader.
+
+  169 pass in total, 3 runs in a row.
+- **Checked on a live server against real devnet:**
+  - A JOKIC buy limit 2 above the ask filled within 1.5 s, and its receipt confirmed.
+  - A far-off limit held back 250.30, shown in the portfolio.
+  - Selling shares reserved for a stop was refused, and cancelling worked.
+  - The stop-loss fired when the price drifted down to its trigger, with its trade receipt queued.
 
 ## ⬜ P2-12 · Fees, spread and slippage
 - **Gate:** G2
