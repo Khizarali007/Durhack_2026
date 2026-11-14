@@ -10,6 +10,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { label: 'Home',        to: '/',            glyph: '⌂' },
   { label: 'Market',      to: '/market',      glyph: '⇅', also: ['/stock'] },
   { label: 'Portfolio',   to: '/portfolio',   glyph: '◔' },
   { label: 'Leaders',     to: '/leaderboard', glyph: '♛' },
