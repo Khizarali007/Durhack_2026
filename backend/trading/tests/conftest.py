@@ -4,6 +4,7 @@ Tests never touch Solana devnet: receipts go to a FakeSender instead.
 """
 
 import asyncio
+import json
 
 import pytest
 from fastapi.testclient import TestClient
@@ -38,8 +39,18 @@ class FakeSender:
         self._rejected: set[str] = set()
         self.closed = False
 
+    @property
+    def sent_trades(self):
+        """Only human-order receipts (bot bundles also arrive every 5 s while the app runs)."""
+        return [(m, c) for m, c in self.sent if json.loads(m)["kind"] == "trade"]
+
+    @property
+    def sent_bundles(self):
+        return [(m, c) for m, c in self.sent if json.loads(m)["kind"] == "bots"]
+
     async def send(self, memo, cosigner):
-        self.attempts += 1
+        if json.loads(memo)["kind"] == "trade":
+            self.attempts += 1  # counts order receipts only
         if self.delay_s:
             await asyncio.sleep(self.delay_s)
         if self.always_fail or self.fail_times > 0:

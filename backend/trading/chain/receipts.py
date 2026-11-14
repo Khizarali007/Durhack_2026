@@ -80,6 +80,29 @@ def build_trade_memo(*, order_id: str, wallet: str, symbol: str, side: str,
     return json.dumps(memo, separators=(",", ":")).encode()
 
 
+@dataclass(frozen=True)
+class BotTradeLine:
+    bot_id: str
+    symbol: str
+    side: str
+    qty: int
+    price_cents: int
+    t: float
+
+
+def bot_trades_hash(trades: list[BotTradeLine]) -> str:
+    """Full sha256 hex of the canonical trade list: one "bot_id,symbol,side,qty,price_cents,t" line per trade."""
+    canonical = "\n".join(f"{b.bot_id},{b.symbol},{b.side},{b.qty},{b.price_cents},{b.t!r}" for b in trades)
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def build_bot_bundle_memo(*, bundle_id: str, minute_t: float, count: int, volume: int, trades_hash: str) -> bytes:
+    """P2-10: one receipt per market minute of bot trades (fee payer signs alone)."""
+    memo = {"app": "hoopstreet", "v": 1, "kind": "bots", "bundle": bundle_id, "minute": minute_t,
+            "count": count, "vol": volume, "h": trades_hash}
+    return json.dumps(memo, separators=(",", ":")).encode()
+
+
 class ReceiptSender(Protocol):
     async def send(self, memo: bytes, cosigner: Keypair | None) -> str:
         """Submit the memo transaction; return its signature without waiting for confirmation."""

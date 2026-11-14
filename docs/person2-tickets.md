@@ -230,13 +230,25 @@ These come from Person 1's prototype and Person 4's interfaces.
   - Example: https://explorer.solana.com/tx/37j1Z8S1U3dGAWri7Dz4QWDtNpEf3pM9z7XTSw2EQGBxzUKdN6JmG3mM7pza9bSbuvRfcdvCkAtL8egEVKS6Mj7u?cluster=devnet
 - **Lesson learned:** the first version checked each receipt every 0.25 s from 3 workers and hit devnet's rate limit (429). The batched checker fixed it. If devnet is still a problem during the demo, set `SOLANA_RPC_URL` to a free dedicated RPC (e.g. Helius) instead of the public one.
 
-## ⬜ P2-10 · Bundled bot-trade receipts
+## ✅ P2-10 · Bundled bot-trade receipts
 - **Gate:** G2
-- **Depends on:** P2-09, and `BotTradeSummary` from `subscribe()` (the fake sends one per market minute)
-- **What:**
-  - One memo per market minute with the **count, total volume and a sha256 hash of the trade list**.
-  - Store the full list in the database so the hash can be checked against it.
-- **Done when:** about 12 bundle receipts a minute land without hitting devnet rate limits.
+- **What was built:**
+  - **`trading/chain/bot_bundles.py`:** a recorder listens to the market's events.
+    - Each `BotTradeSummary` (once per market minute, every 5 real seconds) becomes one bundle.
+    - `bot_trades` holds the full trade list, and `bot_bundles` holds the count, volume and **sha256 of the list**. Both are saved in one transaction.
+    - Minutes with no bot trades are skipped.
+  - **Memo:** `{"app":"hoopstreet","v":1,"kind":"bots","bundle","minute","count","vol","h"}`, signed by the fee payer alone (5,000 lamports each). The hash is over one `bot_id,symbol,side,qty,price_cents,t` line per trade.
+  - **The receipt worker now handles two job kinds**, `order` and `bundle`. They share the same senders, batched checker, rate limiter, retries and restart pick-up, so devnet still sees one well-behaved client.
+  - **Public API:**
+    - `GET /trading/bot-bundles?limit=` lists recent bundles, newest first, with receipt status and Explorer link.
+    - `GET /trading/bot-bundles/{bundle_id}` returns the full trade list, plus `recomputed_hash` and **`hash_matches`**: a fresh check that the stored trades match what's on-chain. Editing a stored trade makes it `false`.
+- **Tests:** 15 in `test_bot_bundles.py`, including one where the full app runs until a real market minute passes. The receipt tests now count only order receipts, since bundles arrive every 5 s. 146 pass in total, 3 runs in a row.
+- **Checked on a live server against real devnet (about 22 s):**
+  - 4 bundles of 14–21 trades each confirmed in 1.0–1.5 s, alongside a human order's receipt, with no rate-limit errors.
+  - `hash_matches: true` on a 21-trade bundle.
+  - Example: https://explorer.solana.com/tx/4zdYxvjg4shMGe9TZ1JuHn8QeUq7YDtnM2vfDJErLq6w3N7wgGQqbgEXLGs9DdbxmSZXjcWtggzHrBu32ZFx25WM?cluster=devnet
+- **Cost:** 12 bundles a minute × 0.000005 SOL = 0.0036 SOL an hour. The 5 SOL lasts well over a month of nonstop running.
+- **For Person 3:** a live "Day 14: 37 trades settled on Solana ✓" feed can poll `GET /trading/bot-bundles?limit=5` now. P2-13 will push it instead.
 
 ## ⬜ P2-11 · Limit and stop-loss orders, cancel, open orders
 - **Gate:** G2

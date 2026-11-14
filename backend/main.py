@@ -18,6 +18,7 @@ from fastapi import FastAPI
 
 from trading import router as trading_router
 from trading.chain import worker as receipt_worker
+from trading.chain.bot_bundles import BotBundleRecorder
 from trading.db import Database
 from trading.market_provider import get_market
 
@@ -34,12 +35,18 @@ async def lifespan(app: FastAPI):
         app.state.receipts = receipt_worker.ReceiptWorker(app.state.trading_db, receipt_worker.sender_factory())
         await app.state.receipts.start()
 
+    # Bot trades: one bundle (and one receipt) per market minute (P2-10).
+    bundles = BotBundleRecorder(app.state.trading_db, market,
+                                on_bundle=app.state.receipts.enqueue_bundle if app.state.receipts else None)
+    await bundles.start()
+
     # Person 4 plugs in here at merge (see docs/person4-interfaces.md on their branch):
     #   configure_learning(market_adapter, trades_adapter)
     try:
         yield
     finally:
         # Person 4: await shutdown_learning()
+        await bundles.stop()
         if app.state.receipts:
             await app.state.receipts.stop()
         market_task.cancel()

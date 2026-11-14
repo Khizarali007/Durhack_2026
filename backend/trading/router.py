@@ -17,7 +17,9 @@ from .accounts import (
     create_session,
     delete_session,
 )
+from .chain.bot_bundles import bundle_lines
 from .chain.config import explorer_url
+from .chain.receipts import bot_trades_hash
 from .chain.status import ChainStatus, chain_status
 from .chain.wallets import ensure_wallet
 from .db import Database
@@ -147,6 +149,42 @@ class TradeOut(BaseModel):
     receipt_signature: str | None
     receipt_confirm_ms: int | None
     receipt_explorer_url: str | None
+
+
+class BotBundleOut(BaseModel):
+    bundle_id: str
+    minute_t: float = Field(description="Market time the minute started, epoch seconds")
+    trade_count: int
+    total_volume: int = Field(description="Shares traded by bots in that minute")
+    trades_hash: str = Field(description="sha256 of the trade list, as written on-chain")
+    receipt_status: Literal["pending", "confirmed", "failed"]
+    receipt_signature: str | None
+    receipt_explorer_url: str | None
+    receipt_confirm_ms: int | None
+
+
+class BotTradeOut(BaseModel):
+    bot_id: str
+    symbol: str
+    side: Literal["buy", "sell"]
+    qty: int
+    price: float
+    t: float
+
+
+class BotBundleDetailOut(BotBundleOut):
+    trades: list[BotTradeOut]
+    recomputed_hash: str = Field(description="sha256 recomputed from the stored trades just now")
+    hash_matches: bool = Field(description="True if the stored trades match the hash on-chain")
+
+
+def _bundle_out(row) -> dict:
+    signature = row["receipt_signature"]
+    return dict(bundle_id=row["bundle_id"], minute_t=row["minute_t"], trade_count=row["trade_count"],
+                total_volume=row["total_volume"], trades_hash=row["trades_hash"],
+                receipt_status=row["receipt_status"], receipt_signature=signature,
+                receipt_explorer_url=explorer_url("tx", signature) if signature else None,
+                receipt_confirm_ms=row["receipt_confirm_ms"])
 
 
 def _pct(part: int, whole: int) -> float:
@@ -314,6 +352,33 @@ def trades(
                  receipt_explorer_url=explorer_url("tx", r.receipt_signature) if r.receipt_signature else None)
         for r in trades_for_user(db, user.user_id, since_t=since_t, symbol=symbol, limit=limit)
     ]
+
+
+@router.get("/bot-bundles")
+def bot_bundles(db: Database = Depends(get_db),
+                limit: int = Query(20, ge=1, le=200, description="Newest first")) -> list[BotBundleOut]:
+    """Recent minutes of bot trading, each settled on Solana as one receipt. Public."""
+    with db.lock:
+        rows = db.conn.execute("SELECT * FROM bot_bundles ORDER BY rowid DESC LIMIT ?", (limit,)).fetchall()
+    return [BotBundleOut(**_bundle_out(r)) for r in rows]
+
+
+@router.get("/bot-bundles/{bundle_id}")
+def bot_bundle(bundle_id: str, db: Database = Depends(get_db)) -> BotBundleDetailOut:
+    """One bundle with its full trade list, and a fresh check that it matches the hash on-chain."""
+    with db.lock:
+        row = db.conn.execute("SELECT * FROM bot_bundles WHERE bundle_id = ?", (bundle_id,)).fetchone()
+    if row is None:
+        raise HTTPException(404, "no such bundle")
+    lines = bundle_lines(db, bundle_id)
+    recomputed = bot_trades_hash(lines)
+    return BotBundleDetailOut(
+        **_bundle_out(row),
+        trades=[BotTradeOut(bot_id=b.bot_id, symbol=b.symbol, side=b.side, qty=b.qty,
+                            price=to_hoop(b.price_cents), t=b.t) for b in lines],
+        recomputed_hash=recomputed,
+        hash_matches=recomputed == row["trades_hash"],
+    )
 
 
 @router.get("/chain/status")

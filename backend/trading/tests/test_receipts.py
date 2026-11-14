@@ -69,12 +69,14 @@ def test_order_gets_a_confirmed_receipt(client, player, fake_sender):
     assert order["receipt_status"] == "pending"
 
     receipt = wait_for_receipt(client, headers, order["order_id"])
-    assert {k: receipt[k] for k in ("order_id", "status", "signature", "explorer_url")} == {
-        "order_id": order["order_id"], "status": "confirmed", "signature": "fakesig1",
-        "explorer_url": "https://explorer.solana.com/tx/fakesig1?cluster=devnet"}
+    signature = receipt["signature"]
+    assert signature.startswith("fakesig")
+    assert {k: receipt[k] for k in ("order_id", "status", "explorer_url")} == {
+        "order_id": order["order_id"], "status": "confirmed",
+        "explorer_url": f"https://explorer.solana.com/tx/{signature}?cluster=devnet"}
     assert 0 <= receipt["confirm_ms"] < 3000  # measured from send to confirmation
 
-    memo, cosigner = fake_sender.sent[0]
+    memo, cosigner = fake_sender.sent_trades[0]
     memo = json.loads(memo)
     assert (memo["order"], memo["sym"], memo["qty"], memo["wallet"]) == (
         order["order_id"], "SGA", 5, session["wallet_address"])
@@ -84,14 +86,14 @@ def test_order_gets_a_confirmed_receipt(client, player, fake_sender):
 def test_every_fill_of_the_order_shows_the_receipt(client, player):
     headers, _ = player
     order = buy(client, headers, "LUKA", 25)  # several fills
-    wait_for_receipt(client, headers, order["order_id"])
+    signature = wait_for_receipt(client, headers, order["order_id"])["signature"]
     trades = client.get("/trading/trades", headers=headers).json()
     assert len(trades) == len(order["fills"]) > 1
     confirm_times = {trade["receipt_confirm_ms"] for trade in trades}
     assert len(confirm_times) == 1 and confirm_times.pop() >= 0
     for trade in trades:
-        assert (trade["receipt_status"], trade["receipt_signature"]) == ("confirmed", "fakesig1")
-        assert trade["receipt_explorer_url"].endswith("/tx/fakesig1?cluster=devnet")
+        assert (trade["receipt_status"], trade["receipt_signature"]) == ("confirmed", signature)
+        assert trade["receipt_explorer_url"].endswith(f"/tx/{signature}?cluster=devnet")
 
 
 def test_one_receipt_per_order(client, player, fake_sender):
@@ -99,8 +101,8 @@ def test_one_receipt_per_order(client, player, fake_sender):
     orders = [buy(client, headers, s) for s in ("SGA", "TATUM", "CURRY")]
     for order in orders:
         wait_for_receipt(client, headers, order["order_id"])
-    assert len(fake_sender.sent) == 3
-    assert {json.loads(m)["order"] for m, _ in fake_sender.sent} == {o["order_id"] for o in orders}
+    assert len(fake_sender.sent_trades) == 3
+    assert {json.loads(m)["order"] for m, _ in fake_sender.sent_trades} == {o["order_id"] for o in orders}
 
 
 def test_trades_never_wait_for_solana(client, player, fake_sender):
@@ -126,7 +128,7 @@ def test_rate_limited_status_checks_do_not_resend(client, player, fake_sender):
     fake_sender.status_errors = 3  # devnet says 429 three times
     order = buy(client, headers)
     assert wait_for_receipt(client, headers, order["order_id"], timeout_s=5)["status"] == "confirmed"
-    assert len(fake_sender.sent) == 1  # sent once, checked until it showed up
+    assert len(fake_sender.sent_trades) == 1  # sent once, checked until it showed up
 
 
 def test_a_transaction_the_chain_rejects_is_sent_again(client, player, fake_sender):
@@ -134,8 +136,9 @@ def test_a_transaction_the_chain_rejects_is_sent_again(client, player, fake_send
     fake_sender.reject_times = 1
     order = buy(client, headers)
     receipt = wait_for_receipt(client, headers, order["order_id"], timeout_s=5)
-    assert (receipt["status"], receipt["signature"]) == ("confirmed", "fakesig2")
-    assert len(fake_sender.sent) == 2
+    assert receipt["status"] == "confirmed"
+    assert len(fake_sender.sent_trades) == 2
+    assert receipt["signature"] not in fake_sender._rejected  # the resend is the one recorded
 
 
 def test_gives_up_after_five_tries_but_the_trade_stands(client, player, fake_sender):
@@ -175,7 +178,7 @@ def test_receipts_off_leaves_trades_pending(monkeypatch, fake_sender):
         time.sleep(0.2)
         assert client.get(f"/trading/orders/{order['order_id']}/receipt", headers=headers).json()["status"] == "pending"
     market_provider.use_market(None)
-    assert fake_sender.sent == []
+    assert fake_sender.sent_trades == []
 
 
 # --- The worker on its own -------------------------------------------------------------

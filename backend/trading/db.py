@@ -78,9 +78,38 @@ CREATE TABLE IF NOT EXISTS trades (
     receipt_confirm_ms  INTEGER                  -- measured confirmation time
 );
 CREATE INDEX IF NOT EXISTS trades_by_user_time ON trades (user_id, t);
+
+-- P2-10: every market minute's bot trades, bundled into one Solana receipt.
+-- The receipt holds a sha256 of the bundle's trade list; bot_trades keeps the
+-- full list so anyone can recompute the hash and check it matches.
+CREATE TABLE IF NOT EXISTS bot_bundles (
+    bundle_id           TEXT PRIMARY KEY,
+    minute_t            REAL NOT NULL,           -- market time the minute started
+    trade_count         INTEGER NOT NULL CHECK (trade_count > 0),
+    total_volume        INTEGER NOT NULL,        -- shares
+    trades_hash         TEXT NOT NULL,           -- sha256 hex of the canonical trade list
+    receipt_status      TEXT NOT NULL DEFAULT 'pending'
+                        CHECK (receipt_status IN ('pending', 'confirmed', 'failed')),
+    receipt_signature   TEXT,
+    receipt_confirm_ms  INTEGER,
+    created_at          REAL NOT NULL            -- real time, unix seconds
+);
+CREATE INDEX IF NOT EXISTS bot_bundles_by_time ON bot_bundles (created_at);
+
+CREATE TABLE IF NOT EXISTS bot_trades (
+    bundle_id     TEXT NOT NULL REFERENCES bot_bundles (bundle_id),
+    seq           INTEGER NOT NULL,              -- order within the bundle
+    bot_id        TEXT NOT NULL,
+    symbol        TEXT NOT NULL,
+    side          TEXT NOT NULL CHECK (side IN ('buy', 'sell')),
+    qty           INTEGER NOT NULL CHECK (qty > 0),
+    price_cents   INTEGER NOT NULL,
+    t             REAL NOT NULL,
+    PRIMARY KEY (bundle_id, seq)
+);
 """
 
-TABLES = ("users", "sessions", "wallets", "positions", "trades")
+TABLES = ("users", "sessions", "wallets", "positions", "trades", "bot_bundles", "bot_trades")
 
 
 class Database:
