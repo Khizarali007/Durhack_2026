@@ -1,0 +1,143 @@
+/* ============================================================
+   HoopStreet design tokens
+   :root            = dark theme (default)
+   [data-theme="light"] = light theme override
+   ============================================================ */
+
+:root {
+  /* --- Background --- */
+  --hs-color-bg-page:         #0D1117;
+  --hs-color-bg-panel:        #161B22;
+  --hs-color-bg-panel-raised: #1C2128;
+  --hs-color-bg-hover:        #21262D;
+  --hs-color-bg-selected:     #1F2937;
+
+  /* --- Borders --- */
+  --hs-color-border:        #30363D;
+  --hs-color-border-subtle: #21262D;
+
+  /* --- Text --- */
+  --hs-color-text-primary:   #E6EDF3;
+  --hs-color-text-secondary: #8B949E;
+  --hs-color-text-disabled:  #484F58;
+  --hs-color-text-inverse:   #0D1117;
+
+  /* --- Accent (blue — not green or red) --- */
+  --hs-color-accent:       #2F81F7;
+  --hs-color-accent-hover: #388BFD;
+  --hs-color-accent-muted: rgba(47, 129, 247, 0.15);
+
+  /* --- Up / Buy (green) --- */
+  --hs-color-up:       #3FB950;
+  --hs-color-up-hover: #46C657;
+  --hs-color-up-muted: rgba(63, 185, 80, 0.15);
+  --hs-color-up-text:  #3FB950;
+
+  /* --- Down / Sell (red) --- */
+  --hs-color-down:       #F85149;
+  --hs-color-down-hover: #FA6056;
+  --hs-color-down-muted: rgba(248, 81, 73, 0.15);
+  --hs-color-down-text:  #F85149;
+
+  /* --- Neutral muted --- */
+  --hs-color-neutral-muted: rgba(139, 148, 158, 0.15);
+
+  /* --- Spacing --- */
+  --hs-space-1:  4px;
+  --hs-space-2:  8px;
+  --hs-space-3:  12px;
+  --hs-space-4:  16px;
+  --hs-space-5:  20px;
+  --hs-space-6:  24px;
+  --hs-space-8:  32px;
+  --hs-space-10: 40px;
+  --hs-space-12: 48px;
+
+  /* --- Border radius --- */
+  --hs-radius-sm:   4px;
+  --hs-radius-md:   6px;
+  --hs-radius-lg:   8px;
+  --hs-radius-xl:   12px;
+  --hs-radius-pill: 999px;
+
+  /* --- Typography --- */
+  --hs-font-family: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --hs-font-size-xs:  11px;
+  --hs-font-size-sm:  12px;
+  --hs-font-size-md:  14px;
+  --hs-font-size-lg:  16px;
+  --hs-font-size-xl:  20px;
+  --hs-font-size-2xl: 24px;
+  --hs-font-size-3xl: 32px;
+
+  --hs-line-height-tight:  1.25;
+  --hs-line-height-normal: 1.5;
+
+  --hs-font-weight-normal:   400;
+  --hs-font-weight-medium:   500;
+  --hs-font-weight-semibold: 600;
+  --hs-font-weight-bold:     700;
+
+  --hs-letter-spacing-label: 0.06em;
+
+  /* --- Layout --- */
+  --hs-layout-header-height: 56px;
+  --hs-layout-col-left:      300px;
+  --hs-layout-col-right:     340px;
+  --hs-layout-row-market:    44px;
+
+  --hs-layout-badge-sm: 24px;
+  --hs-layout-badge-md: 32px;
+  --hs-layout-badge-lg: 40px;
+
+  --hs-layout-btn-height-sm: 28px;
+  --hs-layout-btn-height-md: 36px;
+  --hs-layout-btn-height-lg: 44px;
+
+  /* --- Motion --- */
+  --hs-duration-flash: 200ms;
+  --hs-duration-fade:  400ms;
+  --hs-ease-default:   ease-out;
+
+  --hs-transition-default: color 150ms ease-out, background-color 150ms ease-out;
+}
+
+[data-theme="light"] {
+  /* --- Background --- */
+  --hs-color-bg-page:         #FFFFFF;
+  --hs-color-bg-panel:        #F6F8FA;
+  --hs-color-bg-panel-raised: #FFFFFF;
+  --hs-color-bg-hover:        #EAEEF2;
+  --hs-color-bg-selected:     #DDF4FF;
+
+  /* --- Borders --- */
+  --hs-color-border:        #D0D7DE;
+  --hs-color-border-subtle: #EAEEF2;
+
+  /* --- Text --- */
+  --hs-color-text-primary:   #1F2328;
+  --hs-color-text-secondary: #57606A;
+  --hs-color-text-disabled:  #9EA8B3;
+  --hs-color-text-inverse:   #FFFFFF;
+
+  /* --- Accent (blue) --- */
+  --hs-color-accent:       #0969DA;
+  --hs-color-accent-hover: #0860CA;
+  --hs-color-accent-muted: rgba(9, 105, 218, 0.1);
+
+  /* --- Up / Buy (green) --- */
+  --hs-color-up:       #1A7F37;
+  --hs-color-up-hover: #1B8E3D;
+  --hs-color-up-muted: rgba(26, 127, 55, 0.1);
+  --hs-color-up-text:  #1A7F37;
+
+  /* --- Down / Sell (red) --- */
+  --hs-color-down:       #CF222E;
+  --hs-color-down-hover: #A40E26;
+  --hs-color-down-muted: rgba(207, 34, 46, 0.1);
+  --hs-color-down-text:  #CF222E;
+
+  /* --- Neutral muted --- */
+  --hs-color-neutral-muted: rgba(87, 96, 106, 0.1);
+}

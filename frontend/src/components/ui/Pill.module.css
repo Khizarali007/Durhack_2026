@@ -1,0 +1,32 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--hs-space-2);
+  border-radius: var(--hs-radius-pill);
+  font-size: var(--hs-font-size-xs);
+  font-weight: var(--hs-font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+  line-height: var(--hs-line-height-tight);
+}
+
+.up {
+  background: var(--hs-color-up-muted);
+  color: var(--hs-color-up-text);
+}
+
+.down {
+  background: var(--hs-color-down-muted);
+  color: var(--hs-color-down-text);
+}
+
+.neutral {
+  background: var(--hs-color-neutral-muted);
+  color: var(--hs-color-text-secondary);
+}
+
+.accent {
+  background: var(--hs-color-accent-muted);
+  color: var(--hs-color-accent);
+}
