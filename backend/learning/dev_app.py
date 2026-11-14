@@ -20,12 +20,14 @@ from fastapi.middleware.cors import CORSMiddleware
 if __package__ in (None, ""):  # allow `python backend/learning/dev_app.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from learning import configure, router  # noqa: E402
+from learning import configure, router, shutdown  # noqa: E402
 from learning import mock_router  # noqa: E402
 from learning.adapters.mock_market import MockMarket  # noqa: E402
 from learning.adapters.mock_trades import MockTrades  # noqa: E402
 
 DEV_PORT = 8001
+# Person 4's sandbox frontend.
+CORS_ORIGINS = ["http://localhost:5174", "http://127.0.0.1:5174"]
 
 
 @asynccontextmanager
@@ -38,13 +40,14 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await shutdown()
         await market.stop()
 
 
 app = FastAPI(title="HoopStreet learning layer (dev, mock adapters)", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

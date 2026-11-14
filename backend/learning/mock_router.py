@@ -1,6 +1,9 @@
-"""MOCK ONLY - debug endpoints for poking the mock adapters during local dev.
+"""MOCK ONLY - REMOVE AT MERGE.
 
-Mounted by dev_app.py under /learning/mock. Never mount this in backend/main.py.
+Debug endpoints for the mock adapters during local dev, mounted by dev_app.py
+under /learning/mock. Never mount this in backend/main.py: in the real app
+users trade through Person 2's API (POST /learning/mock/order and
+GET /learning/mock/portfolio stand in for it).
 """
 
 from __future__ import annotations
