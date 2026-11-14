@@ -1,4 +1,5 @@
 """Read-only endpoints for the shared live market."""
+import time
 import asyncio
 import contextlib
 from dataclasses import asdict
@@ -61,6 +62,7 @@ async def live_quotes(websocket: WebSocket):
     queue = m.subscribe()
     receiver = asyncio.create_task(websocket.receive_text())
     getter = None
+    last_sent = 0.0
     try:
         await websocket.send_json({'type': 'market_tick', 't': m.market_time(),
                                    'quotes': {s: asdict(m.quote(s)) for s in symbols}})
@@ -80,6 +82,11 @@ async def live_quotes(websocket: WebSocket):
                 continue
             event = getter.result()
             if isinstance(event, MarketTick):
+                # Browser updates are display-only. Internal order consumers still
+                # receive every tick; avoid serializing 580 quotes hundreds of times/s.
+                if not m.finished and time.monotonic() - last_sent < 0.2:
+                    continue
+                last_sent = time.monotonic()
                 await websocket.send_json({'type': 'market_tick', 't': event.t,
                                            'quotes': {s: asdict(event.quotes[s]) for s in symbols}})
     except (WebSocketDisconnect, RuntimeError):

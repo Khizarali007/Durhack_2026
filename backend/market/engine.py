@@ -64,6 +64,8 @@ class LiveMarket:
         self.end = datetime.fromisoformat(max(self.results)).replace(tzinfo=timezone.utc) + timedelta(days=1)
         self._t = self.day.timestamp()
         self.finished = False
+        self._quote_cache = {}
+        self._tick_count = 0
         self.paused = False
         self.playback_rate = 1.0
         self.start_t = self._t
@@ -183,13 +185,20 @@ class LiveMarket:
 
     def quote(self, symbol):
         m = self.markets[self.ids[symbol]]
+        key = (m.last_cents, m.fair_cents, m.injury_status,
+               tuple((maker.cash, maker.shares) for maker in m.makers))
+        cached = self._quote_cache.get(symbol)
+        if cached and cached[0] == key:
+            return cached[1]
         makers = tuple(MakerQuote(f'MM{i+1}', bid / 100 if bid is not None else None,
                                   ask / 100 if ask is not None else None, maker.shares)
                        for i, maker in enumerate(m.makers) for bid, ask in [m.quote(i)])
         bids = [q.bid for q in makers if q.bid is not None]
         asks = [q.ask for q in makers if q.ask is not None]
-        return Quote(symbol, max(bids) if bids else None, min(asks) if asks else None,
+        result = Quote(symbol, max(bids) if bids else None, min(asks) if asks else None,
                      m.last_cents / 100, m.fair_cents / 100, makers)
+        self._quote_cache[symbol] = (key, result)
+        return result
 
     def last_price(self, symbol):
         return self.quote(symbol).last
@@ -317,7 +326,11 @@ class LiveMarket:
                 m.bot_round(bool(m.game_signal))
         if self.finished:
             self._flush_bots()
-        self.check_ledger()
+        self._tick_count += 1
+        # Full conservation is also checked transactionally at each day-close payout.
+        # Repeating the complete 580-player audit every tick dominated fast replay.
+        if self.finished or self._tick_count % 120 == 0:
+            self.check_ledger()
         self._publish(MarketTick(self._t, {p.symbol: self.quote(p.symbol) for p in self._players}))
 
     async def run(self):

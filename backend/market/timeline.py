@@ -10,7 +10,7 @@ router = APIRouter(prefix='/market', tags=['demo timeline'])
 
 class TimelineControl(BaseModel):
     paused: bool | None = None
-    rate: float | None = Field(None, ge=0.25, le=50)
+    rate: float | None = Field(None, ge=0.25, le=500)
     target_t: float | None = None
 
 

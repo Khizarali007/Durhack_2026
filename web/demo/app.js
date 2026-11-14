@@ -17,6 +17,7 @@ const money = (v) =>
       }).format(v);
 const rate = (v) => (v == null ? "—" : "$" + v.toFixed(3));
 const colors = ["#5ce0aa", "#f9ad67", "#8aa6ff", "#f48fb1"];
+let onboardingDone = false, accountLoading = false;
 let timelineState = null,
   seeking = false,
   dragging = false,
@@ -47,7 +48,10 @@ async function api(path, method = "GET", body) {
   });
   const data = await r.json();
   if (!r.ok) {
-    if (r.status === 401 && token === usedToken) resetAccount();
+    if (r.status === 401) {
+      if (token === usedToken) resetAccount();
+      throw Object.assign(Error("Session reset"), {sessionReset: true});
+    }
     throw Error(
       typeof data.detail === "string"
         ? data.detail
@@ -55,10 +59,11 @@ async function api(path, method = "GET", body) {
     );
   }
   if (usedToken && usedToken !== token)
-    throw Error("Session changed. Please try again.");
+    throw Object.assign(Error("Session changed"), {sessionReset: true});
   return data;
 }
 function error(e) {
+  if (e.sessionReset) return;
   $("error").textContent = e.message || String(e);
 }
 function controls() {
@@ -66,10 +71,19 @@ function controls() {
     $(id).disabled = !token || busy || seeking || finished;
   $("start").hidden = !!token;
   $("start").disabled = busy || seeking;
+  $("first-buy").disabled = busy || seeking || finished || !players.length || !timelineState;
+  $("first-buy").textContent = busy ? "Buying…" : "Buy my first shares";
+  $("welcome").hidden = onboardingDone;
+  $("market-screen").hidden = !onboardingDone;
 }
 function resetAccount() {
   token = null;
   portfolio = null;
+  onboardingDone = false;
+  $("error").textContent = "";
+  sessionStorage.removeItem("hoop-demo-started");
+  $("payment-notice").hidden = true;
+  $("payments").textContent = "No payments yet.";
   sessionStorage.removeItem("hoop-demo-token");
   renderAccount();
   controls();
@@ -128,19 +142,70 @@ function renderAccount() {
   const held = portfolio?.positions.find((p) => p.symbol === selected);
   $("held").textContent = `You own ${held?.qty ?? 0} shares`;
   $("balance").innerHTML = [
-    ["Cash", portfolio?.available_cash],
-    ["Portfolio", portfolio?.equity],
-    ["Payouts received", portfolio?.payouts_received],
-    ["Pending payouts", portfolio?.pending_payouts],
-  ]
-    .map(([k, v]) => `<span>${k} <b>${money(v)}</b></span>`)
-    .join("");
+    ["Available cash", portfolio?.available_cash, "Ready to spend", "spendable"],
+    ["Shares value", portfolio?.positions_value, "Current market value", ""],
+    ["Total wealth", portfolio?.equity, "Cash + shares + pending payouts", ""],
+    ["Payouts earned", portfolio?.payouts_received, "Already included in your cash", ""],
+  ].map(([k,v,h,c]) => `<span class="${c}">${k}<b>${money(v)}</b><small>${h}</small></span>`).join("");
+  $("wallet-detail").textContent = `Pending payouts: ${money(portfolio?.pending_payouts)} (not spendable yet) · Cash reserved: ${money(portfolio?.reserved_cash)} · Profit / loss: ${money(portfolio?.total_pnl)}`;
+}
+function announcePayment(text) {
+  $("payment-notice").textContent = text;
+  $("payment-notice").hidden = false;
 }
 async function loadAccount() {
-  if (!token) return;
-  portfolio = await api("/trading/portfolio");
-  renderAccount();
+  if (!token || accountLoading) return;
+  accountLoading = true;
+  try {
+    const previous = portfolio?.payouts_received;
+    const [next, payments] = await Promise.all([api("/trading/portfolio"), api("/trading/payouts?limit=1000")]);
+    portfolio = next;
+    if (previous != null && next.payouts_received > previous + .005) {
+      announcePayment(`PAYOUTS RECEIVED · +${money(next.payouts_received - previous)} credited to your wallet. See each payment below.`);
+      $("payments").parentElement.open = true;
+    }
+    $("payments").innerHTML = payments.length ? payments.map(p =>
+      `<div class="payment-row"><span>${esc(p.symbol)} · ${new Date(p.t*1000).toISOString().slice(0,16).replace("T"," ")} UTC<br>${p.qty_held} shares × ${rate(p.hoop_per_share)} / share</span><b>+${money(p.amount)}</b></div>`
+    ).join("") : "No payments yet. Hold shares at noon UTC to qualify; payment arrives at day close after a game.";
+    if (next.positions.length || sessionStorage.getItem("hoop-demo-started") === token) onboardingDone = true;
+    renderAccount();
+    controls();
+  } finally { accountLoading = false; }
 }
+function firstEstimate() {
+  const p = match($("first-player").value), qty = Number($("first-qty").value);
+  const q = p && quotes[p.symbol];
+  $("first-cost").textContent = q && qty > 0 ? `${p.name} · ${money(q.ask)} / share · approximately ${money(q.ask * qty)} + fees. Starting wallet: $100,000.` : "Choose a player and a positive whole number of shares.";
+}
+$("first-player").oninput = firstEstimate;
+$("first-qty").oninput = firstEstimate;
+$("first-buy").onclick = async () => {
+  if (busy || seeking || !$("first-qty").reportValidity()) return;
+  const p = match($("first-player").value);
+  if (!p) return error("Choose a player from the suggestions.");
+  busy = true; controls();
+  try {
+    if (!token) {
+      const r = await api("/trading/guest", "POST");
+      token = r.token; sessionStorage.setItem("hoop-demo-token", token);
+    }
+    selected = p.symbol;
+    comparisons = comparisons.filter(s => s !== selected);
+    $("search").value = p.name;
+    const r = await api("/trading/orders", "POST", {symbol:selected, side:"buy", qty:Number($("first-qty").value), leverage:1});
+    if (!r.filled_qty) throw Error(r.reason || "No shares filled. Choose another player or quantity.");
+    onboardingDone = true;
+    sessionStorage.setItem("hoop-demo-started", token);
+    await loadAccount();
+    announcePayment(`PURCHASE COMPLETE · ${money(r.average_price * r.filled_qty + r.total_fee)} paid from your wallet (including ${money(r.total_fee)} fees). You bought ${r.filled_qty} ${selected} shares.`);
+    $("result").textContent = `First purchase complete: ${r.filled_qty}/${r.requested_qty} shares. Press Play to watch the market and receive payouts.`;
+    $("error").textContent = "";
+    await Promise.all([valuation(), loadHistory()]);
+    ingest(await api("/market/quotes"));
+  } catch(e) { error(e); }
+  finally { busy = false; controls(); }
+};
+
 $("start").onclick = async () => {
   busy = true;
   controls();
@@ -174,6 +239,7 @@ async function trade(side) {
     $("result").textContent =
       `${side === "buy" ? "Bought" : "Sold"} ${r.filled_qty}/${r.requested_qty} ${r.symbol} at ${money(r.average_price)} per share · fees ${money(r.total_fee)}${r.reason ? " · " + r.reason : ""}`;
     await loadAccount();
+    if (r.filled_qty) announcePayment(`${side === "buy" ? "PURCHASE" : "SALE"} COMPLETE · ${money(r.average_price * r.filled_qty + (side === "buy" ? r.total_fee : -r.total_fee))} ${side === "buy" ? "paid from" : "added to"} your wallet (including ${money(r.total_fee)} fees). ${r.filled_qty} ${r.symbol} shares ${side === "buy" ? "bought" : "sold"}.`);
   } catch (e) {
     error(e);
   } finally {
@@ -291,6 +357,7 @@ function draw() {
 function ingest(r) {
   if (seeking || (timelineState && r.t < timelineState.t)) return;
   quotes = r.quotes;
+  firstEstimate();
   $("clock").textContent =
     new Date(r.t * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC";
   if (Date.now() - lastDraw < 950) return;
@@ -341,10 +408,9 @@ async function refresh() {
       historyLoaded = true;
     }
     $("note").textContent =
-      `${s.finished ? "Replay finished. Drag the timeline back to start again." : `${timelineState.paused ? "Paused" : "Live replay"} · 1 day / ${(s.real_seconds_per_historical_day / timelineState.rate).toFixed(1)} seconds`} · Hold at noon UTC for day-close payouts. Rewinding resets accounts; forward jumps settle games and payouts in order.`;
+      `${s.finished ? "Replay finished. Drag the timeline back to start again." : `${timelineState.paused ? "Paused" : "Live replay"} · 1 day / ${(s.real_seconds_per_historical_day / timelineState.rate).toFixed(1)} seconds at target speed (actual speed depends on replay work)`} · Hold at noon UTC for day-close payouts. Rewinding resets accounts; forward jumps settle games and payouts in order.`;
     if (s.last_error) error("Market paused: " + s.last_error);
-    if (!socket || socket.readyState !== WebSocket.OPEN)
-      ingest(await api("/market/quotes"));
+    ingest(await api("/market/quotes"));
     await Promise.all([valuation(), loadAccount()]);
   } catch (e) {
     error(e);
@@ -394,6 +460,7 @@ async function control(body) {
     seeking = timelineState.busy;
     renderTimeline();
     $("error").textContent = "";
+    await refresh();
   } catch (e) {
     seeking = false;
     error(e);

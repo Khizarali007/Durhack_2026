@@ -73,3 +73,18 @@ devnet tests skipped. Targeted timeline/order tests passed after the final test
 addition. Browser verified a 17-day seek preserving holdings and paying $26.54,
 rewind resetting the account, history reload, and faster playback. Next: user
 review of the minimal demo; no push authorized.
+
+## Wallet/onboarding and replay speed — 14 November 2026
+
+First purchase gates the minimal market view. Wallet now explains spendable cash,
+share value, total wealth and paid/pending dividends. Purchase/sale notices and
+a payout banner with an itemized scrollable ledger show money movement.
+Replay speed now reaches 500× target. Cached quotes, periodic full audits and
+throttled browser serialization preserve economic tick/order processing.
+Same-seed five-day benchmark: 3.16s → 0.66s; identical quotes and cash.
+Browser verified first buy, wallet debit, fast playback and credited payouts.
+Session data reset for a fresh start; source NBA data preserved. Local commit only.
+
+Verification: full regression passed 341 tests; three optional devnet tests
+skipped. Demo left paused on opening day with no accounts/trades and 200×
+selected for playback after the first purchase.

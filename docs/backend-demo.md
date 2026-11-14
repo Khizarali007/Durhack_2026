@@ -4,7 +4,7 @@ Open http://127.0.0.1:8000/demo/ . The page uses the original replay graph styli
 with the live backend and a compact buy/sell box. No frontend build is needed.
 
 ```sh
-SOLANA_RECEIPTS=off MARKET_DAY_SECONDS=60 .venv/bin/uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000
+SOLANA_RECEIPTS=off MARKET_START_PAUSED=1 MARKET_DAY_SECONDS=60 .venv/bin/uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000
 ```
 
 Search a player, compare up to four, and switch between dollars and percentage
@@ -46,3 +46,24 @@ five model tests passed. Targeted integration checks also verify payout settleme
 limit-order execution during a seek, invalid targets, reset authentication and
 pause/resume. Browser checks confirmed forward seeking with shares/payouts,
 rewinding with account reset, restored daily history and 20× playback.
+
+## First purchase, wallet and faster replay
+
+New accounts begin on a first-purchase screen: choose any player and quantity,
+review the approximate cost, and buy with $100,000 virtual starting cash. A
+successful fill opens the market. A zero-fill or invalid purchase stays on the
+first screen. The wallet separates available cash, share value, total wealth
+and paid dividends; pending and reserved money are explained separately.
+Purchase/sale confirmations show cash movement including fees. Payout increases
+show a prominent banner and automatically expand a scrollable payment ledger
+with player, time, shares, per-share rate and amount. Polling is every three
+seconds, so fast playback can group multiple payments into one banner; individual
+payments remain itemized. Rewind clears this UI and returns to the first purchase.
+
+Replay supports up to 500× target speed, subject to CPU limits. Unchanged quotes
+are cached by their economic inputs. Full conservation checks run every 120 ticks,
+at payout settlement, and after seeks rather than scanning every player every
+tick. Browser market updates are capped at five per second; internal orders still
+receive every tick. The bot cadence, price model and payout rules are unchanged.
+A same-seed five-day benchmark took 3.16s before and 0.66s after (4.79× faster),
+with identical final quotes and institutional cash.

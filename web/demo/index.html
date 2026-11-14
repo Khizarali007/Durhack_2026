@@ -13,6 +13,26 @@
         <div class="brand">HOOPSTREET <span>◉</span></div>
         <div id="clock" class="tag">Connecting…</div>
       </header>
+      <section id="welcome" class="card welcome">
+        <p class="eyebrow">YOUR FIRST TRADE</p>
+        <h1>Pick a player. Own your first shares.</h1>
+        <p>Start with <strong>$100,000 in virtual cash</strong>. Buy shares, then watch their price and earn performance payouts.</p>
+        <div class="trade-controls">
+          <label>First player<input id="first-player" type="search" list="player-list" value="Victor Wembanyama" /></label>
+          <label>Shares<input id="first-qty" type="number" min="1" max="10000" step="1" value="10" /></label>
+        </div>
+        <p id="first-cost">Loading prices…</p>
+        <button id="first-buy" class="primary" disabled>Buy my first shares</button>
+        <p class="explainer">This is play money. Purchase cost and fees leave your wallet; payouts are added to your cash at day close.</p>
+      </section>
+      <div id="market-screen" hidden>
+      <section class="card wallet" aria-label="Your wallet">
+        <div class="trade-head"><h2>Your wallet</h2><span class="tag">VIRTUAL DOLLARS</span></div>
+        <div id="balance" class="balances"></div>
+        <p id="wallet-detail" class="explainer"></p>
+        <div id="payment-notice" role="status" aria-live="polite" hidden></div>
+        <details><summary>Recent performance payments</summary><div id="payments">No payments yet.</div></details>
+      </section>
       <h1>Watch the market move.</h1>
       <p>The new formula, live prices, and a quick trade.</p>
       <div class="toolbar">
@@ -91,6 +111,8 @@
           <option value="5">5×</option>
           <option value="20">20×</option>
           <option value="50">50×</option>
+          <option value="200">200×</option>
+          <option value="500">500× (fastest)</option>
         </select>
       </div>
       <p id="timeline-status" class="explainer">
@@ -121,12 +143,6 @@
           ><button id="sell" disabled>Sell</button
           ><span id="held">You own — shares</span>
         </div>
-        <div id="balance" class="balances">
-          <span>Cash <b>—</b></span
-          ><span>Portfolio <b>—</b></span
-          ><span>Payouts received <b>—</b></span
-          ><span>Pending payouts <b>—</b></span>
-        </div>
         <p id="result" role="status" aria-live="polite">
           Start a session to trade at the current market price.
         </p>
@@ -136,6 +152,7 @@
         day-close payouts. Chart records prices while this page is open;
         restarting the backend resets the account.
       </p>
+      </div>
       <p id="error" role="alert"></p>
     </main>
   </body>

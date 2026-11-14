@@ -17,6 +17,7 @@ def get_market() -> MarketEngine:
     if _market is None:
         from market.engine import LiveMarket
         _market = LiveMarket(day_seconds=float(os.environ.get("MARKET_DAY_SECONDS", "60")))
+        _market.paused = os.environ.get("MARKET_START_PAUSED", "0") == "1"
     return _market
 
 
