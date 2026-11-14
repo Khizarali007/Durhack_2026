@@ -2,14 +2,15 @@
 
 Last updated: 14 November 2026.
 Working location: `/Users/jonathanlyria/Documents/Projects/Durhack_2026`,
-branch `integration/person1-person2`.
+branch `backend` (integrated from `integration/person1-person2`).
 
 ## Current milestone
 
 Person 1 market and Person 2 trading backend integrated with performance dividends,
 slow ability / fast form expectations and discounted future-payout valuation.
-Person 2 changes through 5541fb0 are included. Changes are committed locally only;
-no push is authorized for this milestone.
+Person 2 changes through 5541fb0 are included. User authorized merging the completed integration into `backend` and pushing on
+14 November 2026. Remote backend had no divergent changes; integration was a
+fast-forward, preserving the tested Person 1 model and merged Person 2 features.
 
 ## Complete
 
