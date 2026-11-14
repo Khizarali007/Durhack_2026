@@ -21,6 +21,7 @@ from trading.adapters import TradesAdapter
 from trading.chain import worker as receipt_worker
 from trading.chain.bot_bundles import BotBundleRecorder
 from trading.db import Database
+from trading.equity import EquityRecorder
 from trading.live import LiveHub, receipt_notifier
 from trading.margin import MarginMonitor
 from trading.market_provider import get_market
@@ -68,6 +69,10 @@ async def lifespan(app: FastAPI):
                            notify_user=app.state.live.publish_user)
     await margin.start()
 
+    # Equity once per market minute, for the report card's max drawdown (P2-16).
+    equity = EquityRecorder(app.state.trading_db, market)
+    await equity.start()
+
     # Person 4's TradesAdapter (P2-21). At merge, Person 4 plugs in here (see
     # docs/person4-interfaces.md on their branch):
     #   configure_learning(market_adapter, app.state.trades_adapter)
@@ -76,6 +81,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         # Person 4: await shutdown_learning()
+        await equity.stop()
         await margin.stop()
         await payouts.stop()
         await watcher.stop()

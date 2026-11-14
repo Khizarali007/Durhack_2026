@@ -33,6 +33,7 @@ from .market_provider import get_market
 from .money import to_hoop
 from .money import to_cents
 from .open_orders import OpenOrder, cancel_open_order, create_open_order, list_open_orders
+from .equity import INTERVAL_S, equity_history, max_drawdown
 from .estimates import estimate_order
 from .orders import FEE_RATE, MAX_LEVERAGE, OrderError, place_market_order, reserved_cash, short_collateral
 from .portfolio import build_portfolio
@@ -260,6 +261,30 @@ class PortfolioOut(BaseModel):
     payouts_received: float = Field(description="HOOP earned from player performances while holding their shares")
     positions: list[PositionOut] = Field(description="Largest holding first")
     margin: MarginOut
+
+
+class EquityPointOut(BaseModel):
+    t: float = Field(description="Market time, epoch seconds")
+    equity: float = Field(description="cash + positions at the last price")
+    cash: float
+    positions_value: float
+    total_pnl: float = Field(description="equity - the starting point profit/loss is measured from")
+
+
+class EquityHistoryOut(BaseModel):
+    """P2-16: equity once per market minute, plus the report card's headline numbers."""
+
+    user_id: str
+    interval_s: float = Field(description="Market seconds between recorded points")
+    points: list[EquityPointOut] = Field(description="Oldest first")
+    current_equity: float = Field(description="Equity right now (live, not a recorded point)")
+    start_equity: float | None = Field(description="The first point in the window")
+    return_pct: float | None = Field(description="current_equity vs start_equity, %")
+    peak_equity: float | None = Field(description="Highest equity in the window, including now")
+    max_drawdown: float = Field(description="Biggest fall from a peak to a later low, HOOP (0 = never fell)")
+    max_drawdown_pct: float = Field(description="That fall as a % of the peak")
+    max_drawdown_peak_t: float | None
+    max_drawdown_trough_t: float | None
 
 
 class TradeOut(BaseModel):
@@ -655,6 +680,35 @@ def trades(
     ]
 
 
+@router.get("/equity-history")
+async def equity_history_route(
+    user: User = Depends(current_user),
+    db: Database = Depends(get_db),
+    since_t: float | None = Query(None, description="Only points at or after this market time (e.g. a mission's start)"),
+    limit: int = Query(2000, ge=1, le=20_000, description="Only the most recent N points (still oldest first)"),
+) -> EquityHistoryOut:
+    """Your equity once per market minute, with return and max drawdown worked out.
+    Drawdown includes your equity right now, so a fall in progress counts."""
+    view = build_portfolio(db, get_market(), user.user_id)
+    points = equity_history(db, user.user_id, since_t=since_t, limit=limit)
+    now = get_market().market_time()
+    series = [(p.t, p.equity_cents) for p in points] + [(now, view.equity_cents)]
+    dd = max_drawdown(series)
+    start = points[0].equity_cents if points else None
+    return EquityHistoryOut(
+        user_id=user.user_id, interval_s=INTERVAL_S,
+        points=[EquityPointOut(t=p.t, equity=to_hoop(p.equity_cents), cash=to_hoop(p.cash_cents),
+                               positions_value=to_hoop(p.positions_value_cents),
+                               total_pnl=to_hoop(p.total_pnl_cents)) for p in points],
+        current_equity=to_hoop(view.equity_cents),
+        start_equity=to_hoop(start) if start is not None else None,
+        return_pct=_pct(view.equity_cents - start, start) if start and start > 0 else None,
+        peak_equity=to_hoop(dd.peak_cents) if dd.peak_cents is not None else None,
+        max_drawdown=to_hoop(dd.amount_cents), max_drawdown_pct=dd.pct,
+        max_drawdown_peak_t=dd.peak_t, max_drawdown_trough_t=dd.trough_t,
+    )
+
+
 @router.get("/bot-bundles")
 def bot_bundles(db: Database = Depends(get_db),
                 limit: int = Query(20, ge=1, le=200, description="Newest first")) -> list[BotBundleOut]:
@@ -716,10 +770,10 @@ def payouts(user: User = Depends(current_user), db: Database = Depends(get_db),
 
 
 @router.post("/account/restore")
-def restore_after_mission(user: User = Depends(current_user), db: Database = Depends(get_db)) -> dict:
+async def restore_after_mission(user: User = Depends(current_user), db: Database = Depends(get_db)) -> dict:
     """Put back your real account (cash, positions, profit) as it was before a mission reset it.
     `404` if there's nothing to restore."""
-    if not restore_account(db, user.user_id):
+    if not restore_account(db, user.user_id, get_market()):
         raise HTTPException(404, "nothing to restore: no mission has reset this account")
     return {"restored": True}
 

@@ -476,11 +476,34 @@ These come from Person 1's prototype and Person 4's interfaces.
   - **Injury gap:** fair value −25% and a panic seller dumping 150 took the price from 108 to 82. The player was liquidated on the next tick (99 shares) and margin went back to 36%.
   - **Slower slide:** a margin call at 22%, then 15 s later 54 shares were liquidated, margin went back to 36.7%, and the status returned to `ok`. An even slower run showed the 28.7% warning first.
 
-## ⬜ P2-16 · Equity history
+## ✅ P2-16 · Equity history
 - **Gate:** G3
-- **Depends on:** P2-05
-- **What:** save each user's equity every market minute (`t`, equity). Expose it for the report card.
-- **Done when:** Person 4 can work out max drawdown from it.
+- **What was built** (`trading/equity.py`):
+  - **`EquityRecorder`** listens to market ticks and, on the first tick of each market minute (every 5 real seconds), saves one `equity_snapshots` row per active account: `t, equity, cash, positions_value, baseline`.
+    - Shares are marked at the last price, exactly like the portfolio, so shorts count negative and borrowed cash shows as negative cash.
+    - "Active" = has traded or holds a position. Untouched guests sit flat at 100,000, so they're skipped.
+    - One query per table per minute, so it stays cheap with many players.
+  - **Mission reset and restore save a point straight away**, so a mission's window starts with its true starting equity. `POST /account/restore` is now `async`, since it reads prices.
+  - **`max_drawdown(points)`**: the biggest fall from a running peak to a later low, in HOOP and as % of that peak, with the peak and trough times. The API, the report card and Person 4 all use the same rule.
+  - **`GET /trading/equity-history`** (`?since_t=` inclusive, `?limit=` most recent N) returns:
+    - `points[{t, equity, cash, positions_value, total_pnl}]`, oldest first
+    - `current_equity` (live), `start_equity`, `return_pct`, `peak_equity`
+    - `max_drawdown`, `max_drawdown_pct`, `max_drawdown_peak_t`, `max_drawdown_trough_t`
+
+    The drawdown includes equity right now, so a fall in progress counts.
+  - **For Person 4:** `TradesAdapter.equity_history(user_id, since_t=None)` returns `EquityPoint(t, equity)` in HOOP floats. It's not in their Protocol, like `restore_start_state`.
+- **Tests:** 13 in `test_equity.py`, covering:
+  - Max drawdown: the biggest fall, a deeper later fall winning, and no fall at all.
+  - Exactly one point per market minute, matching the portfolio to the cent. Idle guests skipped, closed-out accounts still recorded, `since_t` and `limit`.
+  - Reset and restore points.
+  - **The 'done when': a mission storm, then Person 4's float maths on `adapter.equity_history` gives the same max drawdown as ours.**
+  - The API, and the live app recording on the minute.
+
+  283 pass in total, 3 runs in a row.
+- **Checked on a live server** (receipts off): a guest bought 120 WEMBY at 3x and shorted 40 JOKIC.
+  - About 21 s later the history had 4 points exactly 60 market seconds apart.
+  - It showed equity 100,057.58 → 100,136.78 (peak) → 99,996.78 → 99,975.18, a max drawdown of 161.60 (0.16%) from the right peak to the right trough.
+  - `since_t` filtered correctly, only the one active account was recorded, and the log was clean.
 
 ## ⬜ P2-17 · Off-chain leaderboard
 - **Gate:** G3

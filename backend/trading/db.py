@@ -130,6 +130,18 @@ CREATE TABLE IF NOT EXISTS account_snapshots (
     created_at       REAL NOT NULL
 );
 
+-- P2-16: each active account's equity once per market minute, for the report card
+-- (return, max drawdown). Also one point whenever a mission resets or restores an account.
+CREATE TABLE IF NOT EXISTS equity_snapshots (
+    user_id                TEXT NOT NULL REFERENCES users (user_id),
+    t                      REAL NOT NULL,          -- market time, epoch seconds
+    equity_cents           INTEGER NOT NULL,       -- cash + positions at the last price
+    cash_cents             INTEGER NOT NULL,
+    positions_value_cents  INTEGER NOT NULL,       -- shorts count negative
+    baseline_cents         INTEGER NOT NULL,       -- profit/loss is measured from this
+    PRIMARY KEY (user_id, t)
+);
+
 -- P2-10: every market minute's bot trades, bundled into one Solana receipt.
 -- The receipt holds a sha256 of the bundle's trade list; bot_trades keeps the
 -- full list so anyone can recompute the hash and check it matches.
@@ -161,7 +173,7 @@ CREATE TABLE IF NOT EXISTS bot_trades (
 """
 
 TABLES = ("users", "sessions", "wallets", "positions", "trades", "open_orders", "payouts", "account_snapshots",
-          "bot_bundles", "bot_trades")
+          "equity_snapshots", "bot_bundles", "bot_trades")
 
 # Columns added after a table first shipped. CREATE TABLE IF NOT EXISTS won't add
 # them to an existing database file, so they're added on startup if missing.

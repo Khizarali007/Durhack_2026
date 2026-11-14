@@ -25,7 +25,8 @@ From: Person 2 (accounts, trading, Solana). Branch: `person2branch`.
 | Performance payouts | Pays human holders on each `PerformancePayout`, records it, adds it to profit, pushes it live. Built on guessed rates (question 6) | ✅ P2-22 |
 | Short selling | `POST /orders` with `short` / `cover`. Shorts are sent to you as plain `sell` orders (question 3) and backed by 200% collateral | ✅ P2-14 |
 | 3x leverage, margin calls | Orders take `leverage` up to 3. Margin is checked on every `MarketTick`: warning, margin call, then liquidation as ordinary market orders to you | ✅ P2-15 |
-| Equity history, leaderboard, on-chain portfolios | | ⬜ P2-16 to P2-18 |
+| Equity history | Every active account's equity once per market minute (`GET /equity-history`, with max drawdown). Driven by your `MarketTick` clock | ✅ P2-16 |
+| Leaderboard, on-chain portfolios | | ⬜ P2-17, P2-18 |
 
 **Code layout** (matches Person 4's): one package per person inside `backend/`, imported by its own name, and **no `backend/__init__.py`**. Mine is `backend/trading/`. The shared app is `backend/main.py`, which I started; please merge your startup into it rather than replacing it. Run it with `uvicorn main:app --app-dir backend`.
 
