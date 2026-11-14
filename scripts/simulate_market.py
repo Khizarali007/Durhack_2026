@@ -22,8 +22,7 @@ MAKER_CASH_CENTS = 10_000_000  # 100,000 HOOP per maker
 MAKER_STARTING_SHARES = 150
 BOT_COUNT = 20
 INITIAL_BOT_SHARES = 1
-HISTORY_PRIOR_GAMES = 3
-GAME_SCORE_WEIGHT = 0.20
+GAME_SCORE_WEIGHT = 0.04
 PRICE_PER_GAME_SCORE_CENTS = 500  # 5 HOOP per Game Score point
 MIN_PRICE_CENTS = 1_000  # 10 HOOP
 
@@ -140,36 +139,38 @@ class Market:
         assert sum(trader.shares for trader in traders) == self.initial_shares
 
 
-def load_data(path: Path) -> tuple[dict[int, dict], dict[str, dict[int, list[float]]]]:
+def load_data(path: Path, values_path: Path) -> tuple[dict[int, dict], dict[str, dict[int, list[float]]]]:
     players: dict[int, dict] = {}
     results: dict[str, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
+    with values_path.open(newline="", encoding="utf-8") as file:
+        for row in csv.DictReader(file):
+            players[int(row["player_id"])] = {
+                "name": row["player_name"], "team": row["team"],
+                "expected_score": float(row["expected_game_score"]),
+                "starting_price": float(row["starting_price"]),
+            }
     with sqlite3.connect(path) as db:
         rows = db.execute("""
-            SELECT player_id, player_name, team_abbreviation, game_date, phase,
+            SELECT player_id, player_name, team_abbreviation, game_date,
                    game_score, did_not_play
             FROM player_games ORDER BY game_date, game_id
         """)
-        for player_id, name, team, game_date, phase, score, dnp in rows:
-            player = players.setdefault(player_id, {"name": name, "team": team, "history": []})
-            player["team"] = team
+        for player_id, name, team, game_date, score, dnp in rows:
+            if player_id not in players:
+                raise ValueError(f"Starting value missing for {name} ({player_id})")
             if not dnp and score is not None:
-                if phase == "history":
-                    player["history"].append(score)
-                else:
-                    results[game_date][player_id].append(score)
+                results[game_date][player_id].append(score)
     if not players or not results:
         raise ValueError("Database has no players or replay results; run the importer first")
     return players, results
 
 
 def make_markets(players: dict[int, dict], seed: int) -> dict[int, Market]:
-    history = [score for player in players.values() for score in player["history"]]
-    league_mean = sum(history) / len(history)
     markets = {}
     for player_id, player in sorted(players.items()):
-        scores = player["history"]
-        mean = (sum(scores) + HISTORY_PRIOR_GAMES * league_mean) / (len(scores) + HISTORY_PRIOR_GAMES)
-        fair = max(MIN_PRICE_CENTS, round(PRICE_PER_GAME_SCORE_CENTS * mean))
+        # Keep the age-adjusted opening estimate as the first fair value.
+        mean = player["starting_price"] / (PRICE_PER_GAME_SCORE_CENTS / 100)
+        fair = max(MIN_PRICE_CENTS, round(player["starting_price"] * 100))
         rng = random.Random(seed + player_id)
         makers = [Trader(MAKER_CASH_CENTS, MAKER_STARTING_SHARES) for _ in range(3)]
         bots = []
@@ -211,9 +212,9 @@ def load_events(path: Path | None, markets: dict[int, Market]) -> dict[str, list
     return by_date
 
 
-def simulate(database: Path, output: Path, seed: int, rounds: int,
+def simulate(database: Path, values: Path, output: Path, seed: int, rounds: int,
              names: list[str], events_path: Path | None = None) -> tuple[int, int]:
-    players, results = load_data(database)
+    players, results = load_data(database, values)
     markets = make_markets(players, seed)
     events = load_events(events_path, markets)
     selected = [market for market in markets.values()
@@ -276,6 +277,7 @@ def simulate(database: Path, output: Path, seed: int, rounds: int,
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path, default=Path("data/player_games_2024_25.sqlite"))
+    parser.add_argument("--values", type=Path, default=Path("data/starting_values_2024_25.csv"))
     parser.add_argument("--output", type=Path, default=Path("data/market_daily_prices.csv"))
     parser.add_argument("--events", type=Path, default=Path("data/market_events.json"),
                         help="Dated public news events")
@@ -289,7 +291,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.rounds < 1:
         parser.error("--rounds must be at least 1")
-    count, days = simulate(args.database, args.output, args.seed, args.rounds, args.player,
+    count, days = simulate(args.database, args.values, args.output, args.seed, args.rounds, args.player,
                            None if args.no_events else args.events)
     print(f"Saved {days} daily closes for {count} players to {args.output}")
 

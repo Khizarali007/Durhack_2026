@@ -41,16 +41,22 @@ def load_prices(path: Path) -> tuple[list[dict], dict[str, list[dict]]]:
     return sorted(players.values(), key=lambda p: p["name"]), by_player
 
 
-def handler_for(players: list[dict], prices: dict[str, list[dict]]):
+def handler_for(players: list[dict], prices: dict[str, list[dict]], values: list[dict]):
     html = (ROOT / "web" / "market_graph.html").read_bytes()
+    values_html = (ROOT / "web" / "starting_values.html").read_bytes()
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             request = urlparse(self.path)
             if request.path == "/":
                 body, content_type, status = html, "text/html; charset=utf-8", 200
+            elif request.path == "/values":
+                body, content_type, status = values_html, "text/html; charset=utf-8", 200
             elif request.path == "/api/players":
                 body = json.dumps(players).encode()
+                content_type, status = "application/json", 200
+            elif request.path == "/api/values":
+                body = json.dumps(values).encode()
                 content_type, status = "application/json", 200
             elif request.path == "/api/prices":
                 player_id = parse_qs(request.query).get("player_id", [""])[0]
@@ -73,10 +79,13 @@ def handler_for(players: list[dict], prices: dict[str, list[dict]]):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prices", type=Path, default=ROOT / "data/market_daily_prices.csv")
+    parser.add_argument("--values", type=Path, default=ROOT / "data/starting_values_2024_25.csv")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
     players, prices = load_prices(args.prices)
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), handler_for(players, prices))
+    with args.values.open(newline="", encoding="utf-8") as file:
+        values = list(csv.DictReader(file))
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), handler_for(players, prices, values))
     print(f"Market replay: http://127.0.0.1:{args.port} ({len(players)} players)", flush=True)
     try:
         server.serve_forever()

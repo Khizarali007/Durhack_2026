@@ -13,10 +13,8 @@ SOURCE_URL = (
     "https://github.com/sportsdataverse/sportsdataverse-data/releases/download/"
     "espn_nba_player_boxscores/player_box_2025.csv"
 )
-HISTORY_START = "2025-01-19"
-HISTORY_END = "2025-02-18"
-REPLAY_START = "2025-02-19"
-REPLAY_END = "2025-03-20"
+REPLAY_START = "2024-10-22"
+REPLAY_END = "2025-04-13"
 
 SCHEMA = """
 CREATE TABLE player_games (
@@ -60,7 +58,7 @@ CREATE TABLE player_games (
     opponent_team_score INTEGER,
     did_not_play INTEGER NOT NULL,
     dnp_reason TEXT,
-    phase TEXT NOT NULL CHECK (phase IN ('history', 'replay')),
+    phase TEXT NOT NULL CHECK (phase = 'replay'),
     PRIMARY KEY (game_id, player_id)
 );
 CREATE INDEX player_games_by_date ON player_games (game_date);
@@ -131,7 +129,6 @@ def game_score(row: dict[str, str]) -> float | None:
 
 
 def record(row: dict[str, str]) -> tuple:
-    phase = "history" if row["game_date"] <= HISTORY_END else "replay"
     return (
         int(row["game_id"]), row["game_date"], row["game_date_time"],
         int(row["athlete_id"]), row["athlete_display_name"], int(row["team_id"]),
@@ -154,7 +151,7 @@ def record(row: dict[str, str]) -> tuple:
         game_score(row),
         int(row["starter"].lower() == "true"), int(row["ejected"].lower() == "true"),
         row["home_away"], integer(row["team_score"]), integer(row["opponent_team_score"]),
-        int(row["did_not_play"].lower() == "true"), row["reason"], phase,
+        int(row["did_not_play"].lower() == "true"), row["reason"], "replay",
     )
 
 
@@ -186,7 +183,7 @@ def main() -> None:
         ) + ")")
         rows = [row for row in reader
             if row["season_type"] == "2"
-            and REPLAY_END >= row["game_date"] >= HISTORY_START
+            and REPLAY_END >= row["game_date"] >= REPLAY_START
             and 1 <= int(row["team_id"]) <= 30
         ]
         db.executemany(insert, (record(row) for row in rows))
@@ -195,7 +192,6 @@ def main() -> None:
         db.executemany(raw_insert, (tuple(row[field] for field in raw_fields) for row in rows))
         db.executemany("INSERT INTO dataset_metadata VALUES (?, ?)", (
             ("source", SOURCE_URL), ("season", "2024-25"),
-            ("history_start", HISTORY_START), ("history_end", HISTORY_END),
             ("replay_start", REPLAY_START), ("replay_end", REPLAY_END),
         ))
         counts = db.execute(

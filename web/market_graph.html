@@ -21,45 +21,60 @@
     .controls{display:flex;align-items:center;gap:15px;margin-top:24px}.play{border:0;border-radius:10px;background:#5ce0aa;color:#071a19;padding:11px 20px;font-weight:800;cursor:pointer;min-width:91px}
     input[type=range]{flex:1;accent-color:#5ce0aa;cursor:pointer}.date{min-width:110px;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}.note{margin-top:20px;padding:14px 17px;border:1px solid #4d4252;background:#241c31;border-radius:10px;color:#e8c9dc;font-size:14px;min-height:50px}
     .explainer{margin-top:16px;font-size:13px;line-height:1.5}.error{color:#ff7f8c;margin-top:16px}
+    .compare{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:-5px 0 18px}.compare button{height:42px;border:1px solid #4b6d68;background:#183632;color:#76edc2;border-radius:9px;padding:0 15px;font-weight:700;cursor:pointer}
+    .legend{display:flex;gap:9px;flex-wrap:wrap;margin:5px 20px 4px}.legend button{background:#19243a;border:1px solid #35455e;border-radius:99px;color:#dbe6f5;padding:7px 10px;cursor:pointer}.legend .swatch{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}.legend .remove{opacity:.6;margin-left:8px}
     @media(max-width:650px){main{padding:23px 15px}.top{padding:20px 18px 0}.player{font-size:20px}.price{font-size:25px}.bottom{grid-template-columns:repeat(2,1fr)}.stat{padding:13px 17px}.date{min-width:80px;font-size:12px}svg{height:290px}}
   </style>
 </head>
 <body>
 <main>
   <header><div class="brand">HOOPSTREET <span style="color:#f9a869">◉</span></div><div class="tag">SIMULATED MARKET · 2024–25</div></header>
-  <h1>Watch the market move.</h1><p>Replay bot trades and daily NBA results, one player at a time.</p>
-  <div class="toolbar"><label>Find a player<input id="search" type="search" list="player-list" placeholder="Search all 549 players…" autocomplete="off"><datalist id="player-list"></datalist></label><label>Playback speed<select id="speed"><option value="1200">1 day / 1.2 sec</option><option value="500" selected>1 day / 0.5 sec</option><option value="150">1 day / 0.15 sec</option></select></label></div>
+  <h1>Watch the market move.</h1><p>Replay each day of the 2024–25 regular season and compare up to four players. <a href="/values" style="color:#65e2b9">See all opening values →</a></p>
+  <div class="toolbar"><label>Main player<input id="search" type="search" list="player-list" placeholder="Search all 580 players…" autocomplete="off"><datalist id="player-list"></datalist></label><label>Playback speed<select id="speed"><option value="4000">1 day / 4 sec</option><option value="2000" selected>1 day / 2 sec</option><option value="1000">1 day / 1 sec</option><option value="400">1 day / 0.4 sec</option></select></label><label>Chart scale<select id="scale"><option value="price">Price in HOOP</option><option value="return">% since opening</option></select></label></div>
+  <div class="compare"><label>Add comparison player<input id="compare-search" type="search" list="player-list" placeholder="Search another player…" autocomplete="off"></label><button id="add">+ Add player</button></div>
   <section class="card">
     <div class="top"><div><div class="player" id="player">Loading…</div><div class="sub" id="team"></div></div><div><div class="price" id="price">—</div><div class="change" id="change"></div></div></div>
-    <div class="chartwrap"><svg id="chart" viewBox="0 0 1000 360" preserveAspectRatio="none" role="img" aria-label="Player stock price history"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#5ce0aa" stop-opacity=".28"/><stop offset="1" stop-color="#5ce0aa" stop-opacity="0"/></linearGradient></defs><g id="grid"></g><path id="area-path" class="area"/><path id="line" class="line"/><circle id="dot" class="dot" r="6"/></svg></div>
+    <div class="chartwrap"><svg id="chart" viewBox="0 0 1000 360" preserveAspectRatio="none" role="img" aria-label="Player stock price history"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#5ce0aa" stop-opacity=".28"/><stop offset="1" stop-color="#5ce0aa" stop-opacity="0"/></linearGradient></defs><g id="grid"></g><path id="area-path" class="area"/><g id="compare-lines"></g><path id="line" class="line"/><circle id="dot" class="dot" r="6"/></svg></div><div class="legend" id="legend"></div>
     <div class="bottom"><div class="stat"><small>DATE</small><strong id="stat-date">—</strong></div><div class="stat"><small>DAILY VOLUME</small><strong id="volume">—</strong></div><div class="stat"><small>GAME SCORE</small><strong id="score">—</strong></div><div class="stat"><small>REFERENCE VALUE</small><strong id="fair">—</strong></div></div>
   </section>
-  <div class="controls"><button class="play" id="play">▶ Play</button><input id="slider" type="range" min="0" max="29" value="0" aria-label="Replay day"><span class="date" id="control-date">—</span></div>
+  <div class="controls"><button class="play" id="play">▶ Play</button><input id="slider" type="range" min="0" max="173" value="0" aria-label="Replay day"><span class="date" id="control-date">—</span></div>
   <div class="note" id="note">Choose a player and press Play to replay the market.</div>
-  <p class="explainer">The green line shows each day’s last executed trade. Real box scores affect trader estimates; bots and market makers execute the simulated trades. This is a replay of generated data, not a live NBA or real-money market.</p>
+  <p class="explainer">Each line shows a player's daily last executed trade. Real box scores affect trader estimates; bots and market makers execute the simulated trades. This is a replay of generated data, not a live NBA or real-money market.</p>
   <div id="error" class="error" role="alert"></div>
 </main>
 <script>
-const $=id=>document.getElementById(id);let players=[],rows=[],index=0,timer=null,current=null;
+const $=id=>document.getElementById(id);let players=[],series=[],index=0,timer=null;
+const colors=['#5ce0aa','#f9ad67','#8aa6ff','#f48fb1'];
 const money=n=>`${n.toFixed(2)} HOOP`;
 function stop(){if(timer){clearInterval(timer);timer=null}$('play').textContent='▶ Play'}
-function draw(){if(!rows.length)return;const r=rows[index],first=rows[0].close,change=(r.close/first-1)*100;
-  $('player').textContent=current.name;$('team').textContent=current.team+' · Player share';$('price').textContent=money(r.close);
+function matchPlayer(query){const q=query.trim().toLowerCase();return players.find(p=>p.name.toLowerCase()===q)||players.find(p=>p.name.toLowerCase().includes(q))}
+async function getSeries(player){const response=await fetch(`/api/prices?player_id=${encodeURIComponent(player.id)}`);if(!response.ok)throw Error('Could not load player prices');return {player,rows:await response.json()}}
+function renderLegend(){const holder=$('legend');holder.innerHTML='';series.forEach((s,i)=>{const button=document.createElement('button');button.innerHTML=`<span class="swatch" style="background:${colors[i]}"></span>${s.player.name} · ${money(s.rows[index].close)}${i?'<span class="remove">×</span>':''}`;button.title=i?'Remove comparison player':'Main player';if(i)button.addEventListener('click',()=>{series.splice(i,1);draw()});holder.appendChild(button)})}
+function draw(){if(!series.length)return;const rows=series[0].rows,r=rows[index],first=rows[0].close,change=(r.close/first-1)*100,player=series[0].player;
+  $('player').textContent=player.name;$('team').textContent=player.team+' · Player share';$('price').textContent=money(r.close);
   $('change').textContent=`${change>=0?'+':''}${change.toFixed(2)}% since start`;$('change').className='change '+(change>=0?'up':'down');
   $('stat-date').textContent=r.date;$('control-date').textContent=r.date;$('volume').textContent=`${r.volume} shares · ${r.trades} trades`;
   $('score').textContent=r.gameScore==null?'No game':r.gameScore.toFixed(2);$('fair').textContent=money(r.fair);$('slider').value=index;
   $('note').textContent=r.news|| (r.gameScore==null?'No box score revealed today. Trading still continues.':`Game result revealed: Game Score ${r.gameScore.toFixed(2)}. Bots react through their next trades.`);
-  const W=1000,H=360,L=60,R=20,T=25,B=42,visible=rows.slice(0,index+1),all=rows.map(x=>x.close),min=Math.min(...all)*.92,max=Math.max(...all)*1.08;
+  const W=1000,H=360,L=60,R=20,T=25,B=42,returnMode=$('scale').value==='return';
+  const value=(s,i)=>returnMode?100*(s.rows[i].close/s.rows[0].close-1):s.rows[i].close;
+  const all=series.flatMap(s=>s.rows.map((_,i)=>value(s,i))),rawMin=Math.min(...all),rawMax=Math.max(...all),padding=Math.max(1,(rawMax-rawMin)*.08),min=rawMin-padding,max=rawMax+padding;
   const x=i=>L+i*(W-L-R)/(rows.length-1),y=v=>T+(max-v)*(H-T-B)/(max-min);
-  $('grid').innerHTML=[0,.25,.5,.75,1].map(t=>{let yy=T+t*(H-T-B),value=max-t*(max-min);return `<line class="grid" x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}"/><text class="axis" x="4" y="${yy+4}">${value.toFixed(0)}</text>`}).join('')+`<text class="axis" x="${L}" y="${H-8}">${rows[0].date.slice(5)}</text><text class="axis" x="${W-R-32}" y="${H-8}">${rows.at(-1).date.slice(5)}</text>`;
-  const d=visible.map((v,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(v.close).toFixed(1)}`).join(' '),last=visible.at(-1);
-  $('line').setAttribute('d',d);$('area-path').setAttribute('d',`${d} L${x(index)},${H-B} L${x(0)},${H-B} Z`);$('dot').setAttribute('cx',x(index));$('dot').setAttribute('cy',y(last.close));
+  $('grid').innerHTML=[0,.25,.5,.75,1].map(t=>{let yy=T+t*(H-T-B),v=max-t*(max-min);return `<line class="grid" x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}"/><text class="axis" x="4" y="${yy+4}">${v.toFixed(0)}${returnMode?'%':''}</text>`}).join('')+`<text class="axis" x="${L}" y="${H-8}">${rows[0].date.slice(5)}</text><text class="axis" x="${W-R-32}" y="${H-8}">${rows.at(-1).date.slice(5)}</text>`;
+  const path=s=>s.rows.slice(0,index+1).map((_,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(value(s,i)).toFixed(1)}`).join(' ');
+  const mainPath=path(series[0]);$('line').setAttribute('d',mainPath);$('area-path').setAttribute('d',`${mainPath} L${x(index)},${H-B} L${x(0)},${H-B} Z`);
+  $('dot').setAttribute('cx',x(index));$('dot').setAttribute('cy',y(value(series[0],index)));
+  $('compare-lines').innerHTML=series.slice(1).map((s,j)=>`<path d="${path(s)}" fill="none" stroke="${colors[j+1]}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
+  renderLegend();
 }
-async function choose(player){stop();current=player;const response=await fetch(`/api/prices?player_id=${encodeURIComponent(player.id)}`);if(!response.ok)throw Error('Could not load player prices');rows=await response.json();index=0;$('slider').max=rows.length-1;$('search').value=player.name;draw()}
-function play(){if(timer){stop();return}if(index===rows.length-1)index=0;draw();$('play').textContent='❚❚ Pause';timer=setInterval(()=>{if(index>=rows.length-1){stop();return}index++;draw()},Number($('speed').value))}
-$('play').addEventListener('click',play);$('slider').addEventListener('input',e=>{index=Number(e.target.value);draw()});$('speed').addEventListener('change',()=>{if(timer){stop();play()}});
-$('search').addEventListener('change',async e=>{const q=e.target.value.trim().toLowerCase(),p=players.find(p=>p.name.toLowerCase()===q)||players.find(p=>p.name.toLowerCase().includes(q));if(p)try{await choose(p)}catch(err){$('error').textContent=err.message}});
-(async()=>{try{const response=await fetch('/api/players');if(!response.ok)throw Error('Could not load players');players=await response.json();$('player-list').innerHTML=players.map(p=>`<option value="${p.name.replaceAll('&','&amp;').replaceAll('"','&quot;')}">`).join('');await choose(players.find(p=>p.name==='Victor Wembanyama')||players[0])}catch(err){$('error').textContent=err.message}})();
+async function choose(player){stop();const main=await getSeries(player);series=[main,...series.slice(1).filter(s=>s.player.id!==player.id)];index=0;$('slider').max=main.rows.length-1;$('search').value=player.name;draw()}
+async function add(player){if(!player||series.some(s=>s.player.id===player.id)||series.length>=4)return;series.push(await getSeries(player));$('compare-search').value='';draw()}
+function play(){if(timer){stop();return}if(!series.length)return;if(index===series[0].rows.length-1)index=0;draw();$('play').textContent='❚❚ Pause';timer=setInterval(()=>{if(index>=series[0].rows.length-1){stop();return}index++;draw()},Number($('speed').value))}
+$('play').addEventListener('click',play);$('slider').addEventListener('input',e=>{index=Number(e.target.value);draw()});$('scale').addEventListener('change',draw);$('speed').addEventListener('change',()=>{if(timer){stop();play()}});
+$('search').addEventListener('change',async e=>{const p=matchPlayer(e.target.value);if(p)try{await choose(p)}catch(err){$('error').textContent=err.message}});
+$('add').addEventListener('click',async()=>{try{await add(matchPlayer($('compare-search').value))}catch(err){$('error').textContent=err.message}});
+$('compare-search').addEventListener('keydown',e=>{if(e.key==='Enter'){$('add').click();e.preventDefault()}});
+(async()=>{try{const response=await fetch('/api/players');if(!response.ok)throw Error('Could not load players');players=await response.json();$('player-list').innerHTML=players.map(p=>`<option value="${p.name.replaceAll('&','&amp;').replaceAll('"','&quot;')}">`).join('');await choose(players.find(p=>p.name==='Victor Wembanyama')||players[0]);await add(players.find(p=>p.name==='Nikola Jokic'));await add(players.find(p=>p.name==='Shai Gilgeous-Alexander'))}catch(err){$('error').textContent=err.message}})();
 </script>
 </body>
 </html>
