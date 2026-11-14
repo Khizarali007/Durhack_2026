@@ -16,6 +16,7 @@ Every figure is in integer cents, so this always holds exactly:
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -73,17 +74,24 @@ class PortfolioView:
 
 
 def build_portfolio(db: Database, market: MarketEngine, user_id: str) -> PortfolioView:
+    """Profit/loss is measured from the account's latest start: sign-up, or a mission
+    reset / restore (P2-21), which records the baseline, the positions it began with,
+    and which trades come after it."""
     players = {p.symbol: p for p in market.players()}
     with db.lock:
-        cash = db.conn.execute("SELECT cash_cents FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        user = db.conn.execute(
+            "SELECT cash_cents, baseline_cents, start_trade_rowid, start_positions_json,"
+            " carried_realised_cents, carried_fees_cents FROM users WHERE user_id = ?", (user_id,)
+        ).fetchone()
         rows = db.conn.execute(
             "SELECT symbol, qty, cost_basis_cents FROM positions WHERE user_id = ?", (user_id,)
         ).fetchall()
         trades = db.conn.execute(
-            "SELECT symbol, side, qty, price_cents, fee_cents FROM trades WHERE user_id = ? ORDER BY rowid",
-            (user_id,),
+            "SELECT symbol, side, qty, price_cents, fee_cents FROM trades"
+            " WHERE user_id = ? AND rowid > ? ORDER BY rowid",
+            (user_id, user["start_trade_rowid"] if user else 0),
         ).fetchall()
-    if cash is None:
+    if user is None:
         raise KeyError(user_id)
 
     positions = []
@@ -94,14 +102,20 @@ def build_portfolio(db: Database, market: MarketEngine, user_id: str) -> Portfol
                                       player.team if player else None, qty, basis, last))
     positions.sort(key=lambda p: p.market_value_cents, reverse=True)
 
-    realised, fees = _realised_and_fees(trades)
-    return PortfolioView(user_id, cash[0], realised, fees, positions=positions)
+    seeds = json.loads(user["start_positions_json"]) if user["start_positions_json"] else []
+    realised, fees = _realised_and_fees(trades, seeds)
+    baseline = user["baseline_cents"] if user["baseline_cents"] is not None else STARTING_CASH_CENTS
+    return PortfolioView(user_id, user["cash_cents"], realised + user["carried_realised_cents"],
+                         fees + user["carried_fees_cents"], starting_cash_cents=baseline, positions=positions)
 
 
-def _realised_and_fees(trades) -> tuple[int, int]:
-    """Replay fills with the average-cost rule from orders.py."""
+def _realised_and_fees(trades, seeds=()) -> tuple[int, int]:
+    """Replay fills with the average-cost rule from orders.py, starting from ``seeds``
+    ([symbol, qty, cost_basis_cents], the positions the account started with)."""
     held: dict[str, int] = defaultdict(int)
     basis: dict[str, int] = defaultdict(int)
+    for symbol, qty, cost in seeds:
+        held[symbol], basis[symbol] = qty, cost
     realised = fees = 0
     for symbol, side, qty, price, fee in trades:
         fees += fee

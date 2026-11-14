@@ -342,15 +342,32 @@ These come from Person 1's prototype and Person 4's interfaces.
   - no errors
 - **For Person 3:** connect once after login and keep the socket open. Show "⏳ settling" on `fill`, flip to "✓ confirmed on Solana" with the Explorer link on the matching `receipt`, and drive a "trades settled on Solana" ticker from `bot_bundle`. Reconnect automatically if the socket drops.
 
-## ⬜ P2-21 · TradesAdapter for Person 4 (new)
-- **Gate:** G2 (Person 4 builds on a mock until then)
-- **Depends on:** P2-05, P2-06
-- **What:** implement Person 4's `TradesAdapter` (`backend/learning/adapters/base.py` on `person4-learning`):
-  - `trades_for_user(user_id, since_t=None)`: fills oldest first, `t >= since_t`, with actual `price` and `fee`
-  - `portfolio(user_id)`: `cash`, `equity`, `positions` (see P2-05)
-  - `apply_start_state(user_id, cash, positions)`: reset to an exact start state when a mission starts. **Agree with Person 4 first** whether this uses a separate mission sub-account, so a mission never wipes a real portfolio.
-- **Wiring:** `backend/main.py` calls `configure_learning(market_adapter, trades_adapter)` at startup and `await shutdown_learning()` on exit.
-- **Done when:** Person 4's tests pass with your adapter in place of `MockTrades`.
+## ✅ P2-21 · TradesAdapter for Person 4
+- **Gate:** G2
+- **What was built:**
+  - **`trading/adapters.py`: `TradesAdapter(db)`**, implementing Person 4's Protocol:
+    - `trades_for_user(user_id, since_t=None)`: all fills, oldest first, `t >= since_t`. Fields exactly match their `Trade`.
+    - `portfolio(user_id)`: `Portfolio(cash, equity, positions[Position(symbol, qty, avg_cost)])`.
+    - `apply_start_state(user_id, cash, positions)`: accepts their `Position` models, or anything with `symbol`/`qty`/`avg_cost`.
+
+    Results are plain dataclasses with their field names, in HOOP floats with `t` in market epoch seconds. Their code needs nothing of ours.
+  - **The sub-account question, decided:** missions reset the player's own account, as Person 4's mock does, because the player trades through the normal API with their normal token. To protect real portfolios:
+    - **The first reset saves the real account** in `account_snapshots` (cash, positions, profit, fees). Replaying a mission doesn't overwrite it.
+    - Open limit/stop orders are cancelled, so nothing stays reserved.
+    - Trades are kept (Person 4 reads only the mission window), but **profit/loss restarts from the mission's start**. New `users` columns hold the baseline, the first trade after it, the starting positions, and any carried-over profit/fees, added by migration.
+    - **`POST /trading/account/restore`** (and `adapter.restore_start_state(user_id)`) puts the real account back exactly: cash, positions, profit, fees. It returns `404` if no mission reset the account.
+  - Only long positions for now: short start states wait for P2-14. Fractional shares and unknown symbols are rejected.
+  - `main.py` creates `app.state.trades_adapter`. At merge: `configure_learning(market_adapter, app.state.trades_adapter)`.
+- **Tests:** 12 in `test_adapters.py`, covering:
+  - Fields, inclusive `since_t`, and the portfolio matching the API.
+  - Exact reset, cancelled orders, profit/loss adding up after a reset (including selling shares the mission gave).
+  - Restoring after a replayed mission brings back identical cash, positions, profit and fees.
+  - Validation, and the restore endpoint.
+  - **Against Person 4's real code, pulled from `person4-learning`:** their runtime-checkable `TradesAdapter` Protocol accepts ours, their pydantic `Trade`/`Portfolio` validate our objects, and **their `round_trip` evaluator scores our trades** with a realised profit equal to ours (they put buy fees in cost, we keep fees separate: same money). This skips automatically if that branch hasn't been fetched.
+
+  209 pass in total, 3 runs in a row.
+- **Checked on a live server:** the local database gained the new columns and table on startup, and restore with no mission gave the expected 404.
+- **Note for Person 4:** see `docs/person2-for-person4.md`.
 
 ## ⬜ P2-22 · Performance payouts to holders (new)
 - **Gate:** G2 if Person 1 has defined payouts by then, otherwise G3. Person 1 calls them part of the core loop ("player performances pay holders").

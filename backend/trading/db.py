@@ -102,6 +102,18 @@ CREATE TABLE IF NOT EXISTS open_orders (
 );
 CREATE INDEX IF NOT EXISTS open_orders_by_status ON open_orders (status, symbol);
 
+-- P2-21: a player's real account, saved when a mission first resets it, so it
+-- can be restored afterwards. One snapshot per user; restoring deletes it.
+CREATE TABLE IF NOT EXISTS account_snapshots (
+    user_id          TEXT PRIMARY KEY REFERENCES users (user_id),
+    cash_cents       INTEGER NOT NULL,
+    positions_json   TEXT NOT NULL,      -- [[symbol, qty, cost_basis_cents], ...]
+    baseline_cents   INTEGER NOT NULL,
+    realised_cents   INTEGER NOT NULL,
+    fees_cents       INTEGER NOT NULL,
+    created_at       REAL NOT NULL
+);
+
 -- P2-10: every market minute's bot trades, bundled into one Solana receipt.
 -- The receipt holds a sha256 of the bundle's trade list; bot_trades keeps the
 -- full list so anyone can recompute the hash and check it matches.
@@ -132,12 +144,21 @@ CREATE TABLE IF NOT EXISTS bot_trades (
 );
 """
 
-TABLES = ("users", "sessions", "wallets", "positions", "trades", "open_orders", "bot_bundles", "bot_trades")
+TABLES = ("users", "sessions", "wallets", "positions", "trades", "open_orders", "account_snapshots",
+          "bot_bundles", "bot_trades")
 
 # Columns added after a table first shipped. CREATE TABLE IF NOT EXISTS won't add
 # them to an existing database file, so they're added on startup if missing.
 MIGRATIONS = (
     ("trades", "quoted_price_cents", "INTEGER"),
+    # P2-21: when a mission resets an account, profit/loss is measured from the
+    # new start: baseline equity, the trades after it, the positions it began
+    # with, and any profit/fees carried over from before.
+    ("users", "baseline_cents", "INTEGER"),
+    ("users", "start_trade_rowid", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "start_positions_json", "TEXT"),
+    ("users", "carried_realised_cents", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "carried_fees_cents", "INTEGER NOT NULL DEFAULT 0"),
 )
 
 

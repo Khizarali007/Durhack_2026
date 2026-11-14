@@ -35,6 +35,7 @@ from .open_orders import OpenOrder, cancel_open_order, create_open_order, list_o
 from .estimates import estimate_order
 from .orders import FEE_RATE, OrderError, place_market_order, reserved_cash
 from .portfolio import build_portfolio
+from .resets import restore_account
 from .trades import trades_for_user
 
 router = APIRouter(prefix="/trading", tags=["trading"])
@@ -608,6 +609,15 @@ async def solana_status() -> ChainStatus:
     """Is the backend ready to write receipts to Solana devnet? Shows the fee-payer
     wallet, its SOL balance and whether devnet answered (5 s timeout)."""
     return await chain_status()
+
+
+@router.post("/account/restore")
+def restore_after_mission(user: User = Depends(current_user), db: Database = Depends(get_db)) -> dict:
+    """Put back your real account (cash, positions, profit) as it was before a mission reset it.
+    `404` if there's nothing to restore."""
+    if not restore_account(db, user.user_id):
+        raise HTTPException(404, "nothing to restore: no mission has reset this account")
+    return {"restored": True}
 
 
 @router.get("/debug/quote/{symbol}")
