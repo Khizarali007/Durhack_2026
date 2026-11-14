@@ -8,7 +8,8 @@ See [backend setup and integration](docs/backend-integration.md) for installatio
 API examples, supported features and prototype limitations.
 
 - [Historical data and offline replay](docs/market-simulation.md)
-- [Current market-model decisions](docs/market-model-decisions.md)
+- [Integrated valuation and dividend model](docs/dividend-model.md)
+- [Historical market-model decisions](docs/market-model-decisions.md)
 - [Project status](STATUS.md)
 
 The new live backend serves on port 8000. The existing graph on port 8765 is

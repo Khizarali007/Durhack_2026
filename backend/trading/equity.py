@@ -24,8 +24,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from .db import STARTING_CASH_CENTS, Database
+from .dividends import pending_by_user
 from .market_contract import MarketEngine, MarketTick
-from .money import to_cents
+from .money import market_mark, to_cents
 
 log = logging.getLogger("trading.equity")
 
@@ -90,12 +91,13 @@ def snapshot_equity(db: Database, market: MarketEngine, t: float, user_ids: list
     value: dict[str, int] = defaultdict(int)
     for user_id, symbol, qty in positions:
         if symbol not in prices:
-            prices[symbol] = to_cents(market.last_price(symbol))
+            prices[symbol] = to_cents(market_mark(market,symbol))
         value[user_id] += qty * prices[symbol]
+    pending = pending_by_user(db)
     rows = []
     for user_id, cash, baseline in users:
         v = value.get(user_id, 0)
-        rows.append((user_id, t, cash + v, cash, v, baseline if baseline is not None else STARTING_CASH_CENTS))
+        rows.append((user_id, t, cash + v + pending.get(user_id,0), cash, v, baseline if baseline is not None else STARTING_CASH_CENTS))
     with db.lock, db.conn:
         db.conn.executemany(
             "INSERT OR REPLACE INTO equity_snapshots (user_id, t, equity_cents, cash_cents,"

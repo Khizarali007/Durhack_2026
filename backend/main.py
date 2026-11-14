@@ -40,11 +40,14 @@ async def lifespan(app: FastAPI):
     market = get_market()
     fresh = getattr(market, "requires_fresh_session", False)
     app.state.trading_db = Database(":memory:" if fresh else None)
-    market_task = asyncio.create_task(market.run())
+
 
     # Live updates over /trading/ws (P2-13).
     app.state.live = LiveHub()
     app.state.live.bind_loop()
+    if getattr(market, "settles_payouts_directly", False):
+        market.bind_settlement(app.state.trading_db, app.state.live.publish_user, app.state.live.publish_public)
+    market_task = asyncio.create_task(market.run())
 
     # Solana receipts (P2-09). SOLANA_RECEIPTS=off runs without them.
     app.state.receipts = None
@@ -68,7 +71,7 @@ async def lifespan(app: FastAPI):
     # Performance payouts to holders (P2-22), announced live.
     payouts = PayoutProcessor(app.state.trading_db, market, notify_user=app.state.live.publish_user,
                               notify_public=app.state.live.publish_public)
-    if getattr(market, "supports_payouts", True):
+    if getattr(market, "supports_payouts", True) and not getattr(market, "settles_payouts_directly", False):
         await payouts.start()
 
     # Margin calls and liquidation for leveraged and short positions (P2-15).

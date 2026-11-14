@@ -2,7 +2,7 @@
 
 Every figure is in integer cents, so this always holds exactly:
 
-    equity - starting cash == realised + unrealised - fees paid + payouts received
+    equity - starting cash == realised + unrealised - fees paid + payouts received + pending rights
 
 - **Unrealised:** for shares still held, `qty x last price - cost basis`.
   For a short (P2-14) it's reversed: `what they were sold for - what buying
@@ -29,7 +29,8 @@ from dataclasses import dataclass, field
 
 from .db import STARTING_CASH_CENTS, Database
 from .market_contract import MarketEngine
-from .money import to_cents
+from .money import to_cents, market_mark
+from .dividends import pending_by_user
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ class PositionView:
     qty: int                     # negative = short (P2-14)
     cost_basis_cents: int        # always positive: paid for a long, received for a short
     last_price_cents: int
+    mark_price_cents: int | None = None
 
     @property
     def is_short(self) -> bool:
@@ -53,7 +55,7 @@ class PositionView:
     @property
     def market_value_cents(self) -> int:
         """Negative for a short: what you'd owe to buy the shares back."""
-        return self.qty * self.last_price_cents
+        return self.qty * (self.mark_price_cents if self.mark_price_cents is not None else self.last_price_cents)
 
     @property
     def unrealised_cents(self) -> int:
@@ -69,6 +71,7 @@ class PortfolioView:
     fees_cents: int
     starting_cash_cents: int = STARTING_CASH_CENTS
     payouts_cents: int = 0          # performance payouts received since the latest start (P2-22)
+    pending_payouts_cents: int = 0
     positions: list[PositionView] = field(default_factory=list)
 
     @property
@@ -77,7 +80,7 @@ class PortfolioView:
 
     @property
     def equity_cents(self) -> int:
-        return self.cash_cents + self.positions_value_cents
+        return self.cash_cents + self.positions_value_cents + self.pending_payouts_cents
 
     @property
     def unrealised_cents(self) -> int:
@@ -119,7 +122,8 @@ def build_portfolio(db: Database, market: MarketEngine, user_id: str) -> Portfol
         player = players.get(symbol)
         last = to_cents(market.last_price(symbol)) if player else round(basis / abs(qty))
         positions.append(PositionView(symbol, player.name if player else None,
-                                      player.team if player else None, qty, basis, last))
+                                      player.team if player else None, qty, basis,
+                                      mark_price_cents=to_cents(market_mark(market,symbol)) if player else last, last_price_cents=last))
     positions.sort(key=lambda p: abs(p.market_value_cents), reverse=True)  # biggest exposure first
 
     seeds = json.loads(user["start_positions_json"]) if user["start_positions_json"] else []
@@ -127,7 +131,8 @@ def build_portfolio(db: Database, market: MarketEngine, user_id: str) -> Portfol
     baseline = user["baseline_cents"] if user["baseline_cents"] is not None else STARTING_CASH_CENTS
     return PortfolioView(user_id, user["cash_cents"], realised + user["carried_realised_cents"],
                          fees + user["carried_fees_cents"], starting_cash_cents=baseline,
-                         payouts_cents=payouts + user["carried_payouts_cents"], positions=positions)
+                         payouts_cents=payouts + user["carried_payouts_cents"], positions=positions,
+                         pending_payouts_cents=pending_by_user(db).get(user_id,0))
 
 
 def _realised_and_fees(trades, seeds=()) -> tuple[int, int]:

@@ -206,6 +206,7 @@ class PositionOut(BaseModel):
     side: Literal["long", "short"] = Field(description="long: you own the shares. short: you sold shares you owe")
     qty: int = Field(description="Negative = short")
     avg_cost: float = Field(description="Average price per share, fees not included: paid (long) or sold at (short)")
+    mark_price: float | None = None
     last_price: float = Field(description="Last traded price: what each share is worth now")
     market_value: float = Field(description="qty x last price. Negative for a short: what buying back would cost")
     unrealised_pnl: float = Field(description="For a short, this grows as the price falls")
@@ -253,13 +254,14 @@ class PortfolioOut(BaseModel):
     available_cash: float = Field(
         description="cash - reserved_cash - short_collateral (never below 0): what you can spend or short now")
     positions_value: float
-    equity: float = Field(description="cash + positions_value")
+    equity: float = Field(description="cash + marked positions + pending payout rights")
     starting_cash: float
     total_pnl: float = Field(description="equity - starting_cash (= realised + unrealised - fees + payouts)")
     total_pnl_pct: float
     unrealised_pnl: float
     realised_pnl: float
     fees_paid: float
+    pending_payouts: float = Field(0, description="Estimated detached payout rights, included in equity but not spendable cash")
     payouts_received: float = Field(description="HOOP earned from player performances while holding their shares")
     positions: list[PositionOut] = Field(description="Largest holding first")
     margin: MarginOut
@@ -667,11 +669,13 @@ async def portfolio(user: User = Depends(current_user), db: Database = Depends(g
         realised_pnl=to_hoop(view.realised_cents),
         fees_paid=to_hoop(view.fees_cents),
         payouts_received=to_hoop(view.payouts_cents),
+        pending_payouts=to_hoop(view.pending_payouts_cents),
         positions=[
             PositionOut(
                 symbol=p.symbol, name=p.name, team=p.team, side="short" if p.is_short else "long", qty=p.qty,
                 avg_cost=round(p.avg_cost_cents / 100, 4),
                 last_price=to_hoop(p.last_price_cents),
+                mark_price=to_hoop(p.mark_price_cents) if p.mark_price_cents is not None else to_hoop(p.last_price_cents),
                 market_value=to_hoop(p.market_value_cents),
                 unrealised_pnl=to_hoop(p.unrealised_cents),
                 unrealised_pnl_pct=_pct(p.unrealised_cents, p.cost_basis_cents),
@@ -896,3 +900,20 @@ def debug_quote(symbol: str) -> dict:
     if symbol not in {p.symbol for p in market.players()}:
         raise HTTPException(404, f"unknown symbol {symbol!r}")
     return asdict(market.quote(symbol))
+
+
+@router.get('/payout-entitlements')
+async def payout_entitlements(user: User = Depends(current_user), db: Database = Depends(get_db),
+                              limit: int = Query(100,ge=1,le=1000)):
+    """Your recorded payout rights, including rights retained after selling shares."""
+    with db.lock:
+        rows = db.conn.execute(
+            "SELECT d.event_id,d.symbol,d.day,d.cutoff_t,d.settled_t,d.status,d.game_score,d.per_share,"
+            " e.qty,e.expected_cents,e.paid_cents FROM dividend_entitlements e JOIN dividend_events d"
+            " ON d.event_id=e.event_id WHERE e.user_id=? ORDER BY d.cutoff_t DESC,d.symbol LIMIT ?",
+            (user.user_id,limit)).fetchall()
+    return [{'event_id':r['event_id'],'symbol':r['symbol'],'day':r['day'],'cutoff_t':r['cutoff_t'],
+             'settled_t':r['settled_t'],'status':r['status'],'game_score':r['game_score'],
+             'dollars_per_share':r['per_share'],'qty_at_cutoff':r['qty'],
+             'estimated_amount':r['expected_cents']/100,
+             'paid_amount':r['paid_cents']/100 if r['paid_cents'] is not None else None} for r in rows]

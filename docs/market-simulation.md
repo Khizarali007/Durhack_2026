@@ -31,14 +31,12 @@ Players with no prior NBA games receive the league average and a low-confidence
 label. This intentionally makes rookies hard to distinguish without college,
 draft or scouting data.
 
-The weighted expected Game Score receives an age factor of
-`clamp(1 + 0.008 × (27 − age), 0.88, 1.08)`. Finally,
-`opening price = max(10, 5 × max(2, age-adjusted expected Game Score))` HOOP.
-Age has a deliberately small effect: similar prior performance produces
-similar prices. Five HOOP per expected Game Score point and the 10-HOOP floor
-are game parameters, not a real-world financial valuation. The output table
-shows each player's age, per-season games and averages, projected Game Score,
-age factor, confidence and opening price in decreasing order.
+Season averages now use nonnegative Game Score, matching the payout rule.
+The weighted estimate retains the age factor
+`clamp(1 + 0.008 × (27 − age), 0.88, 1.08)`. Opening prices now equal discounted
+expected future payouts, including availability and career-risk assumptions.
+The old five-dollar multiplier and ten-dollar floor are removed. See the
+[current dividend model](dividend-model.md) for all equations and assumptions.
 
 The [SportsDataverse ESPN player box-score releases](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/espn_nba_player_boxscores)
 provide the regular-season game logs. The
@@ -55,12 +53,12 @@ share accounts across all markets and trade using value, momentum,
 risk-averse, injury-news and contrarian strategies. The displayed market price
 is the last executed trade; basketball results never overwrite it directly.
 
-Each day incorporates the latest published official injury status, then bot
-trades, the reveal of real box scores, more trades and a saved close. Played
-games update recent form, which is blended with prior-season quality according
-to how much new evidence exists. Limited-history players learn faster. Rest days
-and DNPs are not zero-score games. See [the model decisions](market-model-decisions.md)
-for equations, liquidity settings and bot rules. The [SportsDataverse NBA injury-report archive](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/nba_stats_injury_report)
+Each day allows bot trading, snapshots payout ownership at synthetic noon,
+then reveals final daily injury reports and box scores at day close. Actual
+performance payouts credit the snapshot owners. Ability and form update with
+the 3%/20% rules, with the form contribution fading into future expectations.
+Rest days and DNPs are not zero-score games. See the [current model](dividend-model.md).
+The [SportsDataverse NBA injury-report archive](https://github.com/sportsdataverse/sportsdataverse-data/releases/tag/nba_stats_injury_report)
 contains historical versions of official NBA reports. The importer keeps the
 last version on each report date for each player and regular-season game. It
 retains Injury/Illness and Concussion Protocol entries: 16,952 daily listings,
@@ -68,26 +66,12 @@ retains Injury/Illness and Concussion Protocol entries: 16,952 daily listings,
 because they are absent from the imported player-game universe. The full CSV
 keeps their reports. This is a list of reported statuses, not every injury.
 
-Status and reason are historical data. The impact classification and valuation
-factors are game assumptions, not medical severity ratings. An Out status sets
-a target factor of 0.898, 0.822 or 0.699 for minor, moderate or severe keyword
-classes, calculated from an explicit assumed near-term availability fraction. Other statuses have smaller discounts; Available restores 1.00. A
-played box score clears a stale discount. Each report replaces the current
-factor instead of multiplying it, so repeated Out reports do not compound.
-Bots trade on the changed valuation and makers quote around it; the market
-price changes only through executed trades. Use `--no-injuries` for a
-box-score-only comparison.
+Status and reason are historical data. Impact classifications are game assumptions,
+not medical severity ratings. They now determine the recovery timescale in expected
+availability. Legacy target-factor columns remain in the imported CSV for traceability
+but are not multiplied into prices. Bots and makers price expected future dividends;
+actual trade prices move only on fills. Use `--no-injuries` for comparison.
 
-The simulation checks that each trade conserves cash and shares and prevents
-negative balances. Daily prices, volume, trade count, executed-trade OHLC,
-estimated fair value and best remaining quotes are recorded in the generated
-CSV. The graph replays those completed daily records at 0.4–4 seconds per day;
-it is not a live trading service.
-
-These are player markets with shared bot accounts, not a persistent limit-order book. Human
-orders, portfolios, fees, on-chain receipts, dividends and shorting are not
-implemented in this prototype.
-
-The replay also writes `data/bot_performance.csv`, comparing each bot with
-holding its original portfolio. Run `python3 -m unittest discover -s tests -v`
-for model invariant checks.
+The generated replay includes daily and cumulative dividends per share. The
+all-player graph table ranks price returns only (as labelled), excluding dividends.
+Bot performance includes received dividends and a dividend-inclusive holding benchmark.

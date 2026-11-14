@@ -14,6 +14,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
+from market.valuation import (CONFIG, OPENING_T, YEAR_SECONDS, day_end, dividend_value, expected_fixture_payout, update_expectations, projected_score, payout_per_share, payout_cents)
 
 
 START_CASH_CENTS = 10_000_000  # 100,000 HOOP per network bot
@@ -21,14 +22,9 @@ MAKER_CASH_CENTS = 100_000_000  # 1,000,000 HOOP per maker per player
 MAKER_STARTING_SHARES = 1_500
 BOT_COUNT = 30
 INITIAL_BOT_SHARES = 20  # institutional-style inventory for news selling
-PRIOR_EQUIVALENT_GAMES = 18
-FORM_WEIGHT = 0.25
-MAX_NEW_INFORMATION_GAMES = 36
-MAX_SCORE_SURPRISE = 25.0
 BOT_MAX_ORDERS_PER_DAY = 45
 BOT_MAX_POSITION_CENTS = 500_000  # at most 5,000 HOOP in one player
-PRICE_PER_GAME_SCORE_CENTS = 500  # 5 HOOP per Game Score point
-MIN_PRICE_CENTS = 1_000  # 10 HOOP
+MIN_PRICE_CENTS = 1  # minimum executable tick; economic PV is not floored at $10
 
 
 @dataclass
@@ -59,7 +55,6 @@ class Market:
     rng: random.Random
     initial_shares: int
     prior_close: int
-    prior_strength: int = PRIOR_EQUIVALENT_GAMES
     price_history: list[int] = field(default_factory=list)
     injury_factor: float = 1.0
     availability_probability: float = 1.0
@@ -73,6 +68,30 @@ class Market:
     bot_trades_today: dict[str, int] = field(default_factory=dict)
 
     trade_observer: object = None
+    age: float = 27.
+    schedule: tuple = ()
+    valuation_time: float = OPENING_T
+    detached_days: set = field(default_factory=set)
+    ability_score: float = 0.
+    cumulative_payout: float = 0.
+    valuation_cache: dict = field(default_factory=dict)
+
+    def forecast_value(self, weight=None, required_return=None):
+        key = (weight, required_return)
+        if key in self.valuation_cache:
+            return self.valuation_cache[key]
+        result = dividend_value(self.ability_score, self.form_score, age=self.age + max(0., self.valuation_time-OPENING_T)/YEAR_SECONDS,
+                              as_of=self.valuation_time, schedule=self.schedule, excluded=self.detached_days,
+                              status=self.injury_status, level=self.injury_level, weight=weight, required_return=required_return)
+        self.valuation_cache[key] = result
+        return result
+
+    def expected_payout(self):
+        return expected_fixture_payout(self.ability_score, self.form_score, self.injury_status, self.injury_level)
+
+    def detach(self, day):
+        self.detached_days.add(day)
+        self.update_fair()
 
     def quote(self, maker_index: int) -> tuple[int | None, int | None]:
         maker = self.makers[maker_index]
@@ -167,7 +186,10 @@ class Market:
                 belief_adjustment -= 0.3 * momentum
             elif bot.style == "news":
                 belief_adjustment += 0.1 * signal
-            perceived = self.fair_cents * max(0.5, 1 + belief_adjustment)
+            # Personalities disagree about form persistence/risk, in addition to attention.
+            weight = {"value": .10, "momentum": .50, "contrarian": .10, "news": .35, "risk_averse": .20}[bot.style]
+            required = .28 if bot.style == "risk_averse" else CONFIG.annual_required_return
+            perceived = 100 * self.forecast_value(weight, required) * max(0.5, 1 + belief_adjustment)
             side = None
             if bot.style == "risk_averse" and signal < -0.04:
                 side = "sell"
@@ -183,37 +205,31 @@ class Market:
                 self.trade(bot, side, size)
 
     def set_injury(self, report: dict) -> bool:
-        factor = float(report["target_factor"])
-        changed = abs(factor - self.injury_factor) > 0.001
-        self.injury_signal = factor - self.injury_factor if changed else 0.0
-        self.injury_factor = factor
-        self.availability_probability = float(report.get("availability_probability", 1.0))
-        self.injury_status = report["status"]
-        self.injury_reason = report["reason"]
-        self.injury_level = report["impact_level"]
+        before = self.fair_cents
+        changed = (self.injury_status, self.injury_level) != (report['status'], report['impact_level'])
+        self.injury_status, self.injury_level = report['status'], report['impact_level']
+        self.injury_reason = report['reason']
         self.update_fair()
+        healthy = dividend_value(self.ability_score,self.form_score,age=self.age+max(0.,self.valuation_time-OPENING_T)/YEAR_SECONDS,
+                                 as_of=self.valuation_time,schedule=self.schedule,excluded=self.detached_days)
+        self.injury_factor = self.forecast_value()/healthy if healthy else 1.
+        from market.valuation import availability
+        self.availability_probability = availability(self.injury_status,self.injury_level)[0]
+        self.injury_signal = self.fair_cents/before-1 if changed and before else 0.
         return changed
 
     def reveal(self, scores: list[float]) -> None:
-        # A rest day or DNP is not a zero-score game.
         old_fair = self.fair_cents
         for score in scores:
-            # Cap one-game surprises: a single outlier should not erase years
-            # of evidence. Recent form is then shrunk toward the pre-season prior.
-            clipped = max(self.prior_score - MAX_SCORE_SURPRISE,
-                          min(self.prior_score + MAX_SCORE_SURPRISE, score))
-            self.form_score = (1 - FORM_WEIGHT) * self.form_score + FORM_WEIGHT * clipped
+            self.ability_score, self.form_score = update_expectations(self.ability_score, self.form_score, score)
             self.games_observed += 1
-            evidence = min(MAX_NEW_INFORMATION_GAMES, self.games_observed)
-            self.mean_score = ((self.prior_strength * self.prior_score +
-                                evidence * self.form_score) /
-                               (self.prior_strength + evidence))
+        self.mean_score = projected_score(self.ability_score, self.form_score)
         self.update_fair()
-        self.game_signal = self.fair_cents / old_fair - 1 if scores else 0.0
+        self.game_signal = self.fair_cents / old_fair - 1 if scores and old_fair else 0.
 
     def update_fair(self) -> None:
-        self.fair_cents = max(MIN_PRICE_CENTS,
-                              round(PRICE_PER_GAME_SCORE_CENTS * self.mean_score * self.injury_factor))
+        self.valuation_cache.clear()
+        self.fair_cents = max(1, round(100 * self.forecast_value()))
 
     def check_ledger(self) -> None:
         assert all(trader.cash >= 0 and trader.shares >= 0 for trader in self.makers)
@@ -231,8 +247,15 @@ def load_data(path: Path, values_path: Path) -> tuple[dict[int, dict], dict[str,
                 "expected_score": float(row["expected_game_score"]),
                 "starting_price": float(row["starting_price"]),
                 "prior_games": int(row.get("prior_games") or 0),
+                "age": float(row.get("age") or 27),
+                "age_factor": float(row.get("age_factor") or 1),
             }
     with sqlite3.connect(path) as db:
+        schedules = defaultdict(set)
+        for team, day in db.execute("SELECT DISTINCT team_abbreviation, game_date FROM player_games"):
+            schedules[team].add(day)
+        for player in players.values():
+            player['schedule'] = tuple(sorted(schedules[player['team']]))
         rows = db.execute("""
             SELECT player_id, player_name, team_abbreviation, game_date,
                    game_score, did_not_play
@@ -258,7 +281,7 @@ def make_markets(players: dict[int, dict], seed: int) -> dict[int, Market]:
             for i in range(BOT_COUNT)]
     for player_id, player in sorted(players.items()):
         # Keep the age-adjusted opening estimate as the first fair value.
-        mean = player["starting_price"] / (PRICE_PER_GAME_SCORE_CENTS / 100)
+        mean = max(0., player["expected_score"] * player.get("age_factor", 1))
         fair = max(MIN_PRICE_CENTS, round(player["starting_price"] * 100))
         rng = random.Random(seed + player_id)
         makers = [Trader(MAKER_CASH_CENTS, MAKER_STARTING_SHARES) for _ in range(3)]
@@ -269,8 +292,13 @@ def make_markets(players: dict[int, dict], seed: int) -> dict[int, Market]:
         markets[player_id] = Market(
             player_id, player["name"], player["team"], mean, mean, mean, 0,
             fair, fair, makers, bots, rng, 3 * MAKER_STARTING_SHARES, fair,
-            prior_strength=6 if player.get("prior_games", 100) < 20 else PRIOR_EQUIVALENT_GAMES,
         )
+        market = markets[player_id]
+        market.ability_score = mean
+        market.age = player.get('age', 27.)
+        market.schedule = player.get('schedule', ())
+        market.update_fair()
+        market.last_cents = market.prior_close = market.fair_cents
     return markets
 
 
@@ -305,6 +333,7 @@ def simulate(database: Path, values: Path, output: Path, seed: int, rounds: int,
     network_rng = random.Random(seed + 9_999_991)
     injuries = load_injuries(injuries_path)
     initial_cash = sum(m.cash for market in markets.values() for m in market.makers) + sum(b.cash for b in next(iter(markets.values())).bots)
+    issued_dividends = 0
     selected = [market for market in markets.values()
                 if any(name.lower() in market.player_name.lower() for name in names)]
     if names and not selected:
@@ -321,6 +350,7 @@ def simulate(database: Path, values: Path, output: Path, seed: int, rounds: int,
                          "injury_status", "injury_reason", "injury_level", "injury_factor", "injury_update",
                          "availability_probability",
                          "prior_game_score", "recent_form_score", "projected_game_score", "games_observed",
+                         "underlying_ability", "payout_per_share", "cumulative_payout_per_share",
                          "value_bot_trades", "momentum_bot_trades", "risk_averse_bot_trades",
                          "news_bot_trades", "contrarian_bot_trades"))
         for day in dates_between(min(results), max(results)):
@@ -335,18 +365,30 @@ def simulate(database: Path, values: Path, output: Path, seed: int, rounds: int,
                 market.trades_today.clear()
                 market.volume_today = 0
                 market.bot_trades_today.clear()
+                market.valuation_time = day_end(day)-86400
+                market.update_fair()
+                for _ in range(rounds):
+                    market.bot_round()
+                # Daily cutoff snapshot: later buyers do not acquire this entitlement.
+                snapshot = [(mm, mm.shares) for mm in market.makers] + [(bot,bot.holdings[market.player_id]) for bot in market.bots]
+                market.valuation_time = day_end(day)-43200
+                market.detach(day)
+                scores = day_results.get(market.player_id, [])
+                rate = round(sum(payout_per_share(score) for score in scores),8)
+                for owner,qty in snapshot:
+                    amount = payout_cents(qty,rate)
+                    owner.cash += amount
+                    issued_dividends += amount
+                market.cumulative_payout += rate
+                market.valuation_time = day_end(day)
                 report = day_reports.get(market.player_id)
                 changed = market.set_injury(report) if report else False
                 if not report:
                     market.injury_signal = 0.0
-                for _ in range(rounds):
-                    market.bot_round()
-                scores = day_results.get(market.player_id, [])
                 market.reveal(scores)
                 if scores and market.injury_factor < 1.0:
-                    market.injury_signal = 1.0 - market.injury_factor
                     market.injury_factor = 1.0
-                    market.availability_probability = 1.0
+                    market.availability_probability = CONFIG.healthy_availability
                     market.injury_status = "Available"
                     market.injury_reason = "Played in official box score"
                     market.update_fair()
@@ -373,6 +415,7 @@ def simulate(database: Path, values: Path, output: Path, seed: int, rounds: int,
                     market.availability_probability,
                     round(market.prior_score, 3), round(market.form_score, 3),
                     round(market.mean_score, 3), market.games_observed,
+                    round(market.ability_score,3), rate, round(market.cumulative_payout,8),
                     *(market.bot_trades_today.get(style, 0) for style in
                       ("value", "momentum", "risk_averse", "news", "contrarian")),
                 ))
@@ -384,13 +427,13 @@ def simulate(database: Path, values: Path, output: Path, seed: int, rounds: int,
                     print(f"{day}  {market.player_name:<25} "
                           f"close {market.last_cents / 100:>7.2f}  "
                           f"{change:+6.2f}%  volume {market.volume_today:>3}")
-            assert sum(m.cash for market in markets.values() for m in market.makers) + sum(b.cash for b in next(iter(markets.values())).bots) == initial_cash
+            assert sum(m.cash for market in markets.values() for m in market.makers) + sum(b.cash for b in next(iter(markets.values())).bots) == initial_cash + issued_dividends
     if bot_report is not None:
         bot_report.parent.mkdir(parents=True, exist_ok=True)
         initial_holdings_value = sum(INITIAL_BOT_SHARES * max(MIN_PRICE_CENTS, round(player["starting_price"] * 100)) for player in players.values())
         holding_value = sum(INITIAL_BOT_SHARES * market.last_cents for market in markets.values())
         starting_equity = START_CASH_CENTS + initial_holdings_value
-        hold_equity = START_CASH_CENTS + holding_value
+        hold_equity = START_CASH_CENTS + holding_value + sum(payout_cents(INITIAL_BOT_SHARES, m.cumulative_payout) for m in markets.values())
         with bot_report.open("w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
             writer.writerow(("bot_id", "style", "orders", "cash_hoop", "ending_equity_hoop",

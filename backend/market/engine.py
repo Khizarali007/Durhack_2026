@@ -2,7 +2,7 @@
 
 Replay days are synthetic UTC day buckets: final daily results/reports become
 known only at the day boundary. They are not claimed to be real final-whistle
-or injury publication timestamps. No dividends are emitted in this milestone.
+or injury publication timestamps. Ownership detaches at synthetic noon; actual performance settles at day close.
 """
 from __future__ import annotations
 
@@ -10,12 +10,17 @@ import asyncio
 import copy
 import itertools
 import math
+import uuid
+import logging
 import random
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from market.core import load_data, load_injuries, make_markets
+from market.valuation import CONFIG, day_end, payout_per_share, model_parameters
+from trading.payouts import payout_cents
+from trading.dividends import DividendSettlement
 from trading.market_contract import Player, Quote, MakerQuote, Fill, OrderResult, MarketTick, BotTrade, BotTradeSummary
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,7 +36,8 @@ ALIASES = {
 
 class LiveMarket:
     supports_advanced_trading = False
-    supports_payouts = False
+    supports_payouts = True
+    settles_payouts_directly = True
     requires_fresh_session = True
     execution_chunk_size = 1  # exact cash/limit check before every human share
 
@@ -45,7 +51,7 @@ class LiveMarket:
         data, self.results = load_data(database or ROOT / 'data/player_games_2024_25.sqlite',
                                       values or ROOT / 'data/starting_values_2024_25.csv')
         self.markets = make_markets(data, seed)
-        self._players = [Player(pid, ALIASES.get(p['name'], f'NBA{pid}'), p['name'], p['team'], p['starting_price'])
+        self._players = [Player(pid, ALIASES.get(p['name'], f'NBA{pid}'), p['name'], p['team'], self.markets[pid].fair_cents / 100)
                          for pid, p in sorted(data.items())]
         self.ids = {p.symbol: p.player_id for p in self._players}
         if len(self.ids) != len(self._players):
@@ -63,6 +69,13 @@ class LiveMarket:
         self.human_shares = {}  # account/player -> net shares acquired from makers
         self.human_cash_flow = 0  # net pre-fee cash paid by humans to makers
         self._initial_cash = self._market_cash()
+        self.session_id = uuid.uuid4().hex
+        self.settlement = None
+        self._snapshots = {}
+        self._settled_days = set()
+        self.institutional_dividends = 0
+        self.human_dividends = {}
+        self.last_error = None
         self._bot_trades = []
         self._bundle_minute = int(self._t // 60) * 60
         for m in self.markets.values():
@@ -77,6 +90,85 @@ class LiveMarket:
             self._publish(BotTradeSummary(self._bundle_minute, len(trades), sum(t.qty for t in trades), trades))
             self._bot_trades.clear()
         self._bundle_minute = int(self._t // 60) * 60
+
+    def bind_settlement(self, db, notify_user=None, notify_public=None):
+        self.settlement = DividendSettlement(db, notify_user, notify_public)
+
+    def mark_price(self, symbol):
+        q = self.quote(symbol)
+        if q.bid is not None and q.ask is not None:
+            return round((q.bid + q.ask) / 2, 2)
+        return q.bid if q.bid is not None else q.ask if q.ask is not None else q.fair_value
+
+    def _cutoff_day(self):
+        day = self.day.date().isoformat()
+        if day in self._snapshots or day in self._settled_days:
+            return
+        records = {}
+        for pid,m in self.markets.items():
+            records[pid] = {'symbol':self.symbols[pid],
+                'humans':{uid:qty for (uid,p),qty in self.human_shares.items() if p==pid and qty},
+                'makers':[mm.shares for mm in m.makers],
+                'bots':{b.bot_id:b.holdings[pid] for b in m.bots},
+                'expected':m.expected_payout() if day in m.schedule else 0.}
+        cutoff_t = self.day.timestamp() + 43200
+        if self.settlement:
+            self.settlement.snapshot(self.session_id,day,records,cutoff_t)
+        self._snapshots[day] = records
+        for m in self.markets.values():
+            m.valuation_time = cutoff_t
+            m.detach(day)
+
+    def _pay_day(self, day):
+        if day in self._settled_days:
+            return
+        records = self._snapshots[day]
+        scores = {pid:(sum(xs),round(sum(payout_per_share(x) for x in xs),8))
+                  for pid,xs in self.results.get(day,{}).items()}
+        bots = {b.bot_id:b for b in next(iter(self.markets.values())).bots}
+        credits, human, totals = [], {}, {}
+        for pid,r in records.items():
+            rate=scores.get(pid,(0.,0.))[1]
+            amounts = [(mm,payout_cents(qty,rate)) for mm,qty in zip(self.markets[pid].makers,r['makers'])]
+            amounts += [(bots[bid],payout_cents(qty,rate)) for bid,qty in r['bots'].items()]
+            credits.extend(amounts)
+            totals[pid]=sum(amount for _,amount in amounts)
+            for uid,qty in r['humans'].items():
+                human[uid]=human.get(uid,0)+payout_cents(qty,rate)
+        old_cash = {id(actor):(actor,actor.cash) for actor,_ in credits}
+        old_total=self.institutional_dividends
+        old_humans=dict(self.human_dividends)
+        try:
+            with self.settlement.transaction() if self.settlement else nullcontext():
+                notices = self.settlement.apply(self.session_id,day,records,scores,day_end(day),totals) if self.settlement else []
+                for actor,amount in credits:
+                    actor.cash+=amount
+                self.institutional_dividends+=sum(totals.values())
+                for uid,amount in human.items():
+                    self.human_dividends[uid]=self.human_dividends.get(uid,0)+amount
+                self.check_ledger()
+        except BaseException:
+            for actor,cash in old_cash.values():
+                actor.cash=cash
+            self.institutional_dividends=old_total
+            self.human_dividends=old_humans
+            raise
+        self._settled_days.add(day)
+        for pid,(_,rate) in scores.items():
+            self.markets[pid].cumulative_payout+=rate
+        if self.settlement:
+            try:
+                self.settlement.notify(notices)
+                if self.settlement.notify_public:
+                    for pid,(score,rate) in scores.items():
+                        if rate > 0:
+                            self.settlement.notify_public({'type':'payout_announced','symbol':self.symbols[pid],
+                                'hoop_per_share':rate,'dollars_per_share':rate,'game_score':score,
+                                'reason':'Daily performance settlement','t':day_end(day)})
+            except Exception:
+                logging.getLogger(__name__).exception('Payout committed; UI notification failed')
+        # Financial audit remains in SQLite; retain only current-day ownership in RAM.
+        del self._snapshots[day]
 
     def players(self):
         return list(self._players)
@@ -124,8 +216,8 @@ class LiveMarket:
         oid = f'live-{next(self._orders)}'
         if symbol not in self.ids or side not in ('buy', 'sell') or type(qty) is not int or qty <= 0:
             return OrderResult(oid, 'rejected', (), qty, 'invalid symbol, side or quantity')
-        if self.finished:
-            return OrderResult(oid, 'rejected', (), qty, 'replay has ended')
+        if self.finished or self.last_error:
+            return OrderResult(oid, 'rejected', (), qty, self.last_error or 'replay has ended')
         result = self._execute(self.markets[self.ids[symbol]], symbol, side, qty, oid)
         direction = 1 if side == 'buy' else -1
         key = (account_id, self.ids[symbol])
@@ -178,7 +270,10 @@ class LiveMarket:
 
     def _close_day(self):
         day = self.day.date().isoformat()
+        self._cutoff_day()
+        self._pay_day(day)
         for pid, m in self.markets.items():
+            m.valuation_time = day_end(day)
             report = self.injuries.get(day, {}).get(pid)
             if report:
                 m.set_injury(report)
@@ -187,7 +282,8 @@ class LiveMarket:
             scores = self.results.get(day, {}).get(pid, [])
             m.reveal(scores)
             if scores and m.injury_factor < 1:
-                m.injury_factor = m.availability_probability = 1.0
+                m.injury_factor = 1.0
+                m.availability_probability = CONFIG.healthy_availability
                 m.injury_status, m.injury_reason = 'Available', 'Played in official box score'
                 m.update_fair()
             m.price_history.append(m.last_cents)
@@ -207,6 +303,8 @@ class LiveMarket:
             self._flush_bots()
         while self.day.timestamp() + 86400 <= self._t:
             self._close_day()
+        if self._t >= self.day.timestamp() + 43200 and self.day < self.end:
+            self._cutoff_day()
         self.finished = self._t >= self.end.timestamp()
         if not self.finished:
             for m in self.rng.sample(list(self.markets.values()), min(12, len(self.markets))):
@@ -219,14 +317,19 @@ class LiveMarket:
     async def run(self):
         while not self.finished:
             await asyncio.sleep(self.tick_seconds)
-            self.step()
+            try:
+                self.step()
+                self.last_error = None
+            except Exception as exc:
+                self.last_error = f"Replay settlement paused: {type(exc).__name__}"
+                logging.getLogger(__name__).exception('Replay step failed; retrying before allowing new orders')
 
     def _market_cash(self):
         return (sum(maker.cash for m in self.markets.values() for maker in m.makers)
                 + sum(b.cash for b in next(iter(self.markets.values())).bots))
 
     def check_ledger(self):
-        assert self._market_cash() == self._initial_cash + self.human_cash_flow
+        assert self._market_cash() == self._initial_cash + self.human_cash_flow + self.institutional_dividends
         human_totals = {}
         for (_, pid), qty in self.human_shares.items():
             human_totals[pid] = human_totals.get(pid, 0) + qty

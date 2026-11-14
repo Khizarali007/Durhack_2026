@@ -1,4 +1,8 @@
-# Market model decisions — 14 November 2026
+# Market model decision history — 14 November 2026
+
+**Current implementation:** [Integrated dividend model](dividend-model.md).
+The decisions below describe the earlier prototype and are retained as history.
+Its prior/form mixing, fixed price multiplier and injury factors have been replaced.
 
 Scope: improve the autonomous daily replay independently of Person 2's human
 order flow. These are transparent game-model choices, not fitted financial or

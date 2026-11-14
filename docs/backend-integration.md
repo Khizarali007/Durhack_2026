@@ -72,12 +72,10 @@ conservative, so an order can stop slightly before the exact cash balance is spe
 - **Restart resets the entire session:** live accounts use an in-memory SQLite
   database alongside the in-memory market. Existing on-disk `trading.sqlite`
   is not opened, deleted or overwritten. Tokens become invalid on restart.
-- **No payouts, shorts or leverage in LiveMarket.** Advanced code remains in
-  Person 2's package and its tests; the live engine rejects unsupported orders
-  and does not start payout or margin workers.
-- **The refined payout valuation is not implemented.** This milestone uses the
-  existing prior/form valuation and injury factors. Data and market integration
-  are separate from the proposed coefficient changes.
+- **Performance payouts are enabled.** They settle through the transactional
+  entitlement journal. Shorts and leverage remain disabled.
+- **The dividend valuation is now implemented.** See [model details](dividend-model.md)
+  for coefficients, career/recovery assumptions and verification.
 - **Daily, synthetic replay timing:** one historical day is 60 real seconds by
   default, with ticks every 0.5 seconds. Daily final results and daily final
   injury reports are revealed at the synthetic UTC day boundary, not before.
@@ -104,7 +102,7 @@ conservative, so an order can stop slightly before the exact cash balance is spe
 PYTHONPATH=backend .venv/bin/python -m pytest backend/market/tests backend/trading/tests tests -q
 ```
 
-Latest verification after the Person 2 update: **328 passed, 3 skipped**
+Latest verification after the formula integration: **338 passed, 3 skipped**
 (the optional live-devnet tests).
 A separate HTTP smoke test against all 580 local players bought and sold 10
 WEMBY shares and reconciled cash, fills and fees exactly.
@@ -117,11 +115,9 @@ with human and bot trades, and rollback on an actual SQLite write failure.
 
 ## Next milestone
 
-Add durable event IDs, payout entitlement snapshots and reliable settlement;
-then implement the slow-ability/fast-form valuation proposal and validate its
-interaction with payouts. Persistence/checkpoints and coordinated session resets
-must precede retaining human portfolios across server restarts. Margin/short
-features remain off until these boundaries are reliable.
+Calibrate career/availability assumptions, integrate the frontend with the model
+and entitlement endpoints, and add coordinated persistence before keeping accounts
+across restarts. Shorts/leverage and mission resets remain separate work.
 
 ## Person 2 update: 5541fb0
 
@@ -133,3 +129,5 @@ The Solana representation is limited to 16 holdings and 8-byte tickers. Accounts
 outside those limits are not partially synced, and leaderboard auto-selection
 uses complete off-chain standings instead. Solana is still explicitly opt-in;
 no live chain deployment or transaction is asserted by this merge.
+
+Current economic implementation and payout API: [dividend-model.md](dividend-model.md).

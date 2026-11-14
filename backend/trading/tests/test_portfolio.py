@@ -44,7 +44,7 @@ def test_new_player_has_only_cash(client, player):
         "available_cash": 100_000.0,
         "positions_value": 0.0, "equity": 100_000.0,
         "starting_cash": 100_000.0, "total_pnl": 0.0, "total_pnl_pct": 0.0, "unrealised_pnl": 0.0,
-        "realised_pnl": 0.0, "fees_paid": 0.0, "payouts_received": 0.0, "positions": [],
+        "realised_pnl": 0.0, "fees_paid": 0.0, "payouts_received": 0.0, "pending_payouts": 0.0, "positions": [],
     }
 
 

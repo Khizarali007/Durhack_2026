@@ -14,6 +14,7 @@ import os
 import sqlite3
 import threading
 from pathlib import Path
+from .dividends_schema import SCHEMA as DIVIDEND_SCHEMA
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DB_PATH = REPO_ROOT / "data" / "trading.sqlite"
@@ -190,7 +191,7 @@ CREATE TABLE IF NOT EXISTS bot_trades (
 """
 
 TABLES = ("users", "sessions", "wallets", "positions", "trades", "open_orders", "payouts", "account_snapshots",
-          "equity_snapshots", "chain_portfolios", "bot_bundles", "bot_trades")
+          "equity_snapshots", "chain_portfolios", "bot_bundles", "bot_trades", "dividend_events", "dividend_entitlements")
 
 # Columns added after a table first shipped. CREATE TABLE IF NOT EXISTS won't add
 # them to an existing database file, so they're added on startup if missing.
@@ -228,7 +229,7 @@ class Database:
         if path != ":memory:":
             self.conn.execute("PRAGMA journal_mode = WAL")
         self.lock = threading.RLock()
-        self.conn.executescript(SCHEMA)
+        self.conn.executescript(SCHEMA + DIVIDEND_SCHEMA)
         self._migrate()
 
     def _migrate(self) -> None:

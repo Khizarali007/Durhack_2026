@@ -41,6 +41,7 @@ from solders.instruction import Instruction
 from solders.pubkey import Pubkey
 
 from ..db import Database
+from ..dividends import pending_by_user
 from ..market_contract import MarketEngine
 from ..money import to_cents
 from .portfolio_program import (
@@ -99,7 +100,7 @@ def portfolio_encoding_errors(db: Database) -> dict[str, str]:
     symbols = defaultdict(list)
     for user_id, symbol in rows:
         symbols[user_id].append(symbol)
-    errors = {}
+    errors = {uid: "Pending payout rights are not represented on-chain; portfolio stays off-chain" for uid, amount in pending_by_user(db).items() if amount}
     for user_id, held in symbols.items():
         if len(held) > MAX_HOLDINGS:
             errors[user_id] = f"On-chain format supports at most {MAX_HOLDINGS} holdings; portfolio stays off-chain"

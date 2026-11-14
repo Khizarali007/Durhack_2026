@@ -89,7 +89,7 @@ def test_limit_never_crosses_limit_between_makers(engine, account):
 
 def test_cash_never_negative_and_bots_conserve_after_human_trades(engine, account):
     db, uid = account
-    db.conn.execute('UPDATE users SET cash_cents=10500 WHERE user_id=?',(uid,))
+    db.conn.execute('UPDATE users SET cash_cents=? WHERE user_id=?',(round(engine.quote('WEMBY').ask*105),uid))
     db.conn.commit()
     outcome = place_market_order(db, engine, uid, 'WEMBY', 'buy', 10)
     assert outcome.filled_qty == 1 and outcome.cash_cents_after >= 0
@@ -102,7 +102,9 @@ def test_daily_data_not_revealed_early_and_replay_stops(engine):
     initial = engine.markets[1].fair_cents
     for _ in range(119):
         engine.step()
-    assert engine.markets[1].fair_cents == initial
+    assert engine.markets[1].games_observed == 0
+    assert engine.markets[1].ability_score == 20
+    assert engine.markets[1].fair_cents < initial  # entitlement detached at noon
     engine.step()
     assert engine.markets[1].games_observed == 1
     assert engine.markets[1].fair_cents > initial
@@ -225,3 +227,88 @@ def test_new_reporting_endpoints_with_real_engine(engine, monkeypatch):
             assert chain['enabled'] is False and chain['in_sync'] is False
     finally:
         use_market(None)
+
+
+def prepare_payout(engine, account):
+    db, uid = account
+    engine.bind_settlement(db)
+    place_market_order(db, engine, uid, 'WEMBY', 'buy', 10)
+    engine._t = engine.day.timestamp()+43200
+    engine._cutoff_day()
+    return db,uid,engine.day.date().isoformat()
+
+
+def test_cutoff_holder_is_paid_after_selling_and_late_buyer_is_not(engine, account):
+    from trading.dividends import pending_by_user
+    from trading.portfolio import build_portfolio
+    db, uid, day = prepare_payout(engine, account)
+    pending=pending_by_user(db)[uid]
+    assert pending==360
+    place_market_order(db, engine, uid, 'WEMBY', 'sell', 10)
+    other=create_guest_user(db).user_id
+    place_market_order(db, engine, other, 'WEMBY', 'buy', 10)
+    before=dict(db.conn.execute('SELECT user_id,cash_cents FROM users'))
+    assert build_portfolio(db,engine,uid).equity_cents==before[uid]+pending
+    engine._close_day()
+    after=dict(db.conn.execute('SELECT user_id,cash_cents FROM users'))
+    assert after[uid]-before[uid]==800
+    assert after[other]==before[other]
+    assert not pending_by_user(db)
+    assert engine.institutional_dividends+sum(engine.human_dividends.values())==360000
+    assert db.conn.execute('SELECT qty_held,amount_cents FROM payouts WHERE user_id=?',(uid,)).fetchone()[:]==(10,800)
+    engine._pay_day(day)
+    assert dict(db.conn.execute('SELECT user_id,cash_cents FROM users'))==after
+    assert db.conn.execute('SELECT count(*) FROM payouts').fetchone()[0]==1
+    engine.check_ledger()
+
+
+def test_settlement_failure_rolls_back_every_owner_and_can_retry(engine, account):
+    db,uid,day=prepare_payout(engine,account)
+    before=engine._market_cash()
+    cash=db.conn.execute('SELECT cash_cents FROM users WHERE user_id=?',(uid,)).fetchone()[0]
+    db.conn.execute("CREATE TRIGGER reject_dividend BEFORE UPDATE ON users BEGIN SELECT RAISE(ABORT, 'test settlement failure'); END")
+    with pytest.raises(sqlite3.IntegrityError):
+        engine._pay_day(day)
+    assert engine._market_cash()==before and engine.institutional_dividends==0
+    assert db.conn.execute('SELECT count(*) FROM payouts').fetchone()[0]==0
+    assert db.conn.execute("SELECT count(*) FROM dividend_events WHERE status='settled'").fetchone()[0]==0
+    db.conn.execute('DROP TRIGGER reject_dividend')
+    engine._pay_day(day)
+    assert db.conn.execute('SELECT cash_cents FROM users WHERE user_id=?',(uid,)).fetchone()[0]==cash+800
+    engine.check_ledger()
+
+
+def test_full_event_queue_cannot_drop_money(engine, account):
+    db,uid,day=prepare_payout(engine,account)
+    q=engine.subscribe()
+    for _ in range(q.maxsize):q.put_nowait(None)
+    engine._pay_day(day)
+    assert db.conn.execute('SELECT sum(amount_cents) FROM payouts').fetchone()[0]==800
+    engine.unsubscribe(q)
+
+
+def test_actual_payout_not_forecast_and_negative_game_pays_zero(engine, account):
+    db,uid,day=prepare_payout(engine,account)
+    engine.results[day][1]=[-5]
+    engine._pay_day(day)
+    assert engine.institutional_dividends==0
+    assert db.conn.execute('SELECT count(*) FROM payouts').fetchone()[0]==0
+    event=db.conn.execute('SELECT per_share,status FROM dividend_events WHERE player_id=1').fetchone()
+    assert tuple(event)==(0,'settled')
+
+
+def test_post_credit_error_rolls_back_market_and_sqlite(engine, account, monkeypatch):
+    db,uid,day=prepare_payout(engine,account)
+    before=engine._market_cash()
+    original=engine.check_ledger
+    def fail():
+        raise RuntimeError('simulated failure after credits')
+    monkeypatch.setattr(engine,'check_ledger',fail)
+    with pytest.raises(RuntimeError):
+        engine._pay_day(day)
+    assert engine._market_cash()==before
+    assert not engine.institutional_dividends
+    assert db.conn.execute('SELECT count(*) FROM payouts').fetchone()[0]==0
+    monkeypatch.setattr(engine,'check_ledger',original)
+    engine._pay_day(day)
+    original()

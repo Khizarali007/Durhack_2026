@@ -8,3 +8,6 @@ httpx>=0.27
 # Solana devnet (P2-08 onwards)
 solana>=0.36
 solders>=0.26
+
+# Historical starting-value regeneration
+requests>=2.31

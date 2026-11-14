@@ -4,6 +4,7 @@ import contextlib
 from dataclasses import asdict
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from trading.market_contract import MarketTick
+from market.valuation import model_parameters, projected_score, annual_exit, OPENING_T, YEAR_SECONDS
 from trading.market_provider import get_market
 
 router = APIRouter(prefix='/market', tags=['market'])
@@ -37,7 +38,12 @@ async def status():
             'payouts_enabled': getattr(m, 'supports_payouts', True),
             'advanced_trading_enabled': getattr(m, 'supports_advanced_trading', True),
             'fresh_session_on_restart': getattr(m, 'requires_fresh_session', False),
-            'valuation_model': 'existing prior/form model; dividend valuation not yet implemented',
+            'valuation_model': 'discounted future dividends; slow ability and fading form',
+            'payout_cutoff': 'synthetic 12:00 UTC; settlement at day close',
+            'session_id': getattr(m, 'session_id', None),
+            'last_error': getattr(m, 'last_error', None),
+            'institutional_payouts': getattr(m, 'institutional_dividends',0)/100,
+            'human_payouts': sum(getattr(m, 'human_dividends',{}).values())/100,
             'data_timing': 'daily results and final daily injury reports revealed at synthetic UTC day close'}
 
 
@@ -80,3 +86,24 @@ async def live_quotes(websocket: WebSocket):
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect):
                     await task
+
+
+@router.get('/model')
+async def model():
+    return model_parameters()
+
+
+@router.get('/valuation/{symbol}')
+async def valuation(symbol: str):
+    engine = get_market()
+    if symbol not in getattr(engine, 'ids', {}):
+        raise HTTPException(404, 'Unknown live-market player')
+    m = engine.markets[engine.ids[symbol]]
+    return {'symbol':symbol, 'underlying_ability':m.ability_score, 'recent_form':m.form_score,
+            'next_game_expected_score':projected_score(m.ability_score,m.form_score),
+            'next_game_expected_payout':m.expected_payout(), 'fair_value':m.fair_cents/100,
+            'last_trade':m.last_cents/100, 'portfolio_mark':engine.mark_price(symbol),
+            'cumulative_actual_payout_per_share':m.cumulative_payout,
+            'injury_status':m.injury_status, 'injury_level':m.injury_level,
+            'annual_exit_probability':annual_exit(m.age+max(0,m.valuation_time-OPENING_T)/YEAR_SECONDS),
+            'future_payouts': [{'opportunity':k+1,'conditional_score':projected_score(m.ability_score,m.form_score,k)} for k in (0,4,9,19)]}

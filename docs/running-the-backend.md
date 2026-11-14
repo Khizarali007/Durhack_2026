@@ -4,7 +4,7 @@ How to start, check and stop the HoopStreet backend (FastAPI, the market, tradin
 `integration/person1-person2` branch; see [integration details](backend-integration.md).
 
 The live prototype uses all 580 historical players and resets accounts and market
-state together on restart. Payouts, shorts and leverage remain disabled. Solana
+state together on restart. Performance payouts are enabled; shorts and leverage remain disabled. Solana
 is off by default. Equity history and the local leaderboard are enabled.
 
 ## What "the server" is

@@ -39,8 +39,9 @@ from dataclasses import dataclass
 from .chain.config import explorer_url
 from .chain.portfolio_program import OnChainPortfolio
 from .db import STARTING_CASH_CENTS, Database
+from .dividends import pending_by_user
 from .market_contract import MarketEngine, MarketTick
-from .money import to_cents, to_hoop
+from .money import market_mark, to_cents, to_hoop
 
 log = logging.getLogger("trading.leaderboard")
 
@@ -97,7 +98,7 @@ def standings(db: Database, market: MarketEngine) -> list[Standing]:
 
     def price(symbol: str) -> int:
         if symbol not in prices:
-            prices[symbol] = to_cents(market.last_price(symbol))
+            prices[symbol] = to_cents(market_mark(market,symbol))
         return prices[symbol]
 
     live_value: dict[str, int] = defaultdict(int)
@@ -105,6 +106,7 @@ def standings(db: Database, market: MarketEngine) -> list[Standing]:
         live_value[user_id] += qty * price(symbol)
     counts = {user_id: (orders, confirmed) for user_id, orders, confirmed in activity}
 
+    pending = pending_by_user(db)
     rows = []
     for u in users:
         in_mission = u["snap_cash"] is not None
@@ -113,7 +115,7 @@ def standings(db: Database, market: MarketEngine) -> list[Standing]:
             equity = u["snap_cash"] + sum(qty * price(symbol) for symbol, qty, _ in saved)
             baseline = u["snap_baseline"]
         else:
-            equity = u["cash_cents"] + live_value.get(u["user_id"], 0)
+            equity = u["cash_cents"] + live_value.get(u["user_id"], 0) + pending.get(u["user_id"],0)
             baseline = u["baseline_cents"] if u["baseline_cents"] is not None else STARTING_CASH_CENTS
         orders, confirmed = counts.get(u["user_id"], (0, 0))
         rows.append((equity, u["created_at"], u, baseline, orders, confirmed, in_mission))
@@ -145,7 +147,7 @@ def chain_standings(db: Database, market: MarketEngine, accounts: list[OnChainPo
             if symbol not in known:  # can't price it: fall back to the equity stored on-chain
                 value = st.equity_cents - st.cash_cents
                 break
-            prices.setdefault(symbol, to_cents(market.last_price(symbol)))
+            prices.setdefault(symbol, to_cents(market_mark(market,symbol)))
             value += qty * prices[symbol]
         u = users.get(acct.owner)
         if u is None:  # not one of this server's players (left by a test or an old database)

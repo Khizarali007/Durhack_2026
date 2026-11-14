@@ -54,7 +54,7 @@ from typing import Literal
 
 from .db import Database
 from .market_contract import Fill, MarketEngine
-from .money import to_cents
+from .money import to_cents, market_mark
 
 OrderSide = Literal["buy", "sell", "short", "cover"]   # the engine only sees buy / sell
 
@@ -158,7 +158,7 @@ def short_collateral(db: Database, market: MarketEngine, user_id: str) -> int:
     with db.lock:
         rows = db.conn.execute(
             "SELECT symbol, qty FROM positions WHERE user_id = ? AND qty < 0", (user_id,)).fetchall()
-    return sum(SHORT_COLLATERAL_FACTOR * -qty * to_cents(market.last_price(symbol)) for symbol, qty in rows)
+    return sum(SHORT_COLLATERAL_FACTOR * -qty * to_cents(market_mark(market,symbol)) for symbol, qty in rows)
 
 
 @dataclass(frozen=True)
@@ -180,7 +180,7 @@ def exposure(db: Database, market: MarketEngine, user_id: str) -> Exposure:
         rows = db.conn.execute("SELECT symbol, qty FROM positions WHERE user_id = ?", (user_id,)).fetchall()
     if user is None:
         raise OrderError(404, "unknown user")
-    values = [qty * to_cents(market.last_price(symbol)) for symbol, qty in rows]
+    values = [qty * to_cents(market_mark(market,symbol)) for symbol, qty in rows]
     return Exposure(user[0], user[0] + sum(values), sum(abs(v) for v in values))
 
 

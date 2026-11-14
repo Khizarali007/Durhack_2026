@@ -11,6 +11,9 @@ from datetime import date
 from pathlib import Path
 
 import requests
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
+from market.valuation import dividend_value
 
 from import_player_box import game_score
 
@@ -19,8 +22,6 @@ SEASONS = (2020, 2021, 2022, 2023, 2024)
 SEASON_WEIGHTS = {2024: .45, 2023: .25, 2022: .15, 2021: .10, 2020: .05}
 OPENING_DAY = date(2024, 10, 22)
 SHRINK_GAMES = 10
-MIN_PRICE = 10.0
-PRICE_MULTIPLIER = 5.0
 
 
 def download(url: str, path: Path) -> None:
@@ -89,6 +90,9 @@ def main() -> None:
             FROM player_games ORDER BY game_date, game_id
         """):
             players.setdefault(int(player_id), {"name": name, "team": team})
+        schedules = defaultdict(set)
+        for team, day in db.execute("SELECT DISTINCT team_abbreviation, game_date FROM player_games"):
+            schedules[team].add(day)
     if not players:
         raise ValueError("No 2024-25 players found; run the box-score importer first")
 
@@ -105,6 +109,7 @@ def main() -> None:
                     continue
                 value = game_score(row)
                 if value is not None:
+                    value = max(0., value)
                     all_scores.append(value)
                     player_id = int(row["athlete_id"])
                     if player_id in players:
@@ -137,8 +142,9 @@ def main() -> None:
         age = player_age(birthdate) if birthdate else None
         # A small, capped age adjustment avoids making age dominate observed quality.
         age_factor = max(.88, min(1.08, 1 + .008 * (27 - age))) if age is not None else 1.0
-        age_adjusted = max(2.0, expected_score * age_factor)
-        price = max(MIN_PRICE, round(PRICE_MULTIPLIER * age_adjusted, 2))
+        age_adjusted = max(0., round(expected_score,3) * round(age_factor,3))
+        price = max(.01, round(dividend_value(age_adjusted,age_adjusted,age=age if age is not None else 27,
+                                                schedule=tuple(sorted(schedules[player["team"]]))),2))
         values.append({
             "player_id": player_id, "player_name": player["name"], "team": player["team"],
             "age": age if age is not None else "", "birthdate": birthdate[:10] if birthdate else "",
