@@ -8,6 +8,7 @@ type QuoteCb = (quote: Quote) => void
 type EventCb = (ev: MarketEvent) => void
 type TimeCb = (t: number) => void
 type WhistleCb = (msg: FinalWhistleMessage) => void
+type SparklineCb = (prices: number[]) => void
 
 interface WsLike {
   readyState: number
@@ -22,8 +23,13 @@ const timeSubs = new Set<TimeCb>()
 const whistleSubs = new Set<WhistleCb>()
 const connectionListeners = new Set<() => void>()
 const quoteCache = new Map<string, Quote>()
+const initPriceCache = new Map<string, number>()
+const sparklineBuffers = new Map<string, number[]>()
+const sparklineSubs = new Map<string, Set<SparklineCb>>()
 let ws: WsLike | null = null
 let _latestT = SEASON_START_T
+
+const SPARKLINE_SIZE = 60
 
 function connect(): void {
   if (ws !== null) return
@@ -41,6 +47,21 @@ function connect(): void {
       for (const cb of timeSubs) cb(m.t)
       for (const [symbol, quote] of Object.entries(m.quotes)) {
         quoteCache.set(symbol, quote)
+
+        // Cache first price seen per symbol (used for day-change %)
+        if (!initPriceCache.has(symbol)) initPriceCache.set(symbol, quote.last)
+
+        // Sparkline ring buffer
+        let buf = sparklineBuffers.get(symbol)
+        if (!buf) { buf = []; sparklineBuffers.set(symbol, buf) }
+        buf.push(quote.last)
+        if (buf.length > SPARKLINE_SIZE) buf.shift()
+        const sparkSubs = sparklineSubs.get(symbol)
+        if (sparkSubs?.size) {
+          const snap = buf.slice()
+          for (const cb of sparkSubs) cb(snap)
+        }
+
         const subs = symbolSubs.get(symbol)
         if (subs) for (const cb of subs) cb(quote)
       }
@@ -85,8 +106,16 @@ export function subscribeWhistle(cb: WhistleCb): () => void {
   return () => { whistleSubs.delete(cb) }
 }
 
+export function subscribeSparkline(symbol: string, cb: SparklineCb): () => void {
+  if (!sparklineSubs.has(symbol)) sparklineSubs.set(symbol, new Set())
+  sparklineSubs.get(symbol)!.add(cb)
+  return () => { sparklineSubs.get(symbol)?.delete(cb) }
+}
+
 export function getCachedQuote(symbol: string): Quote | undefined { return quoteCache.get(symbol) }
 export function getLatestT(): number { return _latestT }
+export function getInitPrice(symbol: string): number | undefined { return initPriceCache.get(symbol) }
+export function getSparklineBuffer(symbol: string): number[] { return sparklineBuffers.get(symbol) ?? [] }
 
 export function useMarketStream(): { connected: boolean } {
   const [connected, setConnected] = useState(() => ws?.readyState === 1)

@@ -1,0 +1,197 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ---- Movers strip ---- */
+.moversBar {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-2);
+  padding: var(--hs-space-3) var(--hs-space-4);
+  background: var(--hs-color-bg-panel);
+  border-bottom: 1px solid var(--hs-color-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.moversBar::-webkit-scrollbar {
+  display: none;
+}
+
+.moversLabel {
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.moversDivider {
+  width: 1px;
+  height: 32px;
+  background: var(--hs-color-border);
+  margin: 0 var(--hs-space-2);
+  flex-shrink: 0;
+}
+
+/* ---- Controls ---- */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-3);
+  padding: var(--hs-space-3) var(--hs-space-4);
+  background: var(--hs-color-bg-panel);
+  border-bottom: 1px solid var(--hs-color-border);
+  flex-shrink: 0;
+}
+
+.filterInput {
+  flex: 1;
+  max-width: 300px;
+  background: var(--hs-color-bg-page);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-md);
+  padding: var(--hs-space-2) var(--hs-space-3);
+  color: var(--hs-color-text-primary);
+  font-size: var(--hs-font-size-sm);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 150ms ease-out;
+}
+
+.filterInput:focus {
+  border-color: var(--hs-color-accent);
+}
+
+.filterInput::placeholder {
+  color: var(--hs-color-text-disabled);
+}
+
+.filterInput::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.teamSelect {
+  background: var(--hs-color-bg-page);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-md);
+  padding: var(--hs-space-2) var(--hs-space-3);
+  color: var(--hs-color-text-primary);
+  font-size: var(--hs-font-size-sm);
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 150ms ease-out;
+}
+
+.teamSelect:focus {
+  border-color: var(--hs-color-accent);
+}
+
+.rowCount {
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-disabled);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ---- Table ---- */
+.tableWrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Grid matches MarketRow.module.css */
+.tableHeader {
+  display: grid;
+  grid-template-columns: 40px 1fr 56px 90px 110px 80px 80px 72px 48px;
+  gap: var(--hs-space-2);
+  align-items: center;
+  padding: var(--hs-space-2) var(--hs-space-3);
+  background: var(--hs-color-bg-panel);
+  border-bottom: 1px solid var(--hs-color-border);
+  flex-shrink: 0;
+}
+
+.colHeader {
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  text-align: right;
+  cursor: default;
+  user-select: none;
+}
+
+button.colHeader {
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+
+button.colHeader:hover,
+button.colHeader.sorted {
+  color: var(--hs-color-text-primary);
+}
+
+.colName { text-align: left; }
+.colTeam { text-align: center; }
+.colSpark { text-align: center; }
+.colRadar { text-align: center; }
+
+.tableBody {
+  flex: 1;
+  overflow-y: auto;
+  outline: none;
+  position: relative;
+}
+
+.tableBody:focus-visible {
+  outline: 2px solid var(--hs-color-accent);
+  outline-offset: -2px;
+}
+
+/* ---- Loading skeleton ---- */
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-2);
+  padding: var(--hs-space-6);
+}
+
+.loadingPulse {
+  height: 44px;
+  width: 100%;
+  background: var(--hs-color-bg-hover);
+  border-radius: var(--hs-radius-sm);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+/* ---- Empty state ---- */
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--hs-color-text-secondary);
+  font-size: var(--hs-font-size-md);
+  padding: var(--hs-space-6);
+  text-align: center;
+}

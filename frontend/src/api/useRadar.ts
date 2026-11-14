@@ -43,6 +43,10 @@ subscribeEvents((ev: MarketEvent) => {
   if (next !== 'calm') setRadar(ev.symbol, next, ev.t)
 })
 
+export function getRadarState(symbol: string): RadarState {
+  return getRadarAt(symbol, getLatestT())
+}
+
 export function useRadar(symbol: string): RadarState {
   const [state, setState] = useState<RadarState>(() => getRadarAt(symbol, getLatestT()))
   useEffect(() => {

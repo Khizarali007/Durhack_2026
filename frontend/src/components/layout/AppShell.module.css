@@ -14,9 +14,11 @@
 
 .main {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: var(--hs-color-bg-page);
-  padding: var(--hs-space-6);
+  /* No padding — each page manages its own layout */
 }
 
 /* Loading skeleton */
