@@ -43,12 +43,14 @@ backend/learning/            package: router.py, deps.py, scenario.py, mock_rout
 backend/learning/adapters/   models.py, base.py (Protocols), mock_market.py, mock_trades.py
 backend/learning/tests/      pytest
 backend/requirements-learning.txt
+frontend/src/components/learning/   (and src/api/learning.ts, src/hooks/useMission.ts, src/hooks/useLearningSocket.ts)
+learning-sandbox/
 content/                     missions.json, glossary.json
 scenarios/                   *.json, SCHEMA.md, check_scenarios.py
 docs/person4-*.md
 ```
 
-Never create `backend/main.py`, `frontend/`, or a top-level `requirements.txt`.
+Never create `backend/main.py` or a top-level `requirements.txt`. In `frontend/`, only touch the learning files listed above. Never edit Person 3's copied design-system files.
 
 ## Running (macOS, VS Code integrated terminal, repo root)
 
@@ -132,25 +134,55 @@ uvicorn learning.dev_app:app --app-dir backend --port 8001 --reload
 - `/learning/mock/*` debug routes are mounted only by `dev_app.py` and are
   marked **remove at merge**.
 
-- **Frontend components** (`frontend/src/learning/`):
-  - Plain React: `.jsx` + one `learning.css` with `hs-learn-` classes.
-    Dark by default, `data-theme="light"` and `data-projector="true"` hooks,
-    all sizes in em.
-  - `useMission` is server-driven: every WebSocket mission message triggers a
-    status refetch, and the feed is `status.messages` (the latest 10). The
-    countdown is interpolated locally from `seconds_left`. It falls back to
-    polling every 2 s while running if the socket is down.
-  - `useLearningSocket` shares one socket per URL, uses exponential-backoff
-    reconnect (0.5-5 s), and closes 250 ms after the last user (StrictMode-safe).
-  - Headline styles by event kind: hot_streak = "Heat advisory" (striped
-    hazard banner), early_warning = "Weather watch", injury = "Storm warning",
+- **Frontend components**:
+  - **Location:** they moved to `frontend/src/components/learning/` and are
+    TypeScript, built on Person 3's design system.
+  - **Copied files:** `tokens.css`, `index.css`, `components/ui/*`,
+    `useTheme.ts` and `colorContrast.ts` are byte-for-byte copies from
+    `origin/frontend`. **Never edit them.**
+  - **Styling:**
+    - CSS Modules use only `--hs-*` tokens.
+    - Missing meanings (heat, watch, storm) are local aliases in
+      `tokens.module.css`, and each component root adds that class.
+    - I don't use `composes`, because it triggered a PostCSS warning in the
+      Vite build.
+  - **Network code:** `src/api/learning.ts` is the typed REST client and
+    models. The hooks are `src/hooks/useLearningSocket.ts` (status through
+    `useSyncExternalStore`) and `src/hooks/useMission.ts`.
+  - **Lint rules:** the code passes react-hooks v7 (React Compiler) rules.
+    - No synchronous setState in effects.
+    - Panel selection is derived: a pick is valid only under the server's
+      current mission id.
+    - The countdown reads the time inside an interval, not during render.
+  - **Theme:** it follows `<html data-theme>` from `useTheme`. Projector mode
+    comes from the `projector` prop or a `data-projector="true"` ancestor,
+    which shifts local font-size aliases one step up the token scale.
+  - **Headlines:** hot_streak = "Heat advisory" (up-muted tint and a left
+    border), early_warning = "Weather watch", injury = "Storm warning",
     rest_day = "Calm spell", trade_rumour = "Fog advisory".
-  - "Need a hint?" reveals the mission's `hint` from `missions.json`.
-    Scheduled hints appear by themselves under "Coach's tips".
-  - Passed missions are tracked client-side (`passedIds`) for the session only.
-- **Sandbox** (`learning-sandbox/`, throwaway): Vite 8 + React 19, port 5174.
-  Imports the components via the `@learning` alias, with
-  `resolve.dedupe: ['react','react-dom']` and `server.fs.allow: ['..']`.
+  - **Hints:** "Need a hint?" reveals the mission's `hint`. Scheduled hints
+    appear under "Coach's tips".
+  - **Passed missions** are tracked client-side (`passedIds`) for the session
+    only.
+  - **Requests to Person 3** are in `docs/person4-requests-for-person3.md`
+    (amber token, Tooltip focus, Button aria passthrough, projector wiring,
+    format helper).
+- **Sandbox** (`learning-sandbox/`, throwaway):
+  - **Toolchain:** TypeScript, with the same versions, tsconfig options and
+    ESLint config as `origin/frontend`. Inter is loaded exactly like their
+    `index.html`. Port 5174.
+  - **Aliases:** `@` → `../frontend/src`. The `tsconfig` `paths` also map
+    `react` to the sandbox's `@types/react`, because `../frontend` has no
+    `node_modules` on this branch. Vite uses `dedupe` and `fs.allow ['..']`.
+  - **Pages:**
+    - `?page=floor`: the 3-column trading floor, live against `dev_app`.
+    - `?page=states`: the component-states gallery, with dark and light
+      iframes side by side and fixtures in `src/fixtures.ts`.
+  - **Header:** theme and projector toggles.
+  - **Commands:**
+    - `npm run lint` lints the sandbox, then lints the components from the
+      repo root, because ESLint ignores files outside its base path.
+    - `npm run build` runs `tsc -b` and then `vite build`.
 - **Tooling:** Node is installed via Homebrew (`brew install node`; v26 at the
   time).
 - **Verified end to end** in headless Chrome (with puppeteer-core from a

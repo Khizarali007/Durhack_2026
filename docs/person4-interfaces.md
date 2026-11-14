@@ -241,41 +241,19 @@ Server → client only. Three message shapes:
 
 ### React components (ready to mount)
 
-`frontend/src/learning/` has `MissionPanel` and `MissionDebrief`, plus the
-`useMission` and `useLearningSocket` hooks and `learning.css`.
-`frontend/src/learning/README.md` covers usage, props and theming.
+TypeScript, built on Person 3's design system (`--hs-*` tokens, `components/ui`).
 
-1. **Import the styles once:** `import './learning/learning.css'` (any
-   global entry point).
-2. **Mount on `/learn` (P6):**
-   `const mission = useMission({ apiBase, userId })`, then
-   `<MissionDebrief userId={userId} mission={mission} />` and
-   `<MissionPanel userId={userId} mission={mission} />`.
-   Placement is up to you.
-3. **`userId`:** pass the real logged-in or guest user id from your session.
-   It must be the same id Person 2's trading uses, so the evaluator sees the
-   trades.
-4. **`apiBase`:**
-   - The backend origin, e.g. `http://localhost:8000`.
-   - Or `''` if `/learning` is proxied through your Vite dev server
-     (`server.proxy: { '/learning': { target, ws: true } }`).
-   - WebSocket URLs are derived from it.
-5. **Theme:**
-   - Light: `data-theme="light"` on an ancestor.
-   - Projector: `data-projector="true"`.
-   - Or override the `--hs-learn-*` CSS variables to match your tokens.
-6. **TypeScript:** the files are `.jsx`/`.js`. In a TS app, either enable
-   `allowJs` or add a `declare module` shim. I can add `.d.ts` files if you
-   want them.
-7. **Navigation:** `MissionDebrief` takes `onRetry(result)` and
-   `onNext(nextMission)` if a mission should send the player to a page (your
-   open question 2).
-8. **Home mission prompt (P1):** `useMission(...).missions` and
-   `.passedIds` give you what you need for a small card.
-9. **CORS:** the backend must allow your dev origin. `dev_app.py` only allows
-   `:5174`; `main.py` sets its own.
-10. **Don't use `/learning/mock/*`.** The components never call it; only my
-    sandbox does.
+- **Where the files are:**
+  - Components: `frontend/src/components/learning/`.
+  - Network code: `frontend/src/api/learning.ts` (typed models for every
+    shape above, plus the REST client).
+  - Hooks: `frontend/src/hooks/useLearningSocket.ts` and
+    `frontend/src/hooks/useMission.ts`.
+  - Usage, props and theming: `frontend/src/components/learning/README.md`.
+- **What Person 3 needs to do:** see `docs/person4-requests-for-person3.md`,
+  section 5. In short, `const mission = useMission({ apiBase, userId })`,
+  then render `<MissionDebrief userId mission />` and
+  `<MissionPanel userId mission />` on `/learn`.
 
 ### Mock-only (dev app; **remove at merge**)
 
