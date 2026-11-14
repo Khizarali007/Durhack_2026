@@ -33,7 +33,7 @@ from typing import Literal, Protocol
 
 from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
-from solana.rpc.models import TxOpts
+from solana.rpc.models import MemcmpOpts, TxOpts
 from solders.hash import Hash
 from solders.instruction import AccountMeta, Instruction
 from solders.keypair import Keypair
@@ -176,6 +176,37 @@ class DevnetSender:
             self._blockhash = None  # a stale blockhash is a common cause; fetch a fresh one next time
             raise
         return str(response.value)
+
+    # --- Level 1 portfolios (P2-18): the same client and rate limiter, so devnet sees one polite caller ---
+
+    @property
+    def payer_pubkey(self) -> Pubkey:
+        return self._payer.pubkey()
+
+    async def send_instructions(self, instructions: list[Instruction]) -> str:
+        """Submit a transaction signed by the fee payer alone; return its signature without waiting."""
+        blockhash = await self._recent_blockhash()
+        tx = Transaction([self._payer], Message.new_with_blockhash(instructions, self._payer.pubkey(), blockhash),
+                         blockhash)
+        try:
+            response = await self._call(lambda: self._client.send_raw_transaction(
+                bytes(tx), opts=TxOpts(preflight_commitment=Confirmed)))
+        except Exception:
+            self._blockhash = None
+            raise
+        return str(response.value)
+
+    async def account_exists(self, address: Pubkey) -> bool:
+        response = await self._call(lambda: self._client.get_account_info(address, commitment=Confirmed))
+        return response.value is not None
+
+    async def program_accounts(self, program_id: Pubkey, data_size: int, owner_field_offset: int,
+                               owner_field: Pubkey) -> list[tuple[str, bytes]]:
+        """Every account of ``program_id`` with this size whose pubkey field at the offset matches."""
+        response = await self._call(lambda: self._client.get_program_accounts(
+            program_id, commitment=Confirmed, encoding="base64",
+            filters=[data_size, MemcmpOpts(offset=owner_field_offset, bytes=str(owner_field))]))
+        return [(str(a.pubkey), bytes(a.account.data)) for a in response.value]
 
     async def statuses(self, signatures: list[str]) -> dict[str, Status]:
         result: dict[str, Status] = {}

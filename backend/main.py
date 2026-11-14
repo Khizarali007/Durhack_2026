@@ -18,7 +18,11 @@ from fastapi import FastAPI
 
 from trading import router as trading_router
 from trading.adapters import TradesAdapter
+from solders.pubkey import Pubkey
+
+from trading.chain import config as chain_config
 from trading.chain import worker as receipt_worker
+from trading.chain.portfolio_sync import PortfolioSyncer
 from trading.chain.bot_bundles import BotBundleRecorder
 from trading.db import Database
 from trading.equity import EquityRecorder
@@ -78,6 +82,14 @@ async def lifespan(app: FastAPI):
     leaderboard = LeaderboardBroadcaster(app.state.trading_db, market, app.state.live.publish_public)
     await leaderboard.start()
 
+    # Level 1 (P2-18): every player's portfolio as a Solana account, once
+    # SOLANA_PORTFOLIO_PROGRAM_ID points at the deployed program. Shares the receipt sender.
+    app.state.portfolios = None
+    if app.state.receipts and chain_config.PORTFOLIO_PROGRAM_ID:
+        app.state.portfolios = PortfolioSyncer(app.state.trading_db, market, app.state.receipts.sender,
+                                               Pubkey.from_string(chain_config.PORTFOLIO_PROGRAM_ID))
+        await app.state.portfolios.start()
+
     # Person 4's TradesAdapter (P2-21). At merge, Person 4 plugs in here (see
     # docs/person4-interfaces.md on their branch):
     #   configure_learning(market_adapter, app.state.trades_adapter)
@@ -86,6 +98,8 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         # Person 4: await shutdown_learning()
+        if app.state.portfolios:
+            await app.state.portfolios.stop()
         await leaderboard.stop()
         await equity.stop()
         await margin.stop()

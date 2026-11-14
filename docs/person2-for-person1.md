@@ -27,7 +27,7 @@ From: Person 2 (accounts, trading, Solana). Branch: `person2branch`.
 | 3x leverage, margin calls | Orders take `leverage` up to 3. Margin is checked on every `MarketTick`: warning, margin call, then liquidation as ordinary market orders to you | ✅ P2-15 |
 | Equity history | Every active account's equity once per market minute (`GET /equity-history`, with max drawdown). Driven by your `MarketTick` clock | ✅ P2-16 |
 | Leaderboard | `GET /leaderboard` ranks players by equity from the database (works with Solana down), pushed live once per market minute | ✅ P2-17 |
-| On-chain portfolios | | ⬜ P2-18 |
+| On-chain portfolios (Solana Level 1) | Every player's cash and holdings as an account of our devnet program `9FRpF58Q…`, synced every few seconds. The leaderboard can be read back from the chain | ✅ P2-18 |
 
 **Code layout** (matches Person 4's): one package per person inside `backend/`, imported by its own name, and **no `backend/__init__.py`**. Mine is `backend/trading/`. The shared app is `backend/main.py`, which I started; please merge your startup into it rather than replacing it. Run it with `uvicorn main:app --app-dir backend`.
 

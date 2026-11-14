@@ -18,6 +18,12 @@ starting point (100,000 for everyone outside missions).
 **Live:** ``LeaderboardBroadcaster`` pushes the top 10 to everyone over the
 WebSocket (public ``leaderboard`` message) once per market minute, only when
 it changed.
+
+**From the chain (P2-18):** ``chain_standings`` ranks the portfolio accounts
+read back from Solana instead: cash and holdings as stored on-chain, valued at
+today's prices. Those rows are ``chain_verified``. Only wallets that belong to
+this server's players are ranked; portfolios left on-chain by tests or an old
+database are skipped.
 """
 
 from __future__ import annotations
@@ -30,6 +36,8 @@ from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from .chain.config import explorer_url
+from .chain.portfolio_program import OnChainPortfolio
 from .db import STARTING_CASH_CENTS, Database
 from .market_contract import MarketEngine, MarketTick
 from .money import to_cents, to_hoop
@@ -52,6 +60,9 @@ class Standing:
     receipts_confirmed: int    # of those, how many have a confirmed Solana receipt
     wallet_address: str | None
     in_mission: bool           # ranked on the real account saved before the mission
+    chain_verified: bool = False         # read from the player's portfolio account on Solana (P2-18)
+    portfolio_address: str | None = None
+    chain_updated_t: float | None = None  # market time of the on-chain state
 
     @property
     def total_pnl_cents(self) -> int:
@@ -114,12 +125,55 @@ def standings(db: Database, market: MarketEngine) -> list[Standing]:
     ]
 
 
+def chain_standings(db: Database, market: MarketEngine, accounts: list[OnChainPortfolio]) -> list[Standing]:
+    """Rank portfolios read from Solana: on-chain cash and holdings, valued at today's prices."""
+    with db.lock:
+        users = {r["address"]: r for r in db.conn.execute(
+            "SELECT w.address, u.user_id, u.username, u.is_guest, u.baseline_cents, u.created_at,"
+            " s.baseline_cents AS snap_baseline FROM wallets w JOIN users u ON u.user_id = w.user_id"
+            " LEFT JOIN account_snapshots s ON s.user_id = u.user_id").fetchall()}
+        confirmed = dict(db.conn.execute(
+            "SELECT user_id, count(DISTINCT order_id) FROM trades WHERE receipt_status = 'confirmed'"
+            " GROUP BY user_id").fetchall())
+    known = {p.symbol for p in market.players()}
+    prices: dict[str, int] = {}
+    rows = []
+    for acct in accounts:
+        st = acct.state
+        value = 0
+        for symbol, qty in st.holdings:
+            if symbol not in known:  # can't price it: fall back to the equity stored on-chain
+                value = st.equity_cents - st.cash_cents
+                break
+            prices.setdefault(symbol, to_cents(market.last_price(symbol)))
+            value += qty * prices[symbol]
+        u = users.get(acct.owner)
+        if u is None:  # not one of this server's players (left by a test or an old database)
+            continue
+        baseline = u["snap_baseline"] if u["snap_baseline"] is not None else u["baseline_cents"]
+        baseline = baseline if baseline is not None else STARTING_CASH_CENTS
+        identity = (u["user_id"], display_name(u["username"], u["user_id"]), bool(u["is_guest"]),
+                    u["created_at"], confirmed.get(u["user_id"], 0), u["snap_baseline"] is not None)
+        rows.append((st.cash_cents + value, identity, baseline, acct))
+    rows.sort(key=lambda r: (-r[0], r[1][3]))
+    return [
+        Standing(rank, user_id, name, is_guest, equity, baseline, acct.state.trade_count, receipts, acct.owner,
+                 in_mission, chain_verified=True, portfolio_address=acct.address,
+                 chain_updated_t=float(acct.state.updated_t))
+        for rank, (equity, (user_id, name, is_guest, _, receipts, in_mission), baseline, acct)
+        in enumerate(rows, start=1)
+    ]
+
+
 def standing_dict(s: Standing) -> dict:
     """The JSON shape shared by the REST endpoint and the live message."""
     return {"rank": s.rank, "user_id": s.user_id, "name": s.name, "is_guest": s.is_guest,
             "equity": to_hoop(s.equity_cents), "total_pnl": to_hoop(s.total_pnl_cents), "return_pct": s.return_pct,
             "orders": s.orders, "receipts_confirmed": s.receipts_confirmed, "wallet_address": s.wallet_address,
-            "in_mission": s.in_mission, "chain_verified": False}
+            "in_mission": s.in_mission, "chain_verified": s.chain_verified,
+            "portfolio_address": s.portfolio_address,
+            "portfolio_explorer_url": explorer_url("address", s.portfolio_address) if s.portfolio_address else None,
+            "chain_updated_t": s.chain_updated_t}
 
 
 def leaderboard_message(ranked: list[Standing], t: float, top_n: int = TOP_N_LIVE) -> dict:

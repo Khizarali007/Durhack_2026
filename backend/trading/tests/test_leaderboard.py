@@ -158,7 +158,8 @@ def test_leaderboard_over_the_api(client):
     assert public["source"] == "off-chain" and public["total_players"] == 3 and public["you"] is None
     entry = public["entries"][0]
     assert set(entry) == {"rank", "user_id", "name", "is_guest", "equity", "total_pnl", "return_pct", "orders",
-                          "receipts_confirmed", "wallet_address", "in_mission", "chain_verified"}
+                          "receipts_confirmed", "wallet_address", "in_mission", "chain_verified",
+                          "portfolio_address", "portfolio_explorer_url", "chain_updated_t"}
     assert entry["chain_verified"] is False
     assert [e["equity"] for e in public["entries"]] == sorted((e["equity"] for e in public["entries"]), reverse=True)
 

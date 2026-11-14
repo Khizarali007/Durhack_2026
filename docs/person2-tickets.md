@@ -12,12 +12,13 @@ These tickets come from the 4-person work split and `hoopstreet-final-plan.md`. 
 
 ## How to run
 
-From the repo root:
+**Full guide: [`docs/running-the-backend.md`](running-the-backend.md)**. It covers setup, starting with Level 1 on, checks, settings and common problems. The short version, from the repo root:
 
 ```bash
 source .venv/bin/activate
 pip install -r backend/requirements-trading.txt
 python -m pytest backend/trading                     # all Person 2 tests
+export SOLANA_PORTFOLIO_PROGRAM_ID=9FRpF58Q1rJFUFVAqrPWxQC54iFYunHsXj927vDrHBFp   # Level 1 on (this terminal only)
 uvicorn main:app --app-dir backend --reload          # then open http://127.0.0.1:8000/docs
 ```
 
@@ -531,16 +532,50 @@ These come from Person 1's prototype and Person 4's interfaces.
   - The guest who covered mid-session stayed flat at 99,847.13.
   - REST matched, with the caller's own row in `you`. The log was clean.
 
-## ⬜ P2-18 · Level 1: on-chain portfolios
+## ✅ P2-18 · Level 1: on-chain portfolios
 - **Gate:** G3
-- **Depends on:** P2-09
-- **What:**
-  - A small Anchor (Rust) program written in Solana Playground.
-  - A per-user Portfolio account holding cash, holdings and trade count.
-  - The backend signs and pays.
-  - A leaderboard read from the chain.
-  - **Ask Claude for the Rust when you get here. If it's blocking by H+12, stay on Level 0.**
-- **Done when:** the leaderboard reads correctly from devnet accounts.
+- **Deployed on devnet:** program id **`9FRpF58Q1rJFUFVAqrPWxQC54iFYunHsXj927vDrHBFp`**, from Solana Playground. Steps and costs are in `backend/trading/chain/program/README.md`.
+  - Devnet's airdrop is closed, so the Playground wallet was funded with 3 SOL from the fee payer, which has about 2 SOL left.
+- **Switch it on:** `export SOLANA_PORTFOLIO_PROGRAM_ID=9FRpF58Q1rJFUFVAqrPWxQC54iFYunHsXj927vDrHBFp` before starting uvicorn. Receipts must be on.
+- **What was built:**
+  - **The program** (`backend/trading/chain/program/lib.rs`, Anchor, one file you can paste into Playground). Each player gets one `Portfolio` account at the PDA `["portfolio", backend authority, player wallet]`.
+    - It holds cash, equity, trade count, market time, a sequence number and up to 16 holdings (`symbol` up to 8 bytes, signed `qty`).
+    - `create_portfolio` and `update_portfolio` can only be called by the backend's fee payer, which signs and pays.
+    - An update whose sequence number isn't higher than the stored one is rejected, so a late duplicate can't roll a portfolio back.
+    - Fixed-size layout: 366 bytes.
+  - **Python client** (`chain/portfolio_program.py`): PDAs, Anchor discriminators, Borsh encoding of instructions and decoding of accounts. No extra library needed. A test checks the field order and sizes against `lib.rs` itself.
+  - **`PortfolioSyncer`** (`chain/portfolio_sync.py`): every 3 s it compares each active player's real account (cash, holdings, orders) with what it last sent.
+    - When something changed, it sends `create` (first time) + `update` in one transaction.
+    - That catches orders, limit/stop fills, payouts, liquidations and restores without hooking each one.
+    - At most one update per player every 3 s, and 3 per round.
+    - It shares the receipt sender's client and rate limiter, so devnet still sees one polite caller.
+    - Confirmations are checked in one batched call. Failed or lost updates are resent with a higher sequence number.
+    - **Players in a mission aren't synced**, so sandboxes never reach the chain.
+    - Status per player is in `chain_portfolios`.
+  - **Leaderboard from the chain:** `GET /trading/leaderboard?source=auto` (the default) reads every portfolio this backend wrote (`getProgramAccounts`, cached 2 s) and values the on-chain holdings at today's prices.
+    - Only wallets belonging to this server's players are ranked. Portfolios left on-chain by tests or an old database are skipped (found live: the devnet test's portfolio showed up as "Wallet 4dMF").
+    - Those rows are `chain_verified: true`, with `portfolio_address`, `portfolio_explorer_url` and `chain_updated_t`.
+    - If Level 1 is off, nothing is on-chain yet, or devnet doesn't answer, it **falls back quietly to the off-chain list** and says why in `chain_error`. `source` says which list you got.
+    - `?source=chain` gives 503 instead of falling back, and `?source=off-chain` skips the chain.
+    - The live WebSocket `leaderboard` message stays off-chain (cheap, every 5 s).
+  - **`GET /trading/chain/portfolio`** shows your portfolio account: address, Explorer link, last update's status and signature, `in_sync`.
+  - **Switched on** by `SOLANA_PORTFOLIO_PROGRAM_ID` (receipts must be on). Unset, nothing changes.
+- **Tests:** 15 in `test_chain_portfolios.py` (+1 opt-in devnet test), covering:
+  - The layout matching `lib.rs`, an encode/decode round trip, and Anchor discriminators.
+  - Create+update on the first trade, only changes sent, payouts picked up, missions kept off-chain then restored.
+  - Retries after a failed send and resends after a lost transaction (seq 3).
+  - An existing account updated rather than recreated, and the 16-holding cap.
+  - **The 'done when' on the fake chain: the chain-read leaderboard equals the database's**, lagging until the next sync, and portfolios from other databases left off.
+  - The API: chain → fallback when devnet goes down, 503 for `source=chain`, and off by default.
+
+  308 pass in total, 3 runs in a row. **The opt-in devnet test passed against the deployed program:** create + update + read back, 12 SGA long and 5 WEMBY short.
+- **Checked on a live server against real devnet** (Level 1 and receipts on): one signed-up player and two guests traded (a long, a short, a 3x long).
+  - All 3 portfolio accounts were created and confirmed within 7.1 s, for example [BDcL8vjW…](https://explorer.solana.com/address/BDcL8vjW7nqdePYadnNVrnnrpP8L6BcXccLdPGVd4dhV?cluster=devnet).
+  - The leaderboard came back `source: chain`, with every row `chain_verified`.
+  - A second trade synced as `seq 2` in 6.1 s.
+  - After the fix above, **the chain leaderboard matched the database exactly**: same 3 players, same order, same equity to the cent.
+  - No errors in the log.
+- **For Person 3:** the leaderboard's "verified on chain" badge is `chain_verified`. `source` says whether the list came from Solana or fell back, and `portfolio_explorer_url` links each row to its account. `GET /trading/chain/portfolio` gives a player their own account link and whether it's caught up.
 
 ## ⬜ P2-19 · Level 2: a mini-market per player on-chain
 - **Gate:** Stretch, only if P2-18 is done by H+12

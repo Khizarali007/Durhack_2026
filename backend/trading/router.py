@@ -35,7 +35,7 @@ from .money import to_cents
 from .open_orders import OpenOrder, cancel_open_order, create_open_order, list_open_orders
 from .equity import INTERVAL_S, equity_history, max_drawdown
 from .estimates import estimate_order
-from .leaderboard import standing_dict, standings
+from .leaderboard import chain_standings, standing_dict, standings
 from .orders import FEE_RATE, MAX_LEVERAGE, OrderError, place_market_order, reserved_cash, short_collateral
 from .portfolio import build_portfolio
 from .resets import restore_account
@@ -300,11 +300,16 @@ class LeaderboardEntryOut(BaseModel):
     receipts_confirmed: int = Field(description="Of those, how many have a confirmed Solana receipt")
     wallet_address: str | None = Field(description="The player's devnet wallet (for an Explorer link)")
     in_mission: bool = Field(description="In a mission: ranked on their real account, not the mission's")
-    chain_verified: bool = Field(description="Read from on-chain accounts. Always false here; P2-18 adds Level 1")
+    chain_verified: bool = Field(description="Read from the player's portfolio account on Solana devnet (Level 1)")
+    portfolio_address: str | None = Field(None, description="The on-chain portfolio account (chain rows)")
+    portfolio_explorer_url: str | None = Field(None, description="Public page showing that account")
+    chain_updated_t: float | None = Field(None, description="Market time of the state stored on-chain")
 
 
 class LeaderboardOut(BaseModel):
-    source: Literal["off-chain"] = Field(description="Always works, even with Solana down")
+    source: Literal["off-chain", "chain"] = Field(
+        description="chain: read from Solana portfolio accounts (P2-18). off-chain: our database, always works")
+    chain_error: str | None = Field(None, description="Why the chain wasn't used, when it was asked for")
     market_time: float
     total_players: int = Field(description="Accounts that have traded or hold a position")
     entries: list[LeaderboardEntryOut] = Field(description="Highest equity first")
@@ -736,19 +741,80 @@ async def equity_history_route(
 
 @router.get("/leaderboard")
 async def leaderboard(
+    request: Request,
     user: User | None = Depends(optional_user),
     db: Database = Depends(get_db),
     limit: int = Query(50, ge=1, le=500, description="How many rows from the top"),
+    source: Literal["auto", "chain", "off-chain"] = Query(
+        "auto", description="auto: from Solana when Level 1 is on and devnet answers, otherwise off-chain. "
+                            "chain: Solana only (503 if it can't be read). off-chain: our database"),
 ) -> LeaderboardOut:
-    """Players ranked by equity, straight from the database (it never waits on Solana).
-    Public. Send your token to get your own row in `you`. Live updates: the public
-    `leaderboard` WebSocket message, once per market minute when the top 10 changes."""
+    """Players ranked by equity. Public. Send your token to get your own row in `you`.
+
+    With Level 1 on (P2-18) the default reads every player's portfolio account
+    from Solana devnet and values it at today's prices (`chain_verified` rows).
+    If that read fails it quietly falls back to our database, which always works
+    (`source` says which you got, `chain_error` why). Live updates: the public
+    `leaderboard` WebSocket message (off-chain), once per market minute when the top 10 changes."""
     market = get_market()
-    ranked = standings(db, market)
+    ranked, used, chain_error = None, "off-chain", None
+    syncer = getattr(request.app.state, "portfolios", None)
+    if source != "off-chain":
+        if syncer is None:
+            chain_error = "Level 1 (on-chain portfolios) isn't switched on"
+        else:
+            try:
+                accounts = await asyncio.wait_for(syncer.read_accounts(), 6)
+                if accounts or source == "chain":
+                    ranked, used = chain_standings(db, market, accounts), "chain"
+                else:
+                    chain_error = "no portfolios on-chain yet"
+            except Exception as exc:  # devnet down, rate limited, timeout
+                chain_error = f"couldn't read Solana: {type(exc).__name__}"
+        if source == "chain" and used != "chain":
+            raise HTTPException(503, chain_error)
+    if ranked is None:
+        ranked = standings(db, market)
     mine = next((s for s in ranked if user and s.user_id == user.user_id), None)
-    return LeaderboardOut(source="off-chain", market_time=market.market_time(), total_players=len(ranked),
+    return LeaderboardOut(source=used, chain_error=chain_error, market_time=market.market_time(),
+                          total_players=len(ranked),
                           entries=[LeaderboardEntryOut(**standing_dict(s)) for s in ranked[:limit]],
                           you=LeaderboardEntryOut(**standing_dict(mine)) if mine else None)
+
+
+class ChainPortfolioOut(BaseModel):
+    enabled: bool = Field(description="Is Level 1 (on-chain portfolios) switched on?")
+    program_id: str | None
+    address: str | None = Field(description="Your portfolio account on Solana devnet")
+    explorer_url: str | None
+    status: Literal["sent", "confirmed", "failed"] | None = Field(description="How the last update went")
+    seq: int = Field(description="Updates sent so far")
+    signature: str | None
+    transaction_url: str | None
+    confirm_ms: int | None
+    in_sync: bool = Field(description="The chain holds your current cash and holdings")
+    error: str | None
+
+
+@router.get("/chain/portfolio")
+async def my_chain_portfolio(request: Request, user: User = Depends(current_user),
+                             db: Database = Depends(get_db)) -> ChainPortfolioOut:
+    """Your Level 1 portfolio account on Solana: its address, and whether it's caught up with your trades."""
+    syncer = getattr(request.app.state, "portfolios", None)
+    with db.lock:
+        row = db.conn.execute("SELECT * FROM chain_portfolios WHERE user_id = ?", (user.user_id,)).fetchone()
+    in_sync = False
+    if syncer is not None and row is not None:
+        want = syncer.desired().get(user.user_id)
+        in_sync = row["status"] == "confirmed" and want is not None and want.fingerprint == row["synced_hash"]
+    address = row["address"] if row else None
+    signature = row["signature"] if row else None
+    return ChainPortfolioOut(
+        enabled=syncer is not None, program_id=str(syncer.program_id) if syncer else None, address=address,
+        explorer_url=explorer_url("address", address) if address else None,
+        status=row["status"] if row else None, seq=row["seq"] if row else 0, signature=signature,
+        transaction_url=explorer_url("tx", signature) if signature else None,
+        confirm_ms=row["confirm_ms"] if row else None, in_sync=in_sync, error=row["error"] if row else None)
 
 
 @router.get("/bot-bundles")
