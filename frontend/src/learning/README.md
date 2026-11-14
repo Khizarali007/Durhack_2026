@@ -1,4 +1,4 @@
-# Learning components (Person 4)
+# Learning layer (Person 4)
 
 Mission UI for HoopStreet, built on Person 3's design system: `--hs-*` tokens,
 `components/ui` (Button, Card, Pill, Tooltip) and the global `.label`, `.num` and
@@ -11,7 +11,31 @@ Mission UI for HoopStreet, built on Person 3's design system: `--hs-*` tokens,
 | `src/learning/hooks/useMission.ts` | mission catalogue, status, result, start / stop / retry |
 | `src/learning/*` | the components below |
 
-## Mount
+## Learn mode (guided tutorials)
+
+| path | what |
+|---|---|
+| `tour/tutorials/*.ts` | one file per tutorial: steps with a route, a `data-tour` target, short copy and how the step completes |
+| `tour/TourOverlay.tsx` | the coach overlay, mounted once in `App.tsx` |
+| `tour/store.ts` | progress (localStorage `hs-learn-tour-v1`), Start / Resume / Restart / Exit, and the fills and headlines seen during a run |
+| `learn/LearnMode.tsx` | the `/learn` page: Start here, tutorial cards, glossary, graded challenges |
+| `learn/TourPromptCard.tsx` | the Home page invitation (in Home's mission-card mount) |
+| `glossary/GlossaryTerm.tsx` | a "?" tooltip for any term in `content/glossary.json` (not placed yet: Person 3 decides where) |
+| `content/` | imports `content/glossary.json` and `content/missions.json` from the repo root, the single source of copy |
+
+**Adding a tutorial:**
+1. Write `tour/tutorials/<name>.ts` and add it to `TUTORIALS` in `tour/tutorials/index.ts`.
+2. If a step needs an element without a `data-tour` attribute, add one to Person 3's
+   file and log it in `docs/learn-mode-changes-to-person3-files.md`.
+
+Step completion types:
+- `next`, `click`, `navigate`, `input` (a field holds a value)
+- `order_filled` (side and symbol, optional fill reason)
+- `event` (kind and symbol, optional `moment` from `src/api/tutorialDirector.ts`)
+
+The fallback copy shows when no director is available, i.e. on the real backend.
+
+## Mount (graded missions)
 
 ```tsx
 import { MissionDebrief, MissionPanel, useMission } from '../learning'

@@ -1,5 +1,16 @@
 # Requests for Person 3 (from Person 4, learning layer)
 
+> **Update (learn-mode branch):**
+> - **Done on your side:** the amber warn token (`--hs-color-warn*`), the
+>   `data-projector` attribute on `<html>`, `.sr-only` and `utils/format.ts`.
+>   My code now uses all four.
+> - **Still open:**
+>   - Tooltip on keyboard focus.
+>   - `className` / `aria-*` / `data-*` passthrough on `Button` and
+>     `SegmentedControl`. Two tutorial targets need it; see
+>     `docs/learn-mode-changes-to-person3-files.md`.
+>   - The committed root `node_modules`.
+
 My mission components now use your design system: your `--hs-*` tokens,
 `components/ui`, `.label`, `.num` and `.flash-*`. They live in
 `frontend/src/components/learning/`, plus `src/api/learning.ts`,

@@ -43,7 +43,7 @@ backend/learning/            package: router.py, deps.py, scenario.py, mock_rout
 backend/learning/adapters/   models.py, base.py (Protocols), mock_market.py, mock_trades.py
 backend/learning/tests/      pytest
 backend/requirements-learning.txt
-frontend/src/components/learning/   (and src/api/learning.ts, src/hooks/useMission.ts, src/hooks/useLearningSocket.ts)
+frontend/src/learning/   (and src/api/learning.ts, src/api/tutorialDirector.ts)
 learning-sandbox/
 content/                     missions.json, glossary.json
 scenarios/                   *.json, SCHEMA.md, check_scenarios.py
@@ -189,6 +189,33 @@ uvicorn learning.dev_app:app --app-dir backend --port 8001 --reload
   scratch dir, not committed): buy low/sell high gives a "Mission passed!"
   debrief, never buying gives the `never_bought` debrief, and Retry and Stop
   work. There's no horizontal overflow at 375 px.
+
+## Learn mode (branch `learn-mode`)
+
+- **Branch:** `learn-mode` = `origin/frontend` + `origin/person4-learning`.
+  Design-system conflicts took Person 3's version. Never push to `frontend`;
+  the branch's upstream was unset on purpose.
+- **Location:** my frontend code lives in `frontend/src/learning/`, as his
+  CLAUDE.md says. Components and hooks are in `hooks/`, the client in
+  `src/api/learning.ts`.
+- **Tutorials:** data files in `src/learning/tour/tutorials/`.
+  - Ready: Welcome, First trade, Read the spread, Hype vs fundamentals,
+    Survive the storm.
+  - Coming soon: Compose (needs the Composition panel) and Danger zone (needs
+    short and leverage).
+- **Market moments:** `src/api/tutorialDirector.ts` plays mock scenarios
+  (`tutorial_sga_heat`, `tutorial_jokic_buzz`, `wemby_storm`). On the real
+  backend, steps show fallback copy and let the user continue.
+- **Detection:**
+  - Fills come from his `useTrades()` store, headlines from `subscribeEvents`.
+  - Both are recorded for the whole run, with claims, so a step can see
+    something that happened just before it appeared (the storm's stop-loss
+    often fires early).
+- **Edits to his files:** attributes and mounts only, all logged in
+  `docs/learn-mode-changes-to-person3-files.md`.
+- **Mock caveat (his):** a page refresh restarts the in-browser mock market.
+  Tutorial progress survives in localStorage, but trades made before the
+  refresh don't.
 
 ## Next steps
 

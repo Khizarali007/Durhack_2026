@@ -239,21 +239,17 @@ Server → client only. Three message shapes:
 3. **Ticks, 2 Hz,** for the current mission's symbols (or `?symbols=` when no mission is loaded):
    `{"type": "tick", "t", "symbol", "price", "fair_value", "best_bid", "best_ask"}`
 
-### React components (ready to mount)
+### React components and Learn mode
 
-TypeScript, built on Person 3's design system (`--hs-*` tokens, `components/ui`).
-
-- **Where the files are:**
-  - Components: `frontend/src/components/learning/`.
-  - Network code: `frontend/src/api/learning.ts` (typed models for every
-    shape above, plus the REST client).
-  - Hooks: `frontend/src/hooks/useLearningSocket.ts` and
-    `frontend/src/hooks/useMission.ts`.
-  - Usage, props and theming: `frontend/src/components/learning/README.md`.
-- **What Person 3 needs to do:** see `docs/person4-requests-for-person3.md`,
-  section 5. In short, `const mission = useMission({ apiBase, userId })`,
-  then render `<MissionDebrief userId mission />` and
-  `<MissionPanel userId mission />` on `/learn`.
+All frontend code is in `frontend/src/learning/`; see its README.
+- **Network:** the typed client is `frontend/src/api/learning.ts`, exported from
+  `src/api/index.ts`.
+- **Mounted on branch `learn-mode`:** the tour overlay (`App.tsx`), the `/learn`
+  page and the Home prompt. Every edit to Person 3's files is listed in
+  `docs/learn-mode-changes-to-person3-files.md`.
+- **Base URL:** the learning API base defaults to `''`, because Person 3's
+  Vite proxy sends `/learning` (with `ws: true`) to `VITE_LEARNING_TARGET`
+  (default `:8001`).
 
 ### Mock-only (dev app; **remove at merge**)
 
