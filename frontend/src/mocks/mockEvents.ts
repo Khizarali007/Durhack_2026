@@ -56,6 +56,23 @@ const SCENARIOS: Record<string, Scenario> = {
         headline: 'Wembanyama ruled out tonight: Spurs play without him (simulated)' },
     ],
   },
+  // --- Person 4's guided tutorials (Learn mode). Additive: wemby_storm above is unchanged ---
+  tutorial_sga_heat: {
+    symbol: 'SGA',
+    steps: [
+      { at: 0, kind: 'hot_streak', impact: 0.07, storm: 1.3,
+        headline: 'Shai Gilgeous-Alexander on fire: 35+ in three straight' },
+      { at: 120, kind: 'hot_streak', impact: 0.04, storm: 1.3,
+        headline: 'SGA keeps rolling: the Thunder win again behind another big night' },
+    ],
+  },
+  tutorial_jokic_buzz: {
+    symbol: 'JOKIC',
+    steps: [
+      { at: 0, kind: 'trade_rumour', impact: 0.05, storm: 1.5,
+        headline: 'Buzz: Nikola Jokic tipped for another MVP run (simulated)' },
+    ],
+  },
 }
 
 interface RunningScenario { scenario: Scenario; start_t: number; next: number }

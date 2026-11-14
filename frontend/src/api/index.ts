@@ -66,3 +66,7 @@ export type {
   MissionStatus, MissionResult, GlossaryTerm, MissionSnapshotMessage, MissionLiveMessage, LearningTickMessage,
   LearningSocketMessage,
 } from './learning'
+
+// --- Learn mode tutorials (Person 4): scripted market moments, mock only ---
+export { playTutorialMoment, TUTORIAL_MOMENTS_AVAILABLE } from './tutorialDirector'
+export type { TutorialMoment } from './tutorialDirector'
