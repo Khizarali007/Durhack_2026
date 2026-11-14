@@ -31,6 +31,15 @@ CREATE TABLE IF NOT EXISTS users (
     created_at      REAL NOT NULL                -- real time, unix seconds
 );
 
+-- Login sessions. Only a SHA-256 hash of each token is stored, so a leaked
+-- database file can't be used to log in.
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash      TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL REFERENCES users (user_id),
+    created_at      REAL NOT NULL                -- real time, unix seconds
+);
+CREATE INDEX IF NOT EXISTS sessions_by_user ON sessions (user_id);
+
 CREATE TABLE IF NOT EXISTS positions (
     user_id           TEXT NOT NULL REFERENCES users (user_id),
     symbol            TEXT NOT NULL,
@@ -62,7 +71,7 @@ CREATE TABLE IF NOT EXISTS trades (
 CREATE INDEX IF NOT EXISTS trades_by_user_time ON trades (user_id, t);
 """
 
-TABLES = ("users", "positions", "trades")
+TABLES = ("users", "sessions", "positions", "trades")
 
 
 class Database:

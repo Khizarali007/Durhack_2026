@@ -91,11 +91,20 @@ These come from Person 1's prototype and Person 4's interfaces.
   - 19 tests in `tests/test_fake_market.py`
 - **Not copied yet:** real box scores and injury reports moving fair value (the fake drifts randomly), finite bot accounts, real ESPN ids.
 
-## ⬜ P2-03 · Sessions and starting balance
+## ✅ P2-03 · Sessions and starting balance
 - **Gate:** G1
-- **Depends on:** P2-01 ✅
-- **What:** `POST /trading/session` creates a temporary user with **100,000 HOOP** (`10_000_000` cents) and returns a session token. Later requests send it (e.g. an `Authorization: Bearer <token>` header). Add a `sessions` table to `db.py`.
-- **Done when:** two sessions have separate balances. Write a test.
+- **What was built:**
+  - `POST /trading/session` (201) creates a temporary account, stored as a guest, with **100,000 HOOP** (`10_000_000` cents). It returns `{token, user_id, cash}`.
+  - `GET /trading/me` returns `{user_id, username, is_guest, cash}` for the token's owner.
+  - **Auth:** send `Authorization: Bearer <token>`. A missing, malformed or unknown token gets `401`.
+    - The check lives in one dependency, `current_user` in `trading/deps.py`. Every later endpoint uses it with `user: User = Depends(current_user)`.
+    - `/docs` has an **Authorize** button for pasting a token.
+  - `sessions` table in `db.py`. **Only a SHA-256 hash of each token is stored**, so a leaked database file can't be used to log in.
+  - `trading/accounts.py`: `create_guest_user`, `create_session`, `user_for_token`, `get_user`.
+  - `trading/money.py`: `to_hoop(cents)` and `to_cents(hoop)` (exact, rounds half up), ready for orders.
+- **Tests:** `test_sessions.py` (two sessions have separate balances, bad tokens get 401, tokens are stored hashed) and `test_money.py`. 40 tests pass in total.
+- **Checked on a live server:** two `curl` sessions got different users with 100,000 HOOP each, `/me` worked with a token, and no token or a bad token gave 401.
+- **For Person 3:** call `POST /trading/session` once when the app opens, keep the token, and send it on every request. P2-07 later adds `signup`, `login` and `guest`, which return the same `{token, user_id, cash}` shape.
 
 ## ⬜ P2-04 · Market buy/sell
 - **Gate:** G1

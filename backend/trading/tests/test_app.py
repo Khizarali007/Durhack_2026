@@ -3,18 +3,8 @@
 import time
 
 import pytest
-from fastapi.testclient import TestClient
 
-from trading.db import DB_PATH_ENV, TABLES, Database
-
-
-@pytest.fixture
-def client(monkeypatch):
-    monkeypatch.setenv(DB_PATH_ENV, ":memory:")
-    from main import app
-
-    with TestClient(app) as c:  # runs the lifespan, so the market ticks in the background
-        yield c
+from trading.db import TABLES, Database
 
 
 def test_health(client):
