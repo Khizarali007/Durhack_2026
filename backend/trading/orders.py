@@ -23,7 +23,17 @@ A sell is checked against the user's holdings and sent in one go.
   over your equity. The hold-back follows the price, so a rising price ties up
   more cash. P2-15 adds 3x leverage and margin calls on top.
 - Shorts are sent in chunks with a collateral check before each, like buys.
-  Covering only needs the cash to pay for it, so you can always get out.
+  Covering is always allowed, so you can always get out.
+
+**Leverage (P2-15):** buys and shorts can use up to 3x.
+- **Buying power = leverage x equity - gross exposure - cash reserved for
+  open buy limits.** Gross exposure is every position's value, long or short,
+  at the last price. Each share bought or shorted uses up its price (+ fee).
+- At 1x that's exactly the free cash above: cash minus reservations minus
+  200% short collateral. At 3x your exposure can reach three times your
+  equity: a leveraged buy **borrows**, so cash goes negative (a margin loan).
+- ``margin.py`` watches every account and margin-calls, then liquidates,
+  when equity falls too far below exposure.
 
 Every fill becomes a row in ``trades``. Cash and the position are updated in
 the same database transaction.
@@ -51,9 +61,11 @@ FEE_RATE = Decimal("0.001")      # 0.10% of notional (matches Person 4's mission
 BUY_CHUNK = 10                   # shares per engine call for buys and shorts
 CHUNK_PRICE_BUFFER = 0.02        # allow 2% slippage within one chunk when checking cash
 SHORT_COLLATERAL_FACTOR = 2      # hold back 200% of a short's value: its proceeds + the same again (P2-14)
+MAX_LEVERAGE = 3                 # P2-15: exposure can reach 3x equity
 
 NOT_ENOUGH_CASH = "not enough cash"
 NOT_ENOUGH_COLLATERAL = "not enough free cash to back this short (shorts hold back 200% of their value)"
+NOT_ENOUGH_BUYING_POWER = "not enough buying power, even with leverage"
 
 
 def engine_side(side: OrderSide) -> Literal["buy", "sell"]:
@@ -90,6 +102,7 @@ class OrderOutcome:
     fills: list[RecordedFill] = field(default_factory=list)
     reason: str | None = None    # why it was only partly filled
     quoted_best_cents: int | None = None  # best price when placed: ask to buy/cover, bid to sell/short
+    leverage: int = 1
 
     @property
     def slippage_cents(self) -> float | None:
@@ -147,11 +160,41 @@ def short_collateral(db: Database, market: MarketEngine, user_id: str) -> int:
     return sum(SHORT_COLLATERAL_FACTOR * -qty * to_cents(market.last_price(symbol)) for symbol, qty in rows)
 
 
+@dataclass(frozen=True)
+class Exposure:
+    cash_cents: int              # negative = borrowed (a margin loan, P2-15)
+    equity_cents: int            # cash + every position's value (shorts count negative)
+    gross_cents: int             # every position's value, long or short, as a positive amount
+
+    @property
+    def margin_ratio(self) -> float | None:
+        """Equity / gross exposure. None with no positions. 1/3 for a fresh 3x position."""
+        return self.equity_cents / self.gross_cents if self.gross_cents else None
+
+
+def exposure(db: Database, market: MarketEngine, user_id: str) -> Exposure:
+    """Positions marked at the last price, like the portfolio."""
+    with db.lock:
+        user = db.conn.execute("SELECT cash_cents FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        rows = db.conn.execute("SELECT symbol, qty FROM positions WHERE user_id = ?", (user_id,)).fetchall()
+    if user is None:
+        raise OrderError(404, "unknown user")
+    values = [qty * to_cents(market.last_price(symbol)) for symbol, qty in rows]
+    return Exposure(user[0], user[0] + sum(values), sum(abs(v) for v in values))
+
+
+def buying_power(db: Database, market: MarketEngine, user_id: str, leverage: int = 1,
+                 exclude: str | None = None) -> int:
+    """What a new buy or short may use: leverage x equity - gross exposure - cash
+    reserved for open buy limits. Negative when the account is already over that leverage."""
+    e = exposure(db, market, user_id)
+    return leverage * e.equity_cents - e.gross_cents - reserved_cash(db, user_id, exclude)
+
+
 def free_cash(db: Database, market: MarketEngine, user_id: str, exclude: str | None = None) -> int:
-    """Cash the user can put into a new buy or short: cash minus what open buy limits
-    and open shorts hold back. Can be negative if a short's price has risen."""
-    cash, _, _ = _balance(db, user_id, None)
-    return cash - reserved_cash(db, user_id, exclude) - short_collateral(db, market, user_id)
+    """Buying power at 1x: cash minus what open buy limits and open shorts hold back
+    (equity - gross = cash - 200% of shorts). Can be negative if a short's price has risen."""
+    return buying_power(db, market, user_id, 1, exclude)
 
 
 def check_direction(side: OrderSide, symbol: str, held: int, qty: int) -> None:
@@ -168,7 +211,7 @@ def check_direction(side: OrderSide, symbol: str, held: int, qty: int) -> None:
 
 def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol: str, side: OrderSide,
                        qty: int, *, reason: str = "market", limit_price_cents: int | None = None,
-                       own_open_order: str | None = None) -> OrderOutcome:
+                       own_open_order: str | None = None, leverage: int = 1) -> OrderOutcome:
     """Trade now at the market's best price.
 
     - ``side``: ``buy`` / ``sell``, or ``short`` / ``cover`` (P2-14).
@@ -177,11 +220,15 @@ def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol:
     - ``limit_price_cents`` stops filling once the price is worse than the limit.
     - ``own_open_order`` is the open order that's firing, so its own reserved
       cash or shares can be used.
+    - ``leverage`` (1-3) sets the buying power for buys and shorts (P2-15).
+      Sells and covers only ever reduce exposure, so it doesn't apply to them.
     """
     if symbol not in {p.symbol for p in market.players()}:
         raise OrderError(404, f"unknown symbol {symbol!r}")
     if side not in ("buy", "sell", "short", "cover"):
         raise OrderError(400, f"side must be buy, sell, short or cover, not {side!r}")
+    if not 1 <= leverage <= MAX_LEVERAGE:
+        raise OrderError(400, f"leverage must be 1 to {MAX_LEVERAGE}")
     cash, held, _ = _balance(db, user_id, symbol)
     check_direction(side, symbol, held, qty)
     order_id = f"ord_{secrets.token_hex(6)}"
@@ -189,15 +236,14 @@ def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol:
     quoted = quote.ask if engine_side(side) == "buy" else quote.bid
     quoted_cents = to_cents(quoted) if quoted is not None else None
 
-    if side == "buy":
-        available = free_cash(db, market, user_id, exclude=own_open_order)
-        engine_fills, why = _in_chunks(market, user_id, symbol, "buy", qty, available, limit_price_cents)
-    elif side == "cover":  # only needs the cash to pay: getting out of a short is always allowed
-        available = cash - reserved_cash(db, user_id, exclude=own_open_order)
-        engine_fills, why = _in_chunks(market, user_id, symbol, "buy", qty, available, limit_price_cents)
-    elif side == "short":  # each share shorted ties up its price (+ fee) of free cash, like a buy
-        available = free_cash(db, market, user_id, exclude=own_open_order)
-        engine_fills, why = _in_chunks(market, user_id, symbol, "sell", qty, available, limit_price_cents)
+    if side in ("buy", "short"):  # each share bought or shorted uses up its price (+ fee) of buying power
+        available = buying_power(db, market, user_id, leverage, exclude=own_open_order)
+        engine_fills, why = _in_chunks(market, user_id, symbol, engine_side(side), qty, available,
+                                       limit_price_cents)
+        if why in (NOT_ENOUGH_CASH, NOT_ENOUGH_COLLATERAL) and leverage > 1:
+            why = NOT_ENOUGH_BUYING_POWER
+    elif side == "cover":  # only lowers exposure, so always allowed (borrowing if cash runs short)
+        engine_fills, why = _in_chunks(market, user_id, symbol, "buy", qty, None, limit_price_cents)
     else:
         reserved = reserved_shares(db, user_id, symbol, exclude=own_open_order)
         if qty > held - reserved:
@@ -206,14 +252,17 @@ def place_market_order(db: Database, market: MarketEngine, user_id: str, symbol:
         engine_fills, why = _sell(market, user_id, symbol, qty, limit_price_cents)
 
     if not engine_fills:
-        status = 400 if why in (NOT_ENOUGH_CASH, NOT_ENOUGH_COLLATERAL) else 409
+        status = 400 if why in (NOT_ENOUGH_CASH, NOT_ENOUGH_COLLATERAL, NOT_ENOUGH_BUYING_POWER) else 409
         raise OrderError(status, why or "the order could not be filled")
-    return _record(db, order_id, user_id, symbol, side, qty, engine_fills, why, reason, quoted_cents)
+    outcome = _record(db, order_id, user_id, symbol, side, qty, engine_fills, why, reason, quoted_cents)
+    outcome.leverage = leverage if side in ("buy", "short") else 1
+    return outcome
 
 
 def _in_chunks(market: MarketEngine, user_id: str, symbol: str, side: Literal["buy", "sell"], qty: int,
-               cash: int, limit_price_cents: int | None = None) -> tuple[list[Fill], str | None]:
-    """Send ``qty`` to the engine in chunks, never committing more than ``cash``.
+               cash: int | None, limit_price_cents: int | None = None) -> tuple[list[Fill], str | None]:
+    """Send ``qty`` to the engine in chunks, never committing more than ``cash``
+    (``None``: no budget, for covers).
 
     Buying a share costs its price plus the fee. Shorting one ties up the same
     amount of free cash (the proceeds come in, 200% of the value is held back),
@@ -237,7 +286,7 @@ def _in_chunks(market: MarketEngine, user_id: str, symbol: str, side: Literal["b
             worst_price = min(worst_price, limit_price_cents)  # never pays over the limit
         # +1 cent a share covers per-fill fee rounding (matches open_orders.buy_reservation)
         worst_cost_per_share = worst_price * (1 + float(FEE_RATE)) + 1
-        affordable = math.floor((cash - committed) / worst_cost_per_share)
+        affordable = remaining if cash is None else math.floor((cash - committed) / worst_cost_per_share)
         chunk = min(remaining, BUY_CHUNK, affordable)
         if chunk <= 0:
             return fills, NOT_ENOUGH_CASH if buying else NOT_ENOUGH_COLLATERAL
@@ -323,8 +372,8 @@ def _record(db: Database, order_id: str, user_id: str, symbol: str, side: OrderS
                  fill_reason, trade.counterparty, quoted_cents),
             )
             recorded.append(trade)
-        if cash < 0:
-            raise OrderError(500, "ledger check failed: cash would go negative")  # rolls back
+        # Cash may now be negative: a margin loan from a leveraged buy (P2-15). Buying power
+        # is checked before an order is sent, so only buys/shorts within it ever get here.
         db.conn.execute("UPDATE users SET cash_cents = ? WHERE user_id = ?", (cash, user_id))
         if held == 0:
             db.conn.execute("DELETE FROM positions WHERE user_id = ? AND symbol = ?", (user_id, symbol))

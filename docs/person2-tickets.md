@@ -410,7 +410,7 @@ These come from Person 1's prototype and Person 4's interfaces.
     - The hold-back follows the last price, so a rising price ties up more cash.
     - Buys, new shorts and buy-limit reservations can only use **free cash** = cash − open-order reservations − short collateral.
     - Shorts go to the engine in 10-share chunks with a collateral check before each, like buys. If free cash runs out, the order comes back `partially_filled` ("not enough free cash to back this short").
-    - **Covering only needs the cash to pay for it**, so you can always get out, even when the price has run away and free cash is negative.
+    - **Covering is always allowed**, so you can always get out, even when the price has run away and free cash is negative. (Since P2-15 it borrows if cash runs short.)
   - **Profit/loss is reversed for shorts.** A short's cost basis is what the shares sold for (always positive), and `avg_cost` is the price you sold at.
     - Unrealised = sold for − cost to buy back now. Covering realises it.
     - Market value is negative (you owe the shares), so equity = cash + positions value still holds.
@@ -420,7 +420,7 @@ These come from Person 1's prototype and Person 4's interfaces.
   - **Open orders:** no buy limits while short, and no sell limits or stops on a short. Buy limits can't reserve cash that's backing a short.
   - **Payouts:** shorts pay them (negative `payouts` rows), as planned in P2-22.
   - **Missions:** `apply_start_state` accepts shorts (negative `qty`, `avg_cost` = price sold at). The starting equity marks them at that price, and restore works.
-- **Not done:** cover-stops (a buy stop that closes a short: the "stop-loss" for shorts), borrow fees, and margin calls when collateral runs short (P2-15).
+- **Not done:** cover-stops (a buy stop that closes a short: the "stop-loss" for shorts) and borrow fees. Margin calls arrived in P2-15.
 - **Still to confirm with Person 1** (question 4): that their engine accepts sells from humans with no holdings. The fake does.
 - **Tests:** 25 in `test_shorts.py`, covering:
   - Shorting before a drop makes money. The loss keeps growing while the price rises, past what the short sold for.
@@ -434,14 +434,47 @@ These come from Person 1's prototype and Person 4's interfaces.
   - Buy, sell and over-cover were refused with clear messages.
   - Covered 40 after the market moved. `total_pnl` −26.17 = −17.90 realised − 8.27 fees, exactly.
 
-## ⬜ P2-15 · 3x leverage and margin calls
+## ✅ P2-15 · 3x leverage and margin calls
 - **Gate:** G3
-- **Depends on:** P2-05, P2-14, `MarketTick`
-- **What:**
-  - Margin ratio per user.
-  - Warning, then margin call, then automatic liquidation (`reason="liquidation"`).
-  - Status messages pushed over the WebSocket.
-- **Done when:** a 3x position sends a margin call, then liquidates, during the demo storm.
+- **What was built** (`trading/margin.py`, plus `orders.py`, `estimates.py`, `router.py`, `main.py`):
+  - **Leverage:** `POST /trading/orders` and `/orders/quote` take `leverage: 1–3` (default 1) for buys and shorts. Sells and covers only reduce exposure, so it doesn't apply to them.
+    - **Buying power = leverage × equity − gross exposure − cash reserved for buy limits.** Gross exposure is every position's value, long or short, at the last price.
+    - At 1x that's exactly P2-14's free cash (cash − reservations − 200% of shorts), so unleveraged players see no change.
+    - At 3x, exposure can reach three times equity. A leveraged buy **borrows**: cash goes negative (a margin loan). The portfolio shows it as `margin.borrowed`.
+    - Over the limit you can't add (`400 "not enough buying power, even with leverage"`), but selling and covering always work.
+  - **Margin ratio = equity ÷ gross exposure.** A fresh 3x position is about 33%. Unleveraged long-only accounts sit at 100% or more and are never margin-called.
+
+    | Margin ratio | Status | What happens |
+    |---|---|---|
+    | 30% or more | `ok` | nothing |
+    | under 30% | `warning` | heads-up message |
+    | under 25% | `margin_call` | sell or cover within 3 market minutes (15 real seconds) |
+    | under 20%, or the call runs out | liquidation | positions sold for you |
+
+  - **`MarginMonitor`** checks every account with positions on each market tick (like the open-order watcher).
+    - Improving a status needs a point of headroom (31% to leave `warning`), so a ratio wobbling on a line doesn't flood the player with messages.
+    - Status and the margin call's start are stored on the user (migration columns), and mission resets/restores clear them.
+  - **Liquidation:** cancels the player's open orders, then closes positions biggest first at the market until the ratio is back to 35%.
+    - Trades are recorded with `reason="liquidation"` and get Solana receipts.
+    - If equity is zero or less, everything is closed. Cash can stay negative: the player owes the loss.
+    - Shorts are covered the same way, so a short squeeze liquidates too.
+  - **API:**
+    - `GET /trading/margin` returns `status, margin_ratio_pct, leverage, gross_exposure, borrowed, buying_power, buying_power_max, max_leverage, warning_pct, maintenance_pct, liquidation_pct, margin_call_deadline_t`. That's everything a margin bar needs.
+    - The portfolio includes the same block as `margin`.
+    - Orders return `leverage`. Leveraged estimates warn "every 1% the price moves against you costs 3% of what you put in…".
+  - **WebSocket:** private `margin` messages on each change: `{event: warning|margin_call|liquidated|ok, status, message, margin_ratio_pct, equity, gross_exposure, cash, deadline_t, warning_pct, maintenance_pct, liquidation_pct, liquidated[{order_id, symbol, side, qty, average_price}]}`. Each liquidation order also sends a normal `fill` with `reason: "liquidation"`.
+- **Not done:** interest on margin loans, and a way to top up a margin call other than selling (there's no deposit in the game).
+- **Tests:** 25 in `test_margin.py`, covering:
+  - The status bands and headroom, and buying power (1x and 3x).
+  - A 3x buy borrowing, 3x shorts, no adding while over-leveraged but always reducing.
+  - **The storm, 1% at a time: warning → margin call (with deadline) → still time at 179 s → liquidated at 180 s**, with receipts queued and `fill`/`margin` messages.
+  - Fixing it in time cancels the call. A gap under 20% liquidates at once, selling only what's needed. Wiped-out equity closes everything, and a short squeeze covers.
+  - Open orders cancelled, unleveraged accounts never called, mission reset clearing the status, and the API plus a live WebSocket liquidation.
+
+  270 pass in total, 3 runs in a row.
+- **Checked against the live, ticking app** (receipts off), with a player at 3x on WEMBY (5,000 HOOP equity, 138 shares, 2.87x, 9,924 borrowed):
+  - **Injury gap:** fair value −25% and a panic seller dumping 150 took the price from 108 to 82. The player was liquidated on the next tick (99 shares) and margin went back to 36%.
+  - **Slower slide:** a margin call at 22%, then 15 s later 54 shares were liquidated, margin went back to 36.7%, and the status returned to `ok`. An even slower run showed the 28.7% warning first.
 
 ## ⬜ P2-16 · Equity history
 - **Gate:** G3

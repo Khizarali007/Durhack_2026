@@ -12,6 +12,8 @@ Every message is flat JSON with a ``type``:
 - ``open_order``: one of your limit/stop orders was placed, fired, filled, cancelled or failed
 - ``receipt``: your order's Solana receipt confirmed or failed, with the Explorer link
 - ``bot_bundle``: a minute of bot trades settled on Solana (public)
+- ``payout`` / ``payout_announced``: performance payouts (P2-22)
+- ``margin``: your margin status changed: warning, margin_call, liquidated or ok (P2-15)
 - ``pong``: reply to a ``ping`` you send
 
 Producers (the order route, the open-order watcher, the receipt worker) call

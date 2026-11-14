@@ -81,7 +81,8 @@ def reset_account(db: Database, market: MarketEngine, user_id: str, cash_cents: 
         db.conn.execute(
             "UPDATE users SET cash_cents = ?, baseline_cents = ?, start_trade_rowid = ?, start_positions_json = ?,"
             " carried_realised_cents = 0, carried_fees_cents = 0, start_payout_rowid = ?,"
-            " carried_payouts_cents = 0 WHERE user_id = ?",
+            " carried_payouts_cents = 0, margin_status = 'ok', margin_call_t = NULL"
+            " WHERE user_id = ?",
             # Starting equity marks each position at its entry price: + for longs, - for shorts.
             (cash_cents, cash_cents + sum(b if q > 0 else -b for _, q, b in start), _max_trade_rowid(db),
              json.dumps(start),
@@ -101,7 +102,8 @@ def restore_account(db: Database, user_id: str) -> bool:
         db.conn.execute(
             "UPDATE users SET cash_cents = ?, baseline_cents = ?, start_trade_rowid = ?, start_positions_json = ?,"
             " carried_realised_cents = ?, carried_fees_cents = ?, start_payout_rowid = ?,"
-            " carried_payouts_cents = ? WHERE user_id = ?",
+            " carried_payouts_cents = ?, margin_status = 'ok', margin_call_t = NULL"
+            " WHERE user_id = ?",
             (snap["cash_cents"], snap["baseline_cents"], _max_trade_rowid(db), json.dumps(positions),
              snap["realised_cents"], snap["fees_cents"], _max_payout_rowid(db), snap["payouts_cents"], user_id),
         )

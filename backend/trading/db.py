@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
     username        TEXT UNIQUE,                 -- NULL for guests
     password_hash   TEXT,                        -- NULL for guests; never plain text
     is_guest        INTEGER NOT NULL DEFAULT 0,
-    cash_cents      INTEGER NOT NULL,
+    cash_cents      INTEGER NOT NULL,                -- negative = borrowed on margin (P2-15)
     created_at      REAL NOT NULL                -- real time, unix seconds
 );
 
@@ -179,6 +179,9 @@ MIGRATIONS = (
     ("users", "start_payout_rowid", "INTEGER NOT NULL DEFAULT 0"),
     ("users", "carried_payouts_cents", "INTEGER NOT NULL DEFAULT 0"),
     ("account_snapshots", "payouts_cents", "INTEGER NOT NULL DEFAULT 0"),
+    # P2-15: margin status (ok | warning | margin_call) and when the margin call began (market time).
+    ("users", "margin_status", "TEXT NOT NULL DEFAULT 'ok'"),
+    ("users", "margin_call_t", "REAL"),
 )
 
 

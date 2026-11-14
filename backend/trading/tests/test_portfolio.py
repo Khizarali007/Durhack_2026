@@ -34,6 +34,11 @@ def c(hoop):
 def test_new_player_has_only_cash(client, player):
     headers, user_id = player
     p = portfolio(client, headers)
+    assert p.pop("margin") == {
+        "status": "ok", "margin_ratio_pct": None, "leverage": 0.0, "gross_exposure": 0.0, "borrowed": 0.0,
+        "buying_power": 100_000.0, "buying_power_max": 300_000.0, "max_leverage": 3, "warning_pct": 30.0,
+        "maintenance_pct": 25.0, "liquidation_pct": 20.0, "margin_call_deadline_t": None,
+    }
     assert p == {
         "user_id": user_id, "cash": 100_000.0, "reserved_cash": 0.0, "short_collateral": 0.0,
         "available_cash": 100_000.0,

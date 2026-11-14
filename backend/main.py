@@ -22,6 +22,7 @@ from trading.chain import worker as receipt_worker
 from trading.chain.bot_bundles import BotBundleRecorder
 from trading.db import Database
 from trading.live import LiveHub, receipt_notifier
+from trading.margin import MarginMonitor
 from trading.market_provider import get_market
 from trading.open_orders import OrderWatcher
 from trading.payouts import PayoutProcessor
@@ -61,6 +62,12 @@ async def lifespan(app: FastAPI):
                               notify_public=app.state.live.publish_public)
     await payouts.start()
 
+    # Margin calls and liquidation for leveraged and short positions (P2-15).
+    margin = MarginMonitor(app.state.trading_db, market,
+                           on_fill=app.state.receipts.enqueue if app.state.receipts else None,
+                           notify_user=app.state.live.publish_user)
+    await margin.start()
+
     # Person 4's TradesAdapter (P2-21). At merge, Person 4 plugs in here (see
     # docs/person4-interfaces.md on their branch):
     #   configure_learning(market_adapter, app.state.trades_adapter)
@@ -69,6 +76,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         # Person 4: await shutdown_learning()
+        await margin.stop()
         await payouts.stop()
         await watcher.stop()
         await bundles.stop()

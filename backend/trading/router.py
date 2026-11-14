@@ -21,6 +21,7 @@ from .accounts import (
     user_for_token,
 )
 from .live import fill_message, open_order_message
+from .margin import LIQUIDATION_RATIO, MAINTENANCE_RATIO, WARNING_RATIO, MarginView, margin_view
 from .chain.bot_bundles import bundle_lines
 from .chain.config import explorer_url
 from .chain.receipts import bot_trades_hash
@@ -33,7 +34,7 @@ from .money import to_hoop
 from .money import to_cents
 from .open_orders import OpenOrder, cancel_open_order, create_open_order, list_open_orders
 from .estimates import estimate_order
-from .orders import FEE_RATE, OrderError, place_market_order, reserved_cash, short_collateral
+from .orders import FEE_RATE, MAX_LEVERAGE, OrderError, place_market_order, reserved_cash, short_collateral
 from .portfolio import build_portfolio
 from .resets import restore_account
 from .trades import trades_for_user
@@ -76,6 +77,9 @@ class OrderIn(BaseModel):
     side: Literal["buy", "sell", "short", "cover"] = Field(
         description="buy / sell shares you hold, or short (sell shares you don't own) / cover (buy them back)")
     qty: int = Field(gt=0, le=10_000, description="Whole shares")
+    leverage: int = Field(1, ge=1, le=MAX_LEVERAGE, description=(
+        "Buys and shorts: up to 3x. Your exposure can reach this many times your equity; a leveraged "
+        "buy borrows, so cash can go negative. Ignored for sell and cover"))
 
 
 class FillOut(BaseModel):
@@ -106,6 +110,7 @@ class OrderOut(BaseModel):
         description="Best price when you placed the order: the ask to buy or cover, the bid to sell or short")
     slippage: float | None = Field(description="Per share: how much worse your average was than the best price")
     slippage_pct: float | None
+    leverage: int = Field(1, description="The leverage this order used (buys and shorts)")
 
 
 class MakerQuoteOut(BaseModel):
@@ -137,11 +142,13 @@ class EstimateOut(BaseModel):
     estimated_total: float = Field(
         description="Buy/cover: what you'd pay incl. fee. Sell/short: what you'd receive after the fee")
     available_cash: float = Field(
-        description="Cash this order can use: after open orders and short collateral (cover: after open orders)")
+        description="Buy/short: buying power at this leverage (leverage x equity - exposure - reservations). "
+                    "Sell/cover: your cash")
     can_afford_qty: int | None = Field(
         description="Buy/short/cover: how many shares your available cash covers (a short holds back 200% of its value)")
     sellable_qty: int | None = Field(description="Sells: shares you hold that aren't reserved for open orders")
     position_qty: int = Field(description="Shares of this player you hold now (negative = short)")
+    leverage: int = Field(description="Leverage the estimate assumed (buys and shorts)")
     ok: bool = Field(description="True if the whole order would go through as asked")
     warnings: list[str] = Field(description="Plain-English heads-ups for the order ticket")
     makers: list[MakerQuoteOut]
@@ -203,9 +210,40 @@ class PositionOut(BaseModel):
     weight_pct: float = Field(description="Share of your total equity in this player (negative for a short)")
 
 
+class MarginOut(BaseModel):
+    """P2-15: how close the account is to a margin call. Drives the margin bar."""
+
+    status: Literal["ok", "warning", "margin_call"]
+    margin_ratio_pct: float | None = Field(
+        description="equity / gross exposure. None with no positions. A fresh 3x position is about 33%")
+    leverage: float | None = Field(description="gross exposure / equity (None if equity is 0 or less)")
+    gross_exposure: float = Field(description="Every position's value, long or short")
+    borrowed: float = Field(description="Cash borrowed for leveraged buys (when cash is below 0)")
+    buying_power: float = Field(description="What a new 1x buy or short can use")
+    buying_power_max: float = Field(description="What a new buy or short can use at 3x")
+    max_leverage: int
+    warning_pct: float
+    maintenance_pct: float = Field(description="Below this: margin call")
+    liquidation_pct: float = Field(description="Below this: positions are sold for you straight away")
+    margin_call_deadline_t: float | None = Field(
+        description="During a margin call: market time your positions get sold if you haven't fixed it")
+
+
+def _margin_out(m: MarginView) -> MarginOut:
+    e = m.exposure
+    ratio = e.margin_ratio
+    return MarginOut(status=m.status, margin_ratio_pct=None if ratio is None else round(100 * ratio, 2),
+                     leverage=None if m.leverage is None else round(m.leverage, 2),
+                     gross_exposure=to_hoop(e.gross_cents), borrowed=to_hoop(max(-e.cash_cents, 0)),
+                     buying_power=to_hoop(max(m.buying_power_cents, 0)),
+                     buying_power_max=to_hoop(max(m.buying_power_max_cents, 0)), max_leverage=MAX_LEVERAGE,
+                     warning_pct=100 * WARNING_RATIO, maintenance_pct=100 * MAINTENANCE_RATIO,
+                     liquidation_pct=100 * LIQUIDATION_RATIO, margin_call_deadline_t=m.deadline_t)
+
+
 class PortfolioOut(BaseModel):
     user_id: str
-    cash: float
+    cash: float = Field(description="Negative if you've borrowed for leveraged buys")
     reserved_cash: float = Field(description="Part of cash held back for open buy limits")
     short_collateral: float = Field(
         description="Part of cash held back for open shorts: 200% of their value at the last price")
@@ -221,6 +259,7 @@ class PortfolioOut(BaseModel):
     fees_paid: float
     payouts_received: float = Field(description="HOOP earned from player performances while holding their shares")
     positions: list[PositionOut] = Field(description="Largest holding first")
+    margin: MarginOut
 
 
 class TradeOut(BaseModel):
@@ -358,6 +397,9 @@ async def place_order(order: OrderIn, request: Request, user: User = Depends(cur
       rises, the loss keeps growing.
     - `cover` buys them back.
     - You can't short a player you hold (sell first) or buy one you're short (cover first).
+    - `leverage` (buys and shorts, up to 3): exposure can reach that many times
+      your equity. If your margin (equity / exposure) falls under 25% you get a
+      margin call, and under 20% (or 15 s after the call) positions are sold for you.
 
     Errors: `400` not enough cash, shares or collateral, or the wrong side for
     your position; `404` unknown symbol; `409` the market makers couldn't fill
@@ -367,7 +409,8 @@ async def place_order(order: OrderIn, request: Request, user: User = Depends(cur
     """
     # async on purpose: engine calls run on the same thread that ticks the market.
     try:
-        outcome = place_market_order(db, get_market(), user.user_id, order.symbol, order.side, order.qty)
+        outcome = place_market_order(db, get_market(), user.user_id, order.symbol, order.side, order.qty,
+                                     leverage=order.leverage)
     except OrderError as error:
         raise HTTPException(error.status_code, error.message) from error
     if request.app.state.receipts:
@@ -392,6 +435,7 @@ async def place_order(order: OrderIn, request: Request, user: User = Depends(cur
         slippage=round(outcome.slippage_cents / 100, 4) if outcome.slippage_cents is not None else None,
         slippage_pct=(round(100 * outcome.slippage_cents / outcome.quoted_best_cents, 2)
                       if outcome.slippage_cents is not None and outcome.quoted_best_cents else None),
+        leverage=outcome.leverage,
     )
 
 
@@ -400,7 +444,7 @@ async def quote_order(order: OrderIn, user: User = Depends(current_user),
                       db: Database = Depends(get_db)) -> EstimateOut:
     """Before you confirm: spread, expected slippage for this size, the fee and the total. Trades nothing."""
     try:
-        e = estimate_order(db, get_market(), user.user_id, order.symbol, order.side, order.qty)
+        e = estimate_order(db, get_market(), user.user_id, order.symbol, order.side, order.qty, order.leverage)
     except OrderError as error:
         raise HTTPException(error.status_code, error.message) from error
     best = e.best_price_cents
@@ -423,6 +467,7 @@ async def quote_order(order: OrderIn, user: User = Depends(current_user),
         can_afford_qty=e.affordable_qty if e.side != "sell" else None,
         sellable_qty=e.sellable_qty if e.side == "sell" else None,
         position_qty=e.position_qty,
+        leverage=e.leverage,
         ok=e.ok,
         warnings=e.warnings,
         makers=[MakerQuoteOut(maker_id=m.maker_id, bid=m.bid, ask=m.ask, shares=m.shares) for m in e.makers],
@@ -578,7 +623,14 @@ async def portfolio(user: User = Depends(current_user), db: Database = Depends(g
             )
             for p in view.positions
         ],
+        margin=_margin_out(margin_view(db, market, user.user_id)),
     )
+
+
+@router.get("/margin")
+async def margin(user: User = Depends(current_user), db: Database = Depends(get_db)) -> MarginOut:
+    """Just the margin bar: status, margin ratio, leverage, buying power and any margin-call deadline."""
+    return _margin_out(margin_view(db, get_market(), user.user_id))
 
 
 @router.get("/trades")

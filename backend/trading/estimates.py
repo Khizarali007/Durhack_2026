@@ -29,10 +29,9 @@ from .orders import (
     OrderError,
     OrderSide,
     _balance,
+    buying_power,
     engine_side,
     fee_cents,
-    free_cash,
-    reserved_cash,
     reserved_shares,
 )
 
@@ -52,11 +51,12 @@ class Estimate:
     fillable_qty: int
     notional_cents: int
     fee_cents: int
-    available_cash_cents: int         # what this side can use: free cash, or (cover) cash not reserved
+    available_cash_cents: int         # buy/short: buying power at this leverage. Cover/sell: cash
     sellable_qty: int                 # shares held minus those reserved for open orders
     affordable_qty: int               # buy/short/cover: how many of the fillable shares the cash covers
     makers: tuple[MakerQuote, ...]
     position_qty: int = 0             # held now, negative = short
+    leverage: int = 1                 # P2-15: buys and shorts only
     warnings: list[str] = field(default_factory=list)
 
     @property
@@ -108,7 +108,7 @@ class Estimate:
 
 
 def estimate_order(db: Database, market: MarketEngine, user_id: str, symbol: str, side: OrderSide,
-                   qty: int) -> Estimate:
+                   qty: int, leverage: int = 1) -> Estimate:
     if symbol not in {p.symbol for p in market.players()}:
         raise OrderError(404, f"unknown symbol {symbol!r}")
     to_engine = engine_side(side)
@@ -127,15 +127,17 @@ def estimate_order(db: Database, market: MarketEngine, user_id: str, symbol: str
         method = "maker quotes (approximate)"
 
     cash, held, _ = _balance(db, user_id, symbol)
-    # Covering only needs cash to pay; buying and shorting use free cash (after short collateral).
-    available = cash - reserved_cash(db, user_id) if side == "cover" else free_cash(db, market, user_id)
+    # Buying and shorting use buying power (leverage x equity - exposure - reservations).
+    # Covering is always allowed, so nothing limits it but liquidity.
+    leverage = leverage if side in ("buy", "short") else 1
+    available = buying_power(db, market, user_id, leverage) if side in ("buy", "short") else cash
     sellable = held - reserved_shares(db, user_id, symbol)
     fillable = sum(q for q, _ in fills)
     notional = sum(q * p for q, p in fills)
     fee = sum(fee_cents(q * p) for q, p in fills)
 
-    affordable, spent = 0, 0
-    for fill_qty, price in fills:  # how far the cash goes through the same fills (a short uses it up the same way)
+    affordable, spent = (fillable, 0) if side == "cover" else (0, 0)
+    for fill_qty, price in fills if side != "cover" else ():  # how far the cash goes through the same fills (a short uses it up the same way)
         per_share = price * (1 + float(FEE_RATE)) + 1
         take = min(fill_qty, int((available - spent) // per_share))
         affordable += take
@@ -144,7 +146,7 @@ def estimate_order(db: Database, market: MarketEngine, user_id: str, symbol: str
             break
 
     estimate = Estimate(symbol, side, qty, method, bid, ask, best, fillable, notional, fee, available,
-                        max(sellable, 0), affordable, quote.makers, position_qty=held)
+                        max(sellable, 0), affordable, quote.makers, position_qty=held, leverage=leverage)
     estimate.warnings = _warnings(estimate, held)
     return estimate
 
@@ -183,7 +185,9 @@ def _warnings(e: Estimate, held: int) -> list[str]:
         notes.append(f"you hold {held} {e.symbol}: sell them before shorting")
     elif e.side == "cover" and e.qty > -min(held, 0):
         notes.append(f"you're short {-min(held, 0)} {e.symbol}, so you can cover at most that")
-    elif e.side in ("buy", "cover") and e.affordable_qty < e.fillable_qty:
+    elif e.side in ("buy", "short") and e.leverage > 1 and e.affordable_qty < e.fillable_qty:
+        notes.append(f"not enough buying power for all of it at {e.leverage}x: about {e.affordable_qty}")
+    elif e.side == "buy" and e.affordable_qty < e.fillable_qty:
         notes.append(f"not enough cash for all of it: you can afford about {e.affordable_qty}")
     elif e.side == "short" and e.affordable_qty < e.fillable_qty:
         notes.append(f"not enough free cash to back all of it: you can short about {e.affordable_qty}"
@@ -196,4 +200,7 @@ def _warnings(e: Estimate, held: int) -> list[str]:
         notes.append(f"you can sell {e.sellable_qty} (you hold {held}{note})")
     if e.side == "short":
         notes.append("if the price rises, your loss keeps growing: there's no limit to how high it can go")
+    if e.leverage > 1:
+        notes.append(f"{e.leverage}x leverage: every 1% the price moves against you costs {e.leverage}% of what "
+                     "you put in. Fall too far and you get a margin call, then your positions are sold for you")
     return notes
