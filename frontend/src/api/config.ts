@@ -9,6 +9,9 @@ export const MARKET_WS_PATH = deriveMarketWsPath()
 
 export function getStoredToken(): string | null { return localStorage.getItem('hs-token') }
 export function setStoredToken(token: string): void { localStorage.setItem('hs-token', token) }
-export function clearStoredToken(): void { localStorage.removeItem('hs-token') }
+export function clearStoredToken(): void {
+  localStorage.removeItem('hs-token')
+  localStorage.removeItem('hs-user-id')
+}
 export function getStoredUserId(): string | null { return localStorage.getItem('hs-user-id') }
 export function setStoredUserId(id: string): void { localStorage.setItem('hs-user-id', id) }

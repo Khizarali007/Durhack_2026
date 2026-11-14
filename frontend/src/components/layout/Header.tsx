@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMarketTime, useMarketStream, usePortfolio } from '../../api'
-import { useThemeContext } from '../../context/ThemeContext'
+import { useThemeContext } from '../../context/useThemeContext'
 import { formatGameClock, formatHOOP } from '../../utils/format'
 import styles from './Header.module.css'
 

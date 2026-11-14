@@ -1,11 +1,11 @@
 import { Outlet } from 'react-router-dom'
-import { useSessionContext } from '../../context/SessionContext'
+import { useSession } from '../../api'
 import Header from './Header'
 import LeftNav from './LeftNav'
 import styles from './AppShell.module.css'
 
 export default function AppShell() {
-  const { loading } = useSessionContext()
+  const { loading } = useSession()
 
   if (loading) {
     return (

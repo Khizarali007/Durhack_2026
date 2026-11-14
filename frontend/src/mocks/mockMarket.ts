@@ -1,20 +1,32 @@
-import type { MarketTick, Quote, MakerQuote, FillOut, CandleData, FinalWhistleMessage, FinalWhistleLine } from '../api/types'
+import type {
+  MarketTick, Quote, MakerQuote, FillOut, CandleData, Timeframe,
+  FinalWhistleMessage, FinalWhistleLine,
+} from '../api/types'
+import { TIMEFRAME_SECONDS } from '../api/orderMath'
 import { PLAYERS, PLAYERS_BY_SYMBOL } from './players'
 import { mockError } from './errors'
 
 // --- Constants (mirror fake_market.py exactly) ---
 const MARKET_SECONDS_PER_TICK = 6.0
-const TICKS_PER_MARKET_MINUTE = 10
 const TICKS_PER_WHISTLE = 120
 const MAKER_STARTING_SHARES = 150
 const MAKER_SPREADS = [0.020, 0.025, 0.030]
 const MAKER_OFFSETS = [-0.007, 0.0, 0.007]
 const INVENTORY_SKEW = 0.15
-const FILL_CHUNK = 10
+export const FILL_CHUNK = 10
 const FAIR_VALUE_VOL = 0.002
 const MIN_PRICE = 10.0
 const MAKER_IDS = ['MM1', 'MM2', 'MM3']
 export const SEASON_START_T = 1729555200  // 2024-10-22 UTC
+
+// --- Month-1 history (mock only: the real candles come from Person 1) ---
+const HISTORY_DAYS = 30
+const HISTORY_MINUTES = HISTORY_DAYS * 1440
+const HISTORY_VOL_PER_MINUTE = 0.0014
+const HISTORY_BOUNCE = 0.045          // bid/ask bounce, like the live tape
+const LIVE_MINUTE_CAP = 1500
+/** How many history candles each timeframe returns. */
+const HISTORY_BUCKETS: Record<Timeframe, number> = { '1m': 480, '5m': 864, '1h': 720, '1d': 30 }
 
 // --- PRNG ---
 function mulberry32(seed: number): () => number {
@@ -27,7 +39,7 @@ function mulberry32(seed: number): () => number {
   }
 }
 
-const _rng = mulberry32(42)
+let _rng = mulberry32(42)
 
 // Box-Muller gaussian
 let _gaussSpare: number | null = null
@@ -46,6 +58,7 @@ function gaussRng(): number {
 
 function round2(x: number): number { return Math.round(x * 100) / 100 }
 
+/** 0.10% of notional, rounded half-up to the cent (matches orders.py). */
 function feeCents(notionalCents: number): number {
   return Math.floor((Math.round(notionalCents) + 500) / 1000)
 }
@@ -61,11 +74,18 @@ interface MakerState {
   bid: number | null; ask: number | null
   spread_pct: number; offset: number
 }
+interface LiveCandle { open: number; high: number; low: number; close: number; time: number }
 interface PlayerState {
   symbol: string; fair_value: number; last_price: number
   makers: MakerState[]
   minuteCandles: CandleData[]
-  currentCandle: { open: number; high: number; low: number; close: number; time: number } | null
+  currentCandle: LiveCandle | null
+}
+
+/** What the ledger needs to fill (or dry-run) an order against one stock. */
+export interface MarketEngine {
+  getQuote(): Quote
+  executeChunk(side: 'buy' | 'sell', qty: number): FillOut[]
 }
 
 const playerStates = new Map<string, PlayerState>()
@@ -157,9 +177,36 @@ function emitFinalWhistle(t: number): void {
   _lastWhistle = { type: 'final_whistle', t, lines }
 }
 
+/** Live candles sit on whole market minutes, so every timeframe buckets cleanly. */
+function trackCandle(ps: PlayerState, bucket: number): void {
+  const cur = ps.currentCandle
+  if (cur !== null && cur.time !== bucket) {
+    ps.minuteCandles.push({ ...cur })
+    if (ps.minuteCandles.length > LIVE_MINUTE_CAP) ps.minuteCandles.shift()
+    ps.currentCandle = null
+  }
+  if (ps.currentCandle === null) {
+    // Open at the previous close so candles join up
+    const open = cur !== null ? cur.close : ps.last_price
+    ps.currentCandle = {
+      open,
+      high: Math.max(open, ps.last_price),
+      low: Math.min(open, ps.last_price),
+      close: ps.last_price,
+      time: bucket,
+    }
+    return
+  }
+  const live = ps.currentCandle
+  if (ps.last_price > live.high) live.high = ps.last_price
+  if (ps.last_price < live.low) live.low = ps.last_price
+  live.close = ps.last_price
+}
+
 function step(): MarketTick {
   _t += MARKET_SECONDS_PER_TICK
   _tickCount++
+  const bucket = Math.floor(_t / 60) * 60
 
   for (const ps of playerStates.values()) {
     ps.fair_value = Math.max(MIN_PRICE, ps.fair_value * Math.exp(gaussRng() * FAIR_VALUE_VOL))
@@ -180,29 +227,7 @@ function step(): MarketTick {
       }
     }
 
-    // Update current minute candle
-    if (ps.currentCandle === null) {
-      ps.currentCandle = {
-        open: ps.last_price, high: ps.last_price,
-        low: ps.last_price, close: ps.last_price,
-        time: Math.floor(_t),
-      }
-    } else {
-      if (ps.last_price > ps.currentCandle.high) ps.currentCandle.high = ps.last_price
-      if (ps.last_price < ps.currentCandle.low) ps.currentCandle.low = ps.last_price
-      ps.currentCandle.close = ps.last_price
-    }
-  }
-
-  // Close minute candle
-  if (_tickCount % TICKS_PER_MARKET_MINUTE === 0) {
-    for (const ps of playerStates.values()) {
-      if (ps.currentCandle) {
-        ps.minuteCandles.push({ ...ps.currentCandle })
-        if (ps.minuteCandles.length > 500) ps.minuteCandles.shift()
-        ps.currentCandle = null
-      }
-    }
+    trackCandle(ps, bucket)
   }
 
   // Final whistle
@@ -214,9 +239,8 @@ function step(): MarketTick {
   return { t: _t, quotes }
 }
 
-function executeChunkInternal(symbol: string, side: 'buy' | 'sell', qty: number): FillOut[] {
-  const ps = playerStates.get(symbol)
-  if (!ps) return []
+/** Fills up to `qty` against the best maker each time, in FILL_CHUNK slices. */
+function executeOn(ps: PlayerState, side: 'buy' | 'sell', qty: number, dryRun: boolean): FillOut[] {
   const fills: FillOut[] = []
   let remaining = qty
 
@@ -231,7 +255,10 @@ function executeChunkInternal(symbol: string, side: 'buy' | 'sell', qty: number)
       if (chunk <= 0) break
       const notional = bestMaker.ask! * chunk
       const fee = feeCents(notional * 100) / 100
-      fills.push({ trade_id: makeId('t'), qty: chunk, price: bestMaker.ask!, fee, t: _t, counterparty: bestMaker.maker_id })
+      fills.push({
+        trade_id: dryRun ? 'estimate' : makeId('t'), qty: chunk, price: bestMaker.ask!, fee,
+        t: _t, counterparty: bestMaker.maker_id,
+      })
       bestMaker.shares -= chunk
       ps.last_price = bestMaker.ask!
       remaining -= chunk
@@ -245,7 +272,10 @@ function executeChunkInternal(symbol: string, side: 'buy' | 'sell', qty: number)
       const chunk = Math.min(remaining, FILL_CHUNK)
       const notional = bestMaker.bid! * chunk
       const fee = feeCents(notional * 100) / 100
-      fills.push({ trade_id: makeId('t'), qty: chunk, price: bestMaker.bid!, fee, t: _t, counterparty: bestMaker.maker_id })
+      fills.push({
+        trade_id: dryRun ? 'estimate' : makeId('t'), qty: chunk, price: bestMaker.bid!, fee,
+        t: _t, counterparty: bestMaker.maker_id,
+      })
       bestMaker.shares += chunk
       ps.last_price = bestMaker.bid!
       remaining -= chunk
@@ -255,35 +285,88 @@ function executeChunkInternal(symbol: string, side: 'buy' | 'sell', qty: number)
   return fills
 }
 
-function getDailyCandles(symbol: string): CandleData[] {
+function engineFor(ps: PlayerState, dryRun: boolean): MarketEngine {
+  return {
+    getQuote: () => buildQuote(ps),
+    executeChunk: (side, qty) => executeOn(ps, side, qty, dryRun),
+  }
+}
+
+// --- History ---
+
+const historyCache = new Map<string, Float32Array>()
+
+/** One close per market minute for the 30 days before the season start, ending at the start price. */
+function historyCloses(symbol: string): Float32Array | null {
+  const cached = historyCache.get(symbol)
+  if (cached) return cached
   const player = PLAYERS_BY_SYMBOL.get(symbol)
-  if (!player) return []
-  const ps = playerStates.get(symbol)!
+  if (!player) return null
+
   const rng = mulberry32(player.player_id * 7919 + 42)
-  const candles: CandleData[] = []
-  let price = player.start_price
-  const DAY_SECONDS = 86400
-  const startTime = SEASON_START_T - 30 * DAY_SECONDS
-
-  for (let i = 0; i < 30; i++) {
-    const open = price
-    const drift = (rng() - 0.5) * 0.08
-    const vol = rng() * 0.03
-    const close = Math.max(MIN_PRICE, open * (1 + drift))
-    const high = round2(Math.max(open, close) * (1 + vol))
-    const low = round2(Math.min(open, close) * (1 - vol))
-    price = close
-    candles.push({ time: startTime + i * DAY_SECONDS, open: round2(open), high, low, close: round2(close) })
+  const closes = new Float32Array(HISTORY_MINUTES)
+  let fv = player.start_price
+  // Walk backwards from the start price so history joins the live tape
+  for (let k = HISTORY_MINUTES - 1; k >= 0; k--) {
+    closes[k] = Math.max(MIN_PRICE, fv * (1 + (rng() - 0.5) * HISTORY_BOUNCE))
+    const z = (rng() + rng() + rng() + rng() - 2) * 1.7320508
+    fv = Math.max(MIN_PRICE, fv / Math.exp(z * HISTORY_VOL_PER_MINUTE))
   }
+  historyCache.set(symbol, closes)
+  return closes
+}
 
-  if (candles.length > 0) {
-    const last = candles[candles.length - 1]
-    last.close = round2(ps.last_price)
-    last.high = round2(Math.max(last.high, last.close))
-    last.low = round2(Math.min(last.low, last.close))
-    last.isLive = true
+function historyCandles(symbol: string, timeframe: Timeframe): CandleData[] {
+  const closes = historyCloses(symbol)
+  if (!closes) return []
+  const perBucket = TIMEFRAME_SECONDS[timeframe] / 60
+  const totalBuckets = HISTORY_MINUTES / perBucket
+  const firstBucket = totalBuckets - Math.min(HISTORY_BUCKETS[timeframe], totalBuckets)
+  const t0 = SEASON_START_T - HISTORY_MINUTES * 60
+  const out: CandleData[] = []
+
+  for (let b = firstBucket; b < totalBuckets; b++) {
+    const i0 = b * perBucket
+    const i1 = i0 + perBucket - 1
+    const open = i0 > 0 ? closes[i0 - 1] : closes[i0]
+    let high = open
+    let low = open
+    for (let i = i0; i <= i1; i++) {
+      if (closes[i] > high) high = closes[i]
+      if (closes[i] < low) low = closes[i]
+    }
+    // Small deterministic wick so one-minute candles are not bare bodies
+    const wick = (((b * 2654435761) >>> 0) / 4294967296) * 0.004
+    out.push({
+      time: t0 + i0 * 60,
+      open: round2(open),
+      high: round2(high * (1 + wick)),
+      low: round2(low * (1 - wick * 0.8)),
+      close: round2(closes[i1]),
+    })
   }
-  return candles
+  return out
+}
+
+function liveCandles(ps: PlayerState, timeframe: Timeframe): CandleData[] {
+  const mins: CandleData[] = ps.minuteCandles.slice()
+  if (ps.currentCandle) mins.push({ ...ps.currentCandle })
+  if (timeframe === '1m') return mins
+
+  const size = TIMEFRAME_SECONDS[timeframe]
+  const grouped: CandleData[] = []
+  for (const c of mins) {
+    const bucket = Math.floor(c.time / size) * size
+    const last = grouped[grouped.length - 1]
+    if (last && last.time === bucket) {
+      if (c.high > last.high) last.high = c.high
+      if (c.low < last.low) last.low = c.low
+      last.close = c.close
+    } else {
+      grouped.push({ time: bucket, open: c.open, high: c.high, low: c.low, close: c.close })
+    }
+  }
+  return grouped
 }
 
 initStates()
@@ -291,15 +374,24 @@ initStates()
 export const mockMarket = {
   step(): MarketTick { return step() },
 
-  submitOrder(symbol: string, side: 'buy' | 'sell', qty: number): FillOut[] {
-    if (!playerStates.has(symbol)) mockError(404, `unknown symbol '${symbol}'`)
-    const fills = executeChunkInternal(symbol, side, qty)
-    if (fills.length === 0) mockError(409, 'market makers exhausted')
-    return fills
+  /** The live book for one stock. Throws 404 for an unknown symbol. */
+  engine(symbol: string): MarketEngine {
+    const ps = playerStates.get(symbol)
+    if (!ps) mockError(404, `unknown symbol '${symbol}'`)
+    return engineFor(ps, false)
   },
 
-  executeChunk(symbol: string, side: 'buy' | 'sell', qty: number): FillOut[] {
-    return executeChunkInternal(symbol, side, qty)
+  /** A throwaway copy of the book, for estimating an order without trading. */
+  simulator(symbol: string): MarketEngine {
+    const ps = playerStates.get(symbol)
+    if (!ps) mockError(404, `unknown symbol '${symbol}'`)
+    const clone: PlayerState = {
+      ...ps,
+      makers: ps.makers.map(m => ({ ...m })),
+      minuteCandles: [],
+      currentCandle: null,
+    }
+    return engineFor(clone, true)
   },
 
   getQuote(symbol: string): Quote {
@@ -307,6 +399,8 @@ export const mockMarket = {
     if (!ps) mockError(404, `unknown symbol '${symbol}'`)
     return buildQuote(ps)
   },
+
+  hasSymbol(symbol: string): boolean { return playerStates.has(symbol) },
 
   getMarketTick(): MarketTick {
     const quotes: Record<string, Quote> = {}
@@ -320,6 +414,7 @@ export const mockMarket = {
     return w
   },
 
+  /** Shift fair value by a fraction: -0.18 means fair value drops 18%. */
   applyImpact(symbol: string, delta: number): void {
     const ps = playerStates.get(symbol)
     if (!ps) return
@@ -327,38 +422,13 @@ export const mockMarket = {
     for (const m of ps.makers) reQuoteMaker(m, ps.fair_value)
   },
 
-  getMinuteCandles(symbol: string, limit = 500): CandleData[] {
+  /** Month-1 history followed by the live candles. The last candle is always the live one. */
+  getCandles(symbol: string, timeframe: Timeframe): CandleData[] {
     const ps = playerStates.get(symbol)
     if (!ps) return []
-    const candles = ps.minuteCandles.slice(-limit)
-    if (ps.currentCandle) candles.push({ ...ps.currentCandle, isLive: true })
+    const candles = [...historyCandles(symbol, timeframe), ...liveCandles(ps, timeframe)]
+    if (candles.length > 0) candles[candles.length - 1].isLive = true
     return candles
-  },
-
-  getDailyCandles(symbol: string): CandleData[] { return getDailyCandles(symbol) },
-
-  getCandles(symbol: string, timeframe: '1m' | '5m' | '1h' | '1d'): CandleData[] {
-    if (timeframe === '1d') return getDailyCandles(symbol)
-    const ps = playerStates.get(symbol)
-    if (!ps) return []
-    const mins = ps.minuteCandles.slice()
-    if (ps.currentCandle) mins.push({ ...ps.currentCandle, isLive: true })
-    if (timeframe === '1m') return mins
-    const groupSize = timeframe === '5m' ? 5 : 60
-    const grouped: CandleData[] = []
-    for (let i = 0; i < mins.length; i += groupSize) {
-      const g = mins.slice(i, i + groupSize)
-      if (g.length === 0) continue
-      grouped.push({
-        time: g[0].time,
-        open: g[0].open,
-        high: Math.max(...g.map(c => c.high)),
-        low: Math.min(...g.map(c => c.low)),
-        close: g[g.length - 1].close,
-        isLive: g[g.length - 1].isLive,
-      })
-    }
-    return grouped
   },
 
   getMarketTime(): number { return _t },
@@ -370,6 +440,7 @@ export const mockMarket = {
     _lastWhistle = null
     _gaussSpare = null
     _idCounter = 0
+    _rng = mulberry32(42)
     initStates()
   },
 }

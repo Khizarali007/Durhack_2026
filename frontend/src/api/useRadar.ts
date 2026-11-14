@@ -1,24 +1,39 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 import type { MarketEvent } from './types'
-import { subscribeEvents, subscribeTime, getLatestT } from './useMarketStream'
+import { subscribeEvents, subscribeTime, subscribeMarketReset, getLatestT } from './useMarketStream'
 
-type RadarState = 'calm' | 'cloudy' | 'storm'
+export type RadarState = 'calm' | 'cloudy' | 'storm'
 interface RadarEntry { state: RadarState; expires_t: number }
+export interface RadarSummary { storm: string[]; cloudy: string[] }
 
 const radarEntries = new Map<string, RadarEntry>()
-const radarSubs = new Map<string, Set<(state: RadarState) => void>>()
+const radarSubs = new Map<string, Set<() => void>>()
+const summaryListeners = new Set<() => void>()
+let summary: RadarSummary = { storm: [], cloudy: [] }
 
 const STORM_DURATION = 1800   // 30 market minutes in seconds
 const CLOUD_DURATION = 600    // 10 market minutes in seconds
 
-function notifyRadar(symbol: string, state: RadarState): void {
-  for (const cb of radarSubs.get(symbol) ?? []) cb(state)
+function rebuildSummary(): void {
+  const storm: string[] = []
+  const cloudy: string[] = []
+  for (const [symbol, entry] of radarEntries) {
+    if (entry.state === 'storm') storm.push(symbol)
+    else if (entry.state === 'cloudy') cloudy.push(symbol)
+  }
+  summary = { storm, cloudy }
+  for (const fn of [...summaryListeners]) fn()
+}
+
+function notifyRadar(symbol: string): void {
+  for (const cb of radarSubs.get(symbol) ?? []) cb()
 }
 
 function setRadar(symbol: string, state: RadarState, t: number): void {
   const duration = state === 'storm' ? STORM_DURATION : state === 'cloudy' ? CLOUD_DURATION : 0
   radarEntries.set(symbol, { state, expires_t: t + duration })
-  notifyRadar(symbol, state)
+  notifyRadar(symbol)
+  rebuildSummary()
 }
 
 function getRadarAt(symbol: string, currentT: number): RadarState {
@@ -28,19 +43,32 @@ function getRadarAt(symbol: string, currentT: number): RadarState {
 }
 
 subscribeTime(currentT => {
+  let changed = false
   for (const [symbol, entry] of radarEntries) {
-    if (entry.state !== 'calm' && currentT >= entry.expires_t) {
-      radarEntries.set(symbol, { state: 'calm', expires_t: 0 })
-      notifyRadar(symbol, 'calm')
+    if (currentT >= entry.expires_t) {
+      radarEntries.delete(symbol)
+      notifyRadar(symbol)
+      changed = true
     }
   }
+  if (changed) rebuildSummary()
 })
 
 subscribeEvents((ev: MarketEvent) => {
   let next: RadarState = 'calm'
   if (ev.kind === 'injury') next = 'storm'
   else if (ev.kind === 'early_warning' || ev.kind === 'hot_streak' || ev.kind === 'trade_rumour') next = 'cloudy'
-  if (next !== 'calm') setRadar(ev.symbol, next, ev.t)
+  if (next === 'calm') return
+  // A cloud never downgrades a storm that is still running
+  if (next === 'cloudy' && getRadarAt(ev.symbol, ev.t) === 'storm') return
+  setRadar(ev.symbol, next, ev.t)
+})
+
+subscribeMarketReset(() => {
+  const symbols = [...radarEntries.keys()]
+  radarEntries.clear()
+  for (const symbol of symbols) notifyRadar(symbol)
+  rebuildSummary()
 })
 
 export function getRadarState(symbol: string): RadarState {
@@ -48,12 +76,22 @@ export function getRadarState(symbol: string): RadarState {
 }
 
 export function useRadar(symbol: string): RadarState {
-  const [state, setState] = useState<RadarState>(() => getRadarAt(symbol, getLatestT()))
-  useEffect(() => {
+  const subscribe = useCallback((fn: () => void) => {
     if (!radarSubs.has(symbol)) radarSubs.set(symbol, new Set())
-    const cb = (s: RadarState) => setState(s)
-    radarSubs.get(symbol)!.add(cb)
-    return () => { radarSubs.get(symbol)?.delete(cb) }
+    radarSubs.get(symbol)!.add(fn)
+    return () => { radarSubs.get(symbol)?.delete(fn) }
   }, [symbol])
-  return state
+  const getSnapshot = useCallback(() => getRadarAt(symbol, getLatestT()), [symbol])
+  return useSyncExternalStore(subscribe, getSnapshot)
+}
+
+function subscribeSummary(fn: () => void): () => void {
+  summaryListeners.add(fn)
+  return () => { summaryListeners.delete(fn) }
+}
+function getSummary(): RadarSummary { return summary }
+
+/** Every stock that is currently stormy or cloudy. */
+export function useRadarSummary(): RadarSummary {
+  return useSyncExternalStore(subscribeSummary, getSummary)
 }

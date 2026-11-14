@@ -475,6 +475,20 @@ const TEAMS: Array<{ abbr: string; seed: number; roster: RosterEntry[] }> = [
   },
 ]
 
+// Coarse positions (G / F / C), one letter per roster slot, in roster order.
+// Mock only: `position` is not in the backend contract yet.
+const POSITIONS: Record<string, string> = {
+  OKC: 'GCFGCGGFFG', DEN: 'CGFFGGGFGF', MIL: 'FGFFCGGGGF', DAL: 'GGFCFGFGFC',
+  BOS: 'FFCGCGGFFC', MIN: 'GCFGCGGFFG', SAS: 'CGFFGGFGGC', LAL: 'FCGGFGFGFC',
+  GSW: 'GFFFGGGCCG', NYK: 'GCGFFCFGGG', DET: 'GCFGFFFGGC', SAC: 'GCGFGFCGFG',
+  ATL: 'GGGCCFFFGF', BKN: 'GGCCFFFGFC', CHA: 'GFCFGGCGGF', CHI: 'FGCFGGFFCF',
+  CLE: 'GGFCGGFFGG', HOU: 'CGGFFFFGFF', IND: 'GFCGGFGFGC', LAC: 'FGCGCFGFGF',
+  MEM: 'GGFGFFGFFG', MIA: 'FCGGFFGCFF', NOP: 'FFGFCFFGGC', ORL: 'FFCGGGFCGF',
+  PHI: 'CGFFGCFGFG', PHX: 'FGGCGGCFCG', POR: 'GGFCGFGFFF', TOR: 'FFGCCGGGGF',
+  UTA: 'FFGGCGGFCF', WAS: 'FGFCFFFGGF',
+}
+const POSITION_NAMES: Record<string, string> = { G: 'Guard', F: 'Forward', C: 'Center' }
+
 export const PLAYERS: Player[] = []
 let _pid = 1
 
@@ -485,7 +499,8 @@ for (const team of TEAMS) {
     const start_price = entry.symbol != null
       ? (CONFIRMED_STAR_PRICES[team.abbr] ?? slotPrice(team.abbr, team.seed, slot))
       : slotPrice(team.abbr, team.seed, slot)
-    PLAYERS.push({ player_id: _pid++, symbol, name: entry.name, team: team.abbr, start_price })
+    const position = POSITION_NAMES[POSITIONS[team.abbr]?.[slot] ?? '']
+    PLAYERS.push({ player_id: _pid++, symbol, name: entry.name, team: team.abbr, start_price, position })
   }
 }
 

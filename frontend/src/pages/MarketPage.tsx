@@ -21,7 +21,9 @@ function computeChange(symbol: string): number {
 
 const RADAR_SCORE = { calm: 0, cloudy: 1, storm: 2 } as const
 
-function sortPlayers(list: Player[], key: SortKey, dir: SortDir): Player[] {
+/** `_tick` only exists so a re-rank can be requested while the inputs are unchanged. */
+function sortPlayers(list: Player[], key: SortKey, dir: SortDir, _tick: number): Player[] {
+  void _tick
   const copy = [...list]
   copy.sort((a, b) => {
     let va: number | string
@@ -59,7 +61,7 @@ export default function MarketPage() {
   const [teamFilter, setTeamFilter] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('symbol')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
-  const [sortedPlayers, setSortedPlayers] = useState<Player[]>([])
+  const [sortTick, setSortTick] = useState(0)
   const [movers, setMovers] = useState<{ top5: Player[]; bot5: Player[] }>({ top5: [], bot5: [] })
   const [highlightedIdx, setHighlightedIdx] = useState(-1)
   const [scrollTop, setScrollTop] = useState(0)
@@ -118,15 +120,17 @@ export default function MarketPage() {
     return result
   }, [players, query, teamFilter])
 
-  // Sort: immediate + 1 Hz interval for price/change/radar
+  // Live sorts (price, change, radar) re-rank once a second, not on every tick
   useEffect(() => {
-    setSortedPlayers(sortPlayers(filteredPlayers, sortKey, sortDir))
     if (sortKey === 'symbol') return
-    const id = setInterval(() => {
-      setSortedPlayers(sortPlayers(filteredPlayers, sortKey, sortDir))
-    }, 1000)
+    const id = setInterval(() => setSortTick(n => n + 1), 1000)
     return () => clearInterval(id)
-  }, [filteredPlayers, sortKey, sortDir])
+  }, [sortKey])
+
+  const sortedPlayers = useMemo(
+    () => sortPlayers(filteredPlayers, sortKey, sortDir, sortTick),
+    [filteredPlayers, sortKey, sortDir, sortTick],
+  )
 
   // Top movers at 1 Hz
   useEffect(() => {
