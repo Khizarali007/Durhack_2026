@@ -1,0 +1,64 @@
+/* ============================================================
+   Learning layer: local aliases over Person 3's --hs-* tokens.
+   Every value here maps to an existing token. Nothing new.
+   Each learning component root adds the `tokens` class.
+   ============================================================ */
+
+.tokens {
+  /* Type scale (shifted one step up in projector mode) */
+  --learn-fs-xs: var(--hs-font-size-xs);
+  --learn-fs-sm: var(--hs-font-size-sm);
+  --learn-fs-md: var(--hs-font-size-md);
+  --learn-fs-lg: var(--hs-font-size-lg);
+  --learn-fs-xl: var(--hs-font-size-xl);
+  --learn-fs-2xl: var(--hs-font-size-2xl);
+
+  /* Muted text (raised to primary in projector mode for contrast) */
+  --learn-text-muted: var(--hs-color-text-secondary);
+
+  /* Meanings Person 3's tokens don't name yet (see docs/person4-requests-for-person3.md) */
+  --learn-heat: var(--hs-color-up-text);           /* hot streak: price heating up */
+  --learn-heat-muted: var(--hs-color-up-muted);
+  --learn-storm: var(--hs-color-down-text);        /* injury storm */
+  --learn-storm-muted: var(--hs-color-down-muted);
+  --learn-watch: var(--hs-color-accent);           /* early warning: wants an amber token */
+  --learn-watch-muted: var(--hs-color-accent-muted);
+  --learn-calm: var(--hs-color-text-secondary);    /* rest day, trade rumour */
+  --learn-calm-muted: var(--hs-color-neutral-muted);
+  --learn-urgent: var(--hs-color-down-text);       /* last 10 seconds */
+
+  font-family: var(--hs-font-family);
+  font-size: var(--learn-fs-md);
+  line-height: var(--hs-line-height-normal);
+  color: var(--learn-text-muted);
+}
+
+/* Projector: `projector` prop (data-projector on the root) or any ancestor. */
+.tokens[data-projector='true'],
+:global([data-projector='true']) .tokens {
+  --learn-fs-xs: var(--hs-font-size-sm);
+  --learn-fs-sm: var(--hs-font-size-md);
+  --learn-fs-md: var(--hs-font-size-lg);
+  --learn-fs-lg: var(--hs-font-size-xl);
+  --learn-fs-xl: var(--hs-font-size-2xl);
+  --learn-fs-2xl: var(--hs-font-size-3xl);
+  --learn-text-muted: var(--hs-color-text-primary);
+}
+
+.tokens[data-projector='true'] :global(.label),
+:global([data-projector='true']) .tokens :global(.label) {
+  font-size: var(--learn-fs-xs);
+}
+
+/* Visually hidden, still read by screen readers. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
