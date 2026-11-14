@@ -28,6 +28,7 @@
   font-weight: var(--hs-font-weight-semibold);
   line-height: 1;
   cursor: help;
+  text-decoration: none;
   transition: var(--hs-transition-default);
 }
 
@@ -39,4 +40,14 @@
 .trigger:focus-visible {
   outline: 2px solid var(--hs-color-accent);
   outline-offset: 2px;
+}
+
+/* The tooltip sits inside a 16px trigger: give its text a readable width. */
+.help > span > span:last-child {
+  width: max-content;
+  max-width: 240px;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: var(--hs-font-weight-normal);
 }

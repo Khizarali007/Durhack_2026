@@ -24,10 +24,11 @@ export type { HelpTipProps } from './HelpTip'
 
 export { ALERTS, HEADLINES, STATE_LABEL, tradeSummary } from './missionCopy'
 export type { AlertStyle, AlertTone } from './missionCopy'
-export { formatClock, formatHoop, formatPct, formatPrice } from './format'
+export { formatCountdown, formatHoop, formatPct, formatPrice } from './format'
 
 // Re-exported for convenience so a page can import everything from one place.
 export { useMission, useSecondsLeft } from './hooks/useMission'
 export type { MissionHandle, UseMissionOptions } from './hooks/useMission'
 export { useLearningSocket } from './hooks/useLearningSocket'
 export type { SocketStatus } from './hooks/useLearningSocket'
+

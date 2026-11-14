@@ -1,5 +1,5 @@
 import type { MissionMessage } from '../api'
-import { formatClock } from './format'
+import { formatCountdown } from './format'
 import { ALERTS, FALLBACK_ALERT } from './missionCopy'
 import tokens from './tokens.module.css'
 import styles from './FeedItem.module.css'
@@ -19,7 +19,7 @@ export function FeedItem({ msg }: FeedItemProps) {
   const time = (
     <span className={`num ${styles.time}`}>
       <span className={tokens.srOnly}>at </span>
-      {formatClock(msg.t)}
+      {formatCountdown(msg.t)}
     </span>
   )
 

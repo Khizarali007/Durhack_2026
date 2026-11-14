@@ -7,7 +7,7 @@ import { Button, Card, Pill } from '../components/ui'
 import { FeedItem } from './FeedItem'
 import { HelpTip } from './HelpTip'
 import { MissionList } from './MissionList'
-import { formatClock } from './format'
+import { formatCountdown } from './format'
 import { HELP, STATE_LABEL, countdownAnnouncement } from './missionCopy'
 import tokens from './tokens.module.css'
 import styles from './MissionPanel.module.css'
@@ -121,7 +121,7 @@ function ActiveMission({ entry, status, fetchedAt, busy, canStart, onStart, onSt
   const feed = [...(status?.messages ?? [])].filter((msg) => msg.kind !== 'result').reverse()
   const stateLabel = STATE_LABEL[state]
   const hasHint = entry.available && Boolean(entry.hint) && entry.hint !== 'TODO'
-  const clock = running ? formatClock(secondsLeft) : state === 'idle' ? formatClock(null) : '0:00'
+  const clock = running ? formatCountdown(secondsLeft) : state === 'idle' ? formatCountdown(null) : '0:00'
 
   return (
     <Card raised padding="md" className={styles.mission}>
