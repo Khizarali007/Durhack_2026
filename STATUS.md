@@ -59,3 +59,15 @@ Combined backend milestone (14 November 2026):
   on port 8000 while the current process runs. Port 8765 is still the offline graph.
 - The proposed dividend valuation/coefficient refinements remain unimplemented;
   the integration deliberately preserves the existing economic model.
+
+Latest Person 2 merge: origin/person2branch at 5541fb0 (14 November 2026).
+Added equity snapshots/max drawdown, local leaderboard/live updates and optional
+Solana portfolio synchronization/chain-read standings. Existing live-market,
+transaction rollback, limit enforcement and disabled advanced-trading gates remain.
+Added an integration guard: portfolios exceeding 16 holdings or 8-byte symbols
+are not partially synchronized; leaderboard auto-selection falls back to complete
+local standings. Run guide adapted to actual LiveMarket defaults.
+Verification: 328 tests passed, 3 optional live-devnet tests skipped. HTTP smoke
+against all 580 players confirmed buy/sell, equity snapshots, account leaderboard
+ranking and disabled chain status. Server restarted locally on port 8000 (fresh
+demo session). No deployment, live-chain verification or push performed.

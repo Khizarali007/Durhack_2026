@@ -13,8 +13,11 @@ The returned objects have exactly the fields of Person 4's ``Trade``,
 importing anything of ours. Money is in HOOP floats and ``t`` is market time in
 epoch seconds, as Person 4 expects.
 
-Extra, not in their Protocol: ``restore_start_state(user_id)`` brings back the
-player's real account after a mission (see ``resets.py``).
+Extra, not in their Protocol:
+- ``restore_start_state(user_id)`` brings back the player's real account after
+  a mission (see ``resets.py``).
+- ``equity_history(user_id, since_t=None)`` gives the player's equity once per
+  market minute, for the report card's max drawdown (P2-16, ``equity.py``).
 
 Wiring, in ``backend/main.py`` at merge:
     configure_learning(market_adapter, TradesAdapter(app.state.trading_db))
@@ -26,6 +29,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from .db import Database
+from .equity import equity_history
 from .market_contract import MarketEngine
 from .market_provider import get_market
 from .money import to_cents, to_hoop
@@ -52,6 +56,12 @@ class Position:
     symbol: str
     qty: float         # negative = short
     avg_cost: float    # HOOP per share
+
+
+@dataclass(frozen=True)
+class EquityPoint:
+    t: float           # market time, epoch seconds
+    equity: float      # HOOP: cash + positions at the last price
 
 
 @dataclass(frozen=True)
@@ -94,4 +104,9 @@ class TradesAdapter:
 
     def restore_start_state(self, user_id: str) -> bool:
         """Not in Person 4's Protocol: put the player's pre-mission account back."""
-        return restore_account(self.db, user_id)
+        return restore_account(self.db, user_id, self._market())
+
+    def equity_history(self, user_id: str, since_t: float | None = None) -> list[EquityPoint]:
+        """Not in Person 4's Protocol: equity once per market minute, oldest first, ``t >= since_t``.
+        Max drawdown = the biggest fall from a running peak (``trading.equity.max_drawdown``)."""
+        return [EquityPoint(p.t, to_hoop(p.equity_cents)) for p in equity_history(self.db, user_id, since_t=since_t)]

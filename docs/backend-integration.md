@@ -104,7 +104,8 @@ conservative, so an order can stop slightly before the exact cash balance is spe
 PYTHONPATH=backend .venv/bin/python -m pytest backend/market/tests backend/trading/tests tests -q
 ```
 
-Latest verification: **286 passed, 2 skipped** (the optional live-devnet tests).
+Latest verification after the Person 2 update: **328 passed, 3 skipped**
+(the optional live-devnet tests).
 A separate HTTP smoke test against all 580 local players bought and sold 10
 WEMBY shares and reconciled cash, fills and fees exactly.
 
@@ -121,3 +122,14 @@ then implement the slow-ability/fast-form valuation proposal and validate its
 interaction with payouts. Persistence/checkpoints and coordinated session resets
 must precede retaining human portfolios across server restarts. Margin/short
 features remain off until these boundaries are reliable.
+
+## Person 2 update: 5541fb0
+
+Merged equity history/max drawdown, the off-chain leaderboard with public live
+updates, and optional Solana portfolio snapshots/chain-read rankings. New routes:
+`/trading/equity-history`, `/trading/leaderboard`, `/trading/chain/portfolio`.
+Historical ticks may skip minute buckets; snapshots record actual observed ticks.
+The Solana representation is limited to 16 holdings and 8-byte tickers. Accounts
+outside those limits are not partially synced, and leaderboard auto-selection
+uses complete off-chain standings instead. Solana is still explicitly opt-in;
+no live chain deployment or transaction is asserted by this merge.

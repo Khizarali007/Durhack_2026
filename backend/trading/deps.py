@@ -36,6 +36,20 @@ def current_user(
     return user
 
 
+def optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: Database = Depends(get_db),
+) -> User | None:
+    """For public routes that do a little more for a logged-in player: no token gives None,
+    a bad token still gives 401 (so a stale token in the app is noticed)."""
+    if credentials is None:
+        return None
+    user = user_for_token(db, credentials.credentials)
+    if user is None:
+        raise _unauthorised()
+    return user
+
+
 def current_token(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     db: Database = Depends(get_db),

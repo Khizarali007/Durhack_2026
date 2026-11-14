@@ -200,3 +200,28 @@ def test_existing_fake_market_limit_regression():
     assert order.filled_qty == 1
     assert all(f.price_cents<=limit for f in order.fills)
     db.close()
+
+
+def test_new_reporting_endpoints_with_real_engine(engine, monkeypatch):
+    from main import app
+    from trading.equity import snapshot_equity
+    monkeypatch.setenv('SOLANA_RECEIPTS', 'off')
+    use_market(engine)
+    try:
+        with TestClient(app) as c:
+            guest = c.post('/trading/guest').json()
+            headers = {'Authorization': 'Bearer ' + guest['token']}
+            buy = c.post('/trading/orders', headers=headers,
+                         json={'symbol': 'WEMBY', 'side': 'buy', 'qty': 10})
+            assert buy.status_code == 200
+            snapshot_equity(app.state.trading_db, engine, engine.market_time())
+            history = c.get('/trading/equity-history', headers=headers).json()
+            assert history['points'] and history['current_equity'] > 0
+            board = c.get('/trading/leaderboard', headers=headers).json()
+            assert board['source'] == 'off-chain'
+            assert board['you']['user_id'] == guest['user_id']
+            assert board['you']['equity'] == pytest.approx(history['current_equity'])
+            chain = c.get('/trading/chain/portfolio', headers=headers).json()
+            assert chain['enabled'] is False and chain['in_sync'] is False
+    finally:
+        use_market(None)

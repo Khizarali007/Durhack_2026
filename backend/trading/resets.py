@@ -23,6 +23,7 @@ import json
 import time
 
 from .db import Database
+from .equity import snapshot_equity
 from .market_contract import MarketEngine
 from .portfolio import build_portfolio
 
@@ -88,10 +89,12 @@ def reset_account(db: Database, market: MarketEngine, user_id: str, cash_cents: 
              json.dumps(start),
              _max_payout_rowid(db), user_id),
         )
+    snapshot_equity(db, market, market.market_time(), [user_id])  # the mission's starting point (P2-16)
 
 
-def restore_account(db: Database, user_id: str) -> bool:
-    """Put back the account saved before the first mission reset. False if there's nothing saved."""
+def restore_account(db: Database, user_id: str, market: MarketEngine | None = None) -> bool:
+    """Put back the account saved before the first mission reset. False if there's nothing saved.
+    With ``market``, the restored equity is recorded straight away (P2-16)."""
     with db.lock, db.conn:
         snap = db.conn.execute("SELECT * FROM account_snapshots WHERE user_id = ?", (user_id,)).fetchone()
         if snap is None:
@@ -108,6 +111,8 @@ def restore_account(db: Database, user_id: str) -> bool:
              snap["realised_cents"], snap["fees_cents"], _max_payout_rowid(db), snap["payouts_cents"], user_id),
         )
         db.conn.execute("DELETE FROM account_snapshots WHERE user_id = ?", (user_id,))
+    if market is not None:
+        snapshot_equity(db, market, market.market_time(), [user_id])
     return True
 
 

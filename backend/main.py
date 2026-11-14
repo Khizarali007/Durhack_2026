@@ -19,9 +19,15 @@ from fastapi import FastAPI
 
 from trading import router as trading_router
 from trading.adapters import TradesAdapter
+from solders.pubkey import Pubkey
+
+from trading.chain import config as chain_config
 from trading.chain import worker as receipt_worker
+from trading.chain.portfolio_sync import PortfolioSyncer
 from trading.chain.bot_bundles import BotBundleRecorder
 from trading.db import Database
+from trading.equity import EquityRecorder
+from trading.leaderboard import LeaderboardBroadcaster
 from trading.live import LiveHub, receipt_notifier
 from trading.margin import MarginMonitor
 from trading.market_provider import get_market, use_market
@@ -72,6 +78,22 @@ async def lifespan(app: FastAPI):
     if getattr(market, "supports_advanced_trading", True):
         await margin.start()
 
+    # Equity once per market minute, for the report card's max drawdown (P2-16).
+    equity = EquityRecorder(app.state.trading_db, market)
+    await equity.start()
+
+    # The off-chain leaderboard, pushed live once per market minute when it changes (P2-17).
+    leaderboard = LeaderboardBroadcaster(app.state.trading_db, market, app.state.live.publish_public)
+    await leaderboard.start()
+
+    # Level 1 (P2-18): every player's portfolio as a Solana account, once
+    # SOLANA_PORTFOLIO_PROGRAM_ID points at the deployed program. Shares the receipt sender.
+    app.state.portfolios = None
+    if app.state.receipts and chain_config.PORTFOLIO_PROGRAM_ID:
+        app.state.portfolios = PortfolioSyncer(app.state.trading_db, market, app.state.receipts.sender,
+                                               Pubkey.from_string(chain_config.PORTFOLIO_PROGRAM_ID))
+        await app.state.portfolios.start()
+
     # Person 4's TradesAdapter (P2-21). At merge, Person 4 plugs in here (see
     # docs/person4-interfaces.md on their branch):
     #   configure_learning(market_adapter, app.state.trades_adapter)
@@ -80,6 +102,10 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         # Person 4: await shutdown_learning()
+        if app.state.portfolios:
+            await app.state.portfolios.stop()
+        await leaderboard.stop()
+        await equity.stop()
         await margin.stop()
         await payouts.stop()
         await watcher.stop()

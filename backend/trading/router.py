@@ -28,12 +28,15 @@ from .chain.receipts import bot_trades_hash
 from .chain.status import ChainStatus, chain_status
 from .chain.wallets import ensure_wallet
 from .db import Database
-from .deps import current_token, current_user, get_db
+from .deps import current_token, current_user, get_db, optional_user
 from .market_provider import get_market
 from .money import to_hoop
 from .money import to_cents
 from .open_orders import OpenOrder, cancel_open_order, create_open_order, list_open_orders
+from .equity import INTERVAL_S, equity_history, max_drawdown
 from .estimates import estimate_order
+from .leaderboard import chain_standings, standing_dict, standings
+from .chain.portfolio_sync import portfolio_encoding_errors
 from .orders import FEE_RATE, MAX_LEVERAGE, OrderError, place_market_order, reserved_cash, short_collateral
 from .portfolio import build_portfolio
 from .resets import restore_account
@@ -260,6 +263,59 @@ class PortfolioOut(BaseModel):
     payouts_received: float = Field(description="HOOP earned from player performances while holding their shares")
     positions: list[PositionOut] = Field(description="Largest holding first")
     margin: MarginOut
+
+
+class EquityPointOut(BaseModel):
+    t: float = Field(description="Market time, epoch seconds")
+    equity: float = Field(description="cash + positions at the last price")
+    cash: float
+    positions_value: float
+    total_pnl: float = Field(description="equity - the starting point profit/loss is measured from")
+
+
+class EquityHistoryOut(BaseModel):
+    """P2-16: equity once per market minute, plus the report card's headline numbers."""
+
+    user_id: str
+    interval_s: float = Field(description="Market seconds between recorded points")
+    points: list[EquityPointOut] = Field(description="Oldest first")
+    current_equity: float = Field(description="Equity right now (live, not a recorded point)")
+    start_equity: float | None = Field(description="The first point in the window")
+    return_pct: float | None = Field(description="current_equity vs start_equity, %")
+    peak_equity: float | None = Field(description="Highest equity in the window, including now")
+    max_drawdown: float = Field(description="Biggest fall from a peak to a later low, HOOP (0 = never fell)")
+    max_drawdown_pct: float = Field(description="That fall as a % of the peak")
+    max_drawdown_peak_t: float | None
+    max_drawdown_trough_t: float | None
+
+
+class LeaderboardEntryOut(BaseModel):
+    rank: int
+    user_id: str
+    name: str = Field(description='Username, or "Guest 4085" for guests')
+    is_guest: bool
+    equity: float = Field(description="cash + positions at the last price")
+    total_pnl: float
+    return_pct: float = Field(description="Profit/loss as a % of the account's starting point (100,000)")
+    orders: int = Field(description="Orders that traded")
+    receipts_confirmed: int = Field(description="Of those, how many have a confirmed Solana receipt")
+    wallet_address: str | None = Field(description="The player's devnet wallet (for an Explorer link)")
+    in_mission: bool = Field(description="In a mission: ranked on their real account, not the mission's")
+    chain_verified: bool = Field(description="Read from the player's portfolio account on Solana devnet (Level 1)")
+    portfolio_address: str | None = Field(None, description="The on-chain portfolio account (chain rows)")
+    portfolio_explorer_url: str | None = Field(None, description="Public page showing that account")
+    chain_updated_t: float | None = Field(None, description="Market time of the state stored on-chain")
+
+
+class LeaderboardOut(BaseModel):
+    source: Literal["off-chain", "chain"] = Field(
+        description="chain: read from Solana portfolio accounts (P2-18). off-chain: our database, always works")
+    chain_error: str | None = Field(None, description="Why the chain wasn't used, when it was asked for")
+    market_time: float
+    total_players: int = Field(description="Accounts that have traded or hold a position")
+    entries: list[LeaderboardEntryOut] = Field(description="Highest equity first")
+    you: LeaderboardEntryOut | None = Field(
+        description="Your row, even if you're outside the list (send your token). None if you haven't traded")
 
 
 class TradeOut(BaseModel):
@@ -655,6 +711,115 @@ def trades(
     ]
 
 
+@router.get("/equity-history")
+async def equity_history_route(
+    user: User = Depends(current_user),
+    db: Database = Depends(get_db),
+    since_t: float | None = Query(None, description="Only points at or after this market time (e.g. a mission's start)"),
+    limit: int = Query(2000, ge=1, le=20_000, description="Only the most recent N points (still oldest first)"),
+) -> EquityHistoryOut:
+    """Your equity once per market minute, with return and max drawdown worked out.
+    Drawdown includes your equity right now, so a fall in progress counts."""
+    view = build_portfolio(db, get_market(), user.user_id)
+    points = equity_history(db, user.user_id, since_t=since_t, limit=limit)
+    now = get_market().market_time()
+    series = [(p.t, p.equity_cents) for p in points] + [(now, view.equity_cents)]
+    dd = max_drawdown(series)
+    start = points[0].equity_cents if points else None
+    return EquityHistoryOut(
+        user_id=user.user_id, interval_s=INTERVAL_S,
+        points=[EquityPointOut(t=p.t, equity=to_hoop(p.equity_cents), cash=to_hoop(p.cash_cents),
+                               positions_value=to_hoop(p.positions_value_cents),
+                               total_pnl=to_hoop(p.total_pnl_cents)) for p in points],
+        current_equity=to_hoop(view.equity_cents),
+        start_equity=to_hoop(start) if start is not None else None,
+        return_pct=_pct(view.equity_cents - start, start) if start and start > 0 else None,
+        peak_equity=to_hoop(dd.peak_cents) if dd.peak_cents is not None else None,
+        max_drawdown=to_hoop(dd.amount_cents), max_drawdown_pct=dd.pct,
+        max_drawdown_peak_t=dd.peak_t, max_drawdown_trough_t=dd.trough_t,
+    )
+
+
+@router.get("/leaderboard")
+async def leaderboard(
+    request: Request,
+    user: User | None = Depends(optional_user),
+    db: Database = Depends(get_db),
+    limit: int = Query(50, ge=1, le=500, description="How many rows from the top"),
+    source: Literal["auto", "chain", "off-chain"] = Query(
+        "auto", description="auto: from Solana when Level 1 is on and devnet answers, otherwise off-chain. "
+                            "chain: Solana only (503 if it can't be read). off-chain: our database"),
+) -> LeaderboardOut:
+    """Players ranked by equity. Public. Send your token to get your own row in `you`.
+
+    With Level 1 on (P2-18) the default reads every player's portfolio account
+    from Solana devnet and values it at today's prices (`chain_verified` rows).
+    If that read fails it quietly falls back to our database, which always works
+    (`source` says which you got, `chain_error` why). Live updates: the public
+    `leaderboard` WebSocket message (off-chain), once per market minute when the top 10 changes."""
+    market = get_market()
+    ranked, used, chain_error = None, "off-chain", None
+    syncer = getattr(request.app.state, "portfolios", None)
+    if source != "off-chain":
+        if syncer is None:
+            chain_error = "Level 1 (on-chain portfolios) isn't switched on"
+        elif portfolio_encoding_errors(db):
+            chain_error = "Some portfolios exceed the on-chain format; using complete off-chain standings"
+        else:
+            try:
+                accounts = await asyncio.wait_for(syncer.read_accounts(), 6)
+                if accounts or source == "chain":
+                    ranked, used = chain_standings(db, market, accounts), "chain"
+                else:
+                    chain_error = "no portfolios on-chain yet"
+            except Exception as exc:  # devnet down, rate limited, timeout
+                chain_error = f"couldn't read Solana: {type(exc).__name__}"
+        if source == "chain" and used != "chain":
+            raise HTTPException(503, chain_error)
+    if ranked is None:
+        ranked = standings(db, market)
+    mine = next((s for s in ranked if user and s.user_id == user.user_id), None)
+    return LeaderboardOut(source=used, chain_error=chain_error, market_time=market.market_time(),
+                          total_players=len(ranked),
+                          entries=[LeaderboardEntryOut(**standing_dict(s)) for s in ranked[:limit]],
+                          you=LeaderboardEntryOut(**standing_dict(mine)) if mine else None)
+
+
+class ChainPortfolioOut(BaseModel):
+    enabled: bool = Field(description="Is Level 1 (on-chain portfolios) switched on?")
+    program_id: str | None
+    address: str | None = Field(description="Your portfolio account on Solana devnet")
+    explorer_url: str | None
+    status: Literal["sent", "confirmed", "failed"] | None = Field(description="How the last update went")
+    seq: int = Field(description="Updates sent so far")
+    signature: str | None
+    transaction_url: str | None
+    confirm_ms: int | None
+    in_sync: bool = Field(description="The chain holds your current cash and holdings")
+    error: str | None
+
+
+@router.get("/chain/portfolio")
+async def my_chain_portfolio(request: Request, user: User = Depends(current_user),
+                             db: Database = Depends(get_db)) -> ChainPortfolioOut:
+    """Your Level 1 portfolio account on Solana: its address, and whether it's caught up with your trades."""
+    syncer = getattr(request.app.state, "portfolios", None)
+    with db.lock:
+        row = db.conn.execute("SELECT * FROM chain_portfolios WHERE user_id = ?", (user.user_id,)).fetchone()
+    in_sync = False
+    if syncer is not None and row is not None:
+        want = syncer.desired().get(user.user_id)
+        in_sync = row["status"] == "confirmed" and want is not None and want.fingerprint == row["synced_hash"]
+    address = row["address"] if row else None
+    signature = row["signature"] if row else None
+    return ChainPortfolioOut(
+        enabled=syncer is not None, program_id=str(syncer.program_id) if syncer else None, address=address,
+        explorer_url=explorer_url("address", address) if address else None,
+        status=row["status"] if row else None, seq=row["seq"] if row else 0, signature=signature,
+        transaction_url=explorer_url("tx", signature) if signature else None,
+        confirm_ms=row["confirm_ms"] if row else None, in_sync=in_sync, error=portfolio_encoding_errors(db).get(user.user_id) or (row["error"] if row else None))
+
+
 @router.get("/bot-bundles")
 def bot_bundles(db: Database = Depends(get_db),
                 limit: int = Query(20, ge=1, le=200, description="Newest first")) -> list[BotBundleOut]:
@@ -716,10 +881,10 @@ def payouts(user: User = Depends(current_user), db: Database = Depends(get_db),
 
 
 @router.post("/account/restore")
-def restore_after_mission(user: User = Depends(current_user), db: Database = Depends(get_db)) -> dict:
+async def restore_after_mission(user: User = Depends(current_user), db: Database = Depends(get_db)) -> dict:
     """Put back your real account (cash, positions, profit) as it was before a mission reset it.
     `404` if there's nothing to restore."""
-    if not restore_account(db, user.user_id):
+    if not restore_account(db, user.user_id, get_market()):
         raise HTTPException(404, "nothing to restore: no mission has reset this account")
     return {"restored": True}
 
