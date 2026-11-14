@@ -1,10 +1,11 @@
 // THROWAWAY TEST SCAFFOLDING: plays Mission 1 against the dev backend
 // (backend/learning/dev_app.py on :8001) using the real learning components.
 import { useCallback, useEffect, useState } from 'react'
-import type { TickMessage } from '@/api/learning'
-import { MissionDebrief, MissionPanel } from '@/components/learning'
-import type { MissionHandle } from '@/components/learning'
-import { useLearningSocket } from '@/hooks/useLearningSocket'
+import type { LearningTickMessage } from '@/api/learning'
+import { MissionDebrief } from '@/learning/MissionDebrief'
+import { MissionPanel } from '@/learning/MissionPanel'
+import type { MissionHandle } from '@/learning/hooks/useMission'
+import { useLearningSocket } from '@/learning/hooks/useLearningSocket'
 import { Badge, Button, Card, Input, Pill, SegmentedControl } from '@/components/ui'
 import { FlashValue } from './FlashValue'
 import { Sparkline } from './Sparkline'
@@ -28,7 +29,7 @@ export interface TradingFloorProps {
 }
 
 export function TradingFloor({ apiBase, userId, mission }: TradingFloorProps) {
-  const [ticks, setTicks] = useState<TickMessage[]>([])
+  const [ticks, setTicks] = useState<LearningTickMessage[]>([])
   useLearningSocket({
     apiBase,
     userId,

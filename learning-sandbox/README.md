@@ -1,20 +1,24 @@
 # Learning sandbox (throwaway)
 
-Test scaffolding for Person 4's components in `../frontend/src/components/learning`.
-It uses the same TypeScript, ESLint and Inter setup as Person 3's frontend, and
-imports their `index.css`, so the components look the way they will in the real
-app. This is not part of the product, so don't build on it.
+Kept for one reason: the **Component states** gallery (`?page=states`). It shows
+every mission component state (idle, running with hints, hot-streak alert, last
+10 seconds, passed, failed, stopped, locked, backend down, projector) in dark
+and light side by side, using fixtures, so Person 3 can review them without a
+backend. The real app has no route for that, and adding one would mean
+another edit to his `App.tsx`.
 
-**Trading floor** (`http://localhost:5174/`) needs the dev backend running on
-port 8001: run `python backend/learning/dev_app.py` from the repo root, with the
-venv active. **Component states** (`?page=states`) uses fixtures and needs no
-backend.
+Everything else the sandbox used to show (playing Mission 1 live) now works in
+the real app: `/learn` → Challenges, with the learning server running.
+
+The components live in `../frontend/src/learning`. This app imports them through
+the `@` alias, together with Person 3's `index.css` and `components/ui`.
 
 ```bash
 npm install     # first time only
-npm run dev     # http://localhost:5174
+npm run dev     # http://localhost:5174/?page=states
 npm run build   # tsc -b && vite build
-npm run lint    # sandbox + the learning components
+npm run lint
 ```
 
-To point it at another backend: `VITE_LEARNING_API=http://host:port npm run dev`.
+The **Trading floor** tab (`/`) also still works. It needs the learning dev server on
+port 8001 (`python backend/learning/dev_app.py` from the repo root, venv active).

@@ -3,15 +3,15 @@
 // ?page=states (component gallery, both themes). ?frame=states is the
 // gallery's iframe content.
 import { useState } from 'react'
-import { DEFAULT_API_BASE } from '@/api/learning'
-import { useMission } from '@/components/learning'
+import { useMission } from '@/learning/hooks/useMission'
 import { Button, Pill, Tabs } from '@/components/ui'
 import { useTheme } from '@/hooks/useTheme'
 import { GalleryFrame, GalleryPage } from './Gallery'
 import { TradingFloor } from './TradingFloor'
 import styles from './App.module.css'
 
-const API_BASE: string = import.meta.env.VITE_LEARNING_API || DEFAULT_API_BASE
+// No dev proxy here, so talk to the learning dev server directly.
+const API_BASE: string = import.meta.env.VITE_LEARNING_API || 'http://localhost:8001'
 const params = new URLSearchParams(window.location.search)
 
 type Page = 'floor' | 'states'

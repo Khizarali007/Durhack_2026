@@ -1,7 +1,7 @@
 // Static data for the component-states gallery. Shapes match the real API.
 import { createLearningApi } from '@/api/learning'
 import type { MissionEntry, MissionMessage, MissionResult, MissionStatus } from '@/api/learning'
-import type { MissionHandle } from '@/components/learning'
+import type { MissionHandle } from '@/learning/hooks/useMission'
 
 const M1: MissionEntry = {
   number: 1,

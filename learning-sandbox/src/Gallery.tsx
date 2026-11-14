@@ -3,7 +3,10 @@
 // iframe side by side, so both themes can be checked at once.
 import { useEffect, useLayoutEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { FeedItem, MissionDebriefView, MissionList, MissionPanel } from '@/components/learning'
+import { FeedItem } from '@/learning/FeedItem'
+import { MissionDebriefView } from '@/learning/MissionDebriefView'
+import { MissionList } from '@/learning/MissionList'
+import { MissionPanel } from '@/learning/MissionPanel'
 import { Card } from '@/components/ui'
 import { FEED_SAMPLES, MISSIONS, RESULTS, STATES } from './fixtures'
 import styles from './Gallery.module.css'
