@@ -2,7 +2,7 @@
 import asyncio
 import contextlib
 from dataclasses import asdict
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from trading.market_contract import MarketTick
 from market.valuation import model_parameters, projected_score, annual_exit, OPENING_T, YEAR_SECONDS
 from trading.market_provider import get_market
@@ -30,10 +30,12 @@ async def quote(symbol: str):
 
 
 @router.get('/status')
-async def status():
+async def status(request: Request):
     m = get_market()
     return {'engine': type(m).__name__, 't': m.market_time(), 'players': len(m.players()),
-            'currency': 'virtual USD', 'real_seconds_per_historical_day': getattr(m, 'day_seconds', None),
+            'currency': 'virtual USD',
+            'receipts_enabled': getattr(request.app.state, 'receipts', None) is not None,
+            'chain_portfolios_enabled': getattr(request.app.state, 'portfolios', None) is not None, 'real_seconds_per_historical_day': getattr(m, 'day_seconds', None),
             'finished': getattr(m, 'finished', False),
             'payouts_enabled': getattr(m, 'supports_payouts', True),
             'advanced_trading_enabled': getattr(m, 'supports_advanced_trading', True),

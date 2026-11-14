@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>HoopStreet · Backend demo</title>
+    <link rel="stylesheet" href="/demo/style.css" />
+    <script defer src="/demo/app.js"></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <span class="eyebrow">2024–25 REPLAY / VIRTUAL DOLLARS</span>
+        <h1>HoopStreet<span class="pill">Backend demo</span></h1>
+      </div>
+      <div class="right">
+        <span id="connection">Connecting…</span><strong id="clock">—</strong
+        ><span id="account">Browse the market or start trading</span>
+      </div>
+    </header>
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+    <main>
+      <section class="intro">
+        <div>
+          <h2>A season in motion.</h2>
+          <p>
+            Trade player shares against bots and market makers. Hold at noon UTC
+            to earn that day’s performance payout at day close.
+          </p>
+          <small id="runtime">Loading replay…</small>
+        </div>
+        <div id="auth">
+          <button id="guest" class="primary">Start with $100,000</button>
+          <details>
+            <summary>Sign up / log in</summary>
+            <form id="auth-form">
+              <label
+                >Username<input
+                  id="username"
+                  required
+                  minlength="3"
+                  maxlength="20"
+                  autocomplete="username" /></label
+              ><label
+                >Password<input
+                  id="password"
+                  required
+                  type="password"
+                  minlength="6"
+                  autocomplete="current-password"
+              /></label>
+              <div class="actions">
+                <button name="mode" value="signup">Sign up</button
+                ><button name="mode" value="login">Log in</button>
+              </div>
+            </form>
+          </details>
+        </div>
+        <button id="logout" hidden>Log out</button>
+      </section>
+      <section id="summary" class="stats">
+        <article><small>Equity</small><b>—</b></article>
+        <article><small>Available cash</small><b>—</b></article>
+        <article><small>Total return</small><b>—</b></article>
+        <article><small>Paid dividends</small><b>—</b></article>
+        <article><small>Pending rights</small><b>—</b></article>
+      </section>
+      <nav aria-label="Demo sections">
+        <button class="active" data-tab="market">Market & trade</button
+        ><button data-tab="portfolio">Portfolio & orders</button
+        ><button data-tab="payouts">Payouts</button
+        ><button data-tab="activity">Trades & bots</button
+        ><button data-tab="leaderboard">Leaderboard</button
+        ><button data-tab="model">Model & system</button>
+      </nav>
+      <section id="tab-market" class="tab">
+        <div class="market-grid">
+          <article class="panel">
+            <div class="heading">
+              <h2>Player market</h2>
+              <span id="count" class="muted"></span>
+            </div>
+            <input
+              id="search"
+              aria-label="Search players"
+              placeholder="Search name, ticker or team…"
+            /><label class="inline"
+              >Sort
+              <select id="sort">
+                <option value="value">Highest opening value</option>
+                <option value="gain">Biggest gainers</option>
+                <option value="fall">Biggest fallers</option>
+                <option value="name">Name</option>
+              </select></label
+            >
+            <div id="players" class="scroll tall"></div>
+            <small>Price return since opening; excludes dividends.</small>
+          </article>
+          <div>
+            <article class="panel">
+              <div class="heading">
+                <div>
+                  <small id="selected-team">PLAYER</small>
+                  <h2 id="selected-name">Loading…</h2>
+                </div>
+                <div class="actions">
+                  <select
+                    id="compare-picker"
+                    aria-label="Player to compare"
+                  ></select
+                  ><button id="compare">Compare</button>
+                </div>
+              </div>
+              <div id="quote" class="stats compact"></div>
+              <div id="chart-legend" class="legend"></div>
+              <svg
+                id="price-chart"
+                class="chart"
+                viewBox="0 0 700 230"
+                role="img"
+                aria-label="Live player price comparison"
+              ></svg
+              ><small id="chart-caption"
+                >Chart records last-trade prices while this page is open.
+                Comparison is % change from each series’ first retained price
+                (latest 600 observations).</small
+              >
+              <div id="valuation" class="metrics"></div>
+              <details>
+                <summary>Market maker quotes</summary>
+                <div id="makers"></div>
+              </details>
+            </article>
+            <article class="panel">
+              <h2>Order ticket</h2>
+              <form id="order-form">
+                <div class="form-grid">
+                  <label
+                    >Side<select id="side">
+                      <option value="buy">Buy</option>
+                      <option value="sell">Sell</option>
+                    </select></label
+                  ><label
+                    >Order type<select id="order-type">
+                      <option value="market">Market</option>
+                      <option value="limit">Limit</option>
+                      <option value="stop">Stop-loss sell</option>
+                    </select></label
+                  ><label
+                    >Shares<input
+                      id="qty"
+                      type="number"
+                      min="1"
+                      max="10000"
+                      value="10"
+                      required
+                      step="1" /></label
+                  ><label id="price-label" hidden
+                    >Limit / trigger ($)<input
+                      id="order-price"
+                      type="number"
+                      min="0.01"
+                      max="100000"
+                      step="0.01"
+                      value="50"
+                  /></label>
+                </div>
+                <p id="order-help" class="muted">
+                  Preview current liquidity and fees before placing a market
+                  order. Quotes can change before execution.
+                </p>
+                <div class="actions">
+                  <button id="preview" type="button">
+                    Preview market order</button
+                  ><button id="place" class="primary">Place order</button>
+                </div>
+              </form>
+              <div id="estimate" aria-live="polite"></div>
+              <div id="order-result" aria-live="polite"></div>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section id="tab-portfolio" class="tab" hidden>
+        <article class="panel">
+          <h2>Your holdings</h2>
+          <p>
+            Positions use the current quote mark. Pending payout rights remain
+            yours after selling and count towards equity.
+          </p>
+          <div id="holdings" class="scroll"></div>
+          <div id="account-details" class="metrics"></div>
+        </article>
+        <article class="panel">
+          <h2>Equity history</h2>
+          <svg
+            id="equity-chart"
+            class="chart"
+            viewBox="0 0 700 230"
+            role="img"
+            aria-label="Account equity history"
+          ></svg>
+          <div id="drawdown"></div>
+        </article>
+        <article class="panel">
+          <h2>Limit & stop orders</h2>
+          <div id="open-orders" class="scroll"></div>
+        </article>
+      </section>
+      <section id="tab-payouts" class="tab" hidden>
+        <article class="panel">
+          <h2>Ownership & payment</h2>
+          <p>
+            1. Buy before noon UTC → 2. Your shares are recorded at noon → 3.
+            Receive $0.02 × positive Game Score per share at day close. Missed
+            games pay zero. All times below are replay UTC.
+          </p>
+          <h3>Recorded payout rights</h3>
+          <div id="rights" class="scroll"></div>
+          <h3>Actual cash payments</h3>
+          <div id="payouts" class="scroll"></div>
+        </article>
+      </section>
+      <section id="tab-activity" class="tab" hidden>
+        <article class="panel">
+          <h2>Your executions</h2>
+          <div id="trades" class="scroll"></div>
+        </article>
+        <article class="panel">
+          <h2>Bot trade bundles</h2>
+          <p>
+            Inspect real executions from the simulation. A stored bundle is not
+            proof of a Solana confirmation.
+          </p>
+          <div id="bundles" class="scroll"></div>
+          <div id="bundle-detail" class="scroll"></div>
+        </article>
+        <article class="panel">
+          <h2>Live events</h2>
+          <small
+            >Latest 30 display events; authoritative balances come from the
+            backend.</small
+          >
+          <pre id="events">Waiting for events…</pre>
+        </article>
+      </section>
+      <section id="tab-leaderboard" class="tab" hidden>
+        <article class="panel">
+          <div class="heading">
+            <h2>Account leaderboard</h2>
+            <label
+              >Source<select id="leader-source">
+                <option value="auto">Automatic</option>
+                <option value="off-chain">Local ledger</option>
+                <option value="chain">Solana only</option>
+              </select></label
+            >
+          </div>
+          <p id="leader-info"></p>
+          <div id="leaderboard" class="scroll"></div>
+        </article>
+      </section>
+      <section id="tab-model" class="tab" hidden>
+        <article class="panel">
+          <h2>The valuation model</h2>
+          <p>
+            Ability changes slowly; recent form fades. Players receive the same
+            performance-based payout rule. Bots disagree on expected future
+            payouts, then compete with finite money and shares.
+          </p>
+          <div id="model" class="metrics"></div>
+          <p>
+            Discount, career-exit and injury-recovery coefficients are prototype
+            assumptions. They are not calibrated financial or medical estimates.
+          </p>
+          <details>
+            <summary>Full model parameters</summary>
+            <pre id="model-json"></pre>
+          </details>
+        </article>
+        <article class="panel">
+          <h2>System & Solana</h2>
+          <div id="system" class="metrics"></div>
+          <button id="check-chain">Check Solana connectivity</button>
+          <pre id="chain">
+Solana is optional. Connectivity does not mean receipts are enabled.</pre>
+          <details>
+            <summary>Your on-chain portfolio</summary>
+            <button id="chain-portfolio">Load chain portfolio status</button>
+            <pre id="chain-account"></pre>
+          </details>
+          <p>
+            <a href="/docs" target="_blank" rel="noopener">API reference ↗</a> ·
+            <a href="http://127.0.0.1:8765" target="_blank" rel="noopener"
+              >Full-season offline graph ↗</a
+            >
+          </p>
+          <small
+            >The offline graph requires scripts/market_graph.py. This demo shows
+            the live backend. Restarting the backend resets accounts, holdings
+            and replay together. Shorts and leverage are disabled.</small
+          >
+        </article>
+      </section>
+    </main>
+    <footer>
+      HoopStreet / integration test playground · No real money · Historical
+      results revealed at synthetic day close
+    </footer>
+  </body>
+</html>

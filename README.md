@@ -7,6 +7,7 @@ The combined local backend is now wired to the historical player engine.
 See [backend setup and integration](docs/backend-integration.md) for installation,
 API examples, supported features and prototype limitations.
 
+- [Browser demo and testing walkthrough](docs/backend-demo.md)
 - [Historical data and offline replay](docs/market-simulation.md)
 - [Integrated valuation and dividend model](docs/dividend-model.md)
 - [Historical market-model decisions](docs/market-model-decisions.md)
@@ -14,3 +15,5 @@ API examples, supported features and prototype limitations.
 
 The new live backend serves on port 8000. The existing graph on port 8765 is
 an offline CSV replay, not the live human-trading market.
+
+Open http://127.0.0.1:8000/demo/ for the integrated trading demo.

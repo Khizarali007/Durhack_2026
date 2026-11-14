@@ -695,6 +695,7 @@ async def margin(user: User = Depends(current_user), db: Database = Depends(get_
 
 @router.get("/trades")
 def trades(
+    request: Request,
     user: User = Depends(current_user),
     db: Database = Depends(get_db),
     since_t: float | None = Query(None, description="Only fills at or after this market time"),
@@ -705,7 +706,7 @@ def trades(
     return [
         TradeOut(trade_id=r.trade_id, user_id=r.user_id, symbol=r.symbol, side=r.side, qty=r.qty,
                  price=to_hoop(r.price_cents), fee=to_hoop(r.fee_cents), t=r.t, reason=r.reason,
-                 order_id=r.order_id, counterparty=r.counterparty, receipt_status=r.receipt_status,
+                 order_id=r.order_id, counterparty=r.counterparty, receipt_status=("disabled" if r.receipt_status == "pending" and not getattr(request.app.state, "receipts", None) else r.receipt_status),
                  receipt_signature=r.receipt_signature, receipt_confirm_ms=r.receipt_confirm_ms,
                  receipt_explorer_url=explorer_url("tx", r.receipt_signature) if r.receipt_signature else None,
                  quoted_price=to_hoop(r.quoted_price_cents) if r.quoted_price_cents is not None else None,

@@ -45,3 +45,29 @@ def test_database_rejects_bad_trades():
             " VALUES ('t1', 'o1', 'u1', 'SGA', 'hold', 1, 100, 0)"
         )
     db.close()
+
+
+def test_demo_serves_assets_without_shadowing_api(client):
+    page = client.get('/demo/')
+    assert page.status_code == 200
+    assert 'text/html' in page.headers['content-type']
+    assert client.get('/demo/app.js').status_code == 200
+    assert client.get('/demo/style.css').status_code == 200
+    assert client.get('/market/players').json()
+    assert client.get('/demo/../../backend/main.py').status_code == 404
+
+
+def test_disabled_receipts_are_consistent_in_trade_history(client):
+    worker = client.app.state.receipts
+    client.app.state.receipts = None
+    token = client.post('/trading/guest').json()['token']
+    headers = {'Authorization': 'Bearer ' + token}
+    order = client.post('/trading/orders', headers=headers,
+                        json={'symbol': 'SGA', 'side': 'buy', 'qty': 1})
+    assert order.status_code == 200
+    assert order.json()['receipt_status'] == 'disabled'
+    history = client.get('/trading/trades', headers=headers).json()
+    assert history and all(t['receipt_status'] == 'disabled' for t in history)
+    assert client.get('/market/status').json()['receipts_enabled'] is False
+
+    client.app.state.receipts = worker

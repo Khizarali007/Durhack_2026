@@ -1,7 +1,7 @@
 """HoopStreet backend app, shared by Person 1 (market) and Person 2 (trading).
 
-This is Person 2's starting version. Merge it with Person 1's when their API
-lands; keep each person's routes in their own package.
+Historical market, account trading, settlement and the standalone browser demo
+share one process and one replay session.
 
 Run from the repo root, with the venv active:
     uvicorn main:app --app-dir backend --reload
@@ -16,6 +16,8 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 from trading import router as trading_router
 from trading.adapters import TradesAdapter
@@ -128,5 +130,5 @@ from market.router import router as market_router
 
 app.include_router(trading_router)
 app.include_router(market_router)
-# Still to add: Person 1's market routes, Person 4's learning router,
-# and the built frontend served as static files from the same URL.
+# Standalone integration demo; keeps the production frontend namespace free.
+app.mount("/demo", StaticFiles(directory=Path(__file__).resolve().parents[1] / "web" / "demo", html=True), name="demo")

@@ -28,7 +28,7 @@ fast-forward, preserving the tested Person 1 model and merged Person 2 features.
 
 ## Verification
 
-338 tests passed; three optional live-devnet tests skipped. Full-season live-engine
+340 tests passed; three optional live-devnet tests skipped. Full-season live-engine
 run settled 100,920 journal events without pending rights. Ten WEMBY shares earned
 $190.66, exactly matching recorded results. Human and institutional funding and
 cash/share conservation reconciled. HTTP check confirmed a seller after cutoff
@@ -44,8 +44,13 @@ match the engine; offline quotes are uncrossed.
   opening teams; map mid-season moves before claiming exact team scheduling.
 - Career risk, discount rate and injury recovery are explicit prototype assumptions;
   calibrate them and test forecast sensitivity next.
-- Wire frontend pending/payout views to the new APIs. Port 8765 is offline replay;
-  port 8000 is the live trading backend.
+- Demo frontend now covers trading, pending/paid rights, portfolios, equity,
+  bots and leaderboard at `/demo/`; final team frontend remains separate.
+  Port 8765 is offline replay; port 8000 is the live trading backend.
 
 Current specification: `docs/dividend-model.md`.
 Run instructions: `docs/backend-integration.md`.
+
+Browser demo milestone: `web/demo/`, served by `backend/main.py`. Run guide and
+verified flows: `docs/backend-demo.md`. Trade-history receipt status now correctly
+reports disabled when the receipt worker is off. Demo changes are local only.
