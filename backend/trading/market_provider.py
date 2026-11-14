@@ -18,3 +18,9 @@ def get_market() -> MarketEngine:
     if _market is None:
         _market = FakeMarket()  # TODO: swap for Person 1's engine when it lands
     return _market
+
+
+def use_market(market: MarketEngine | None) -> None:
+    """Replace the shared market (tests use a fresh FakeMarket each time). None resets it."""
+    global _market
+    _market = market

@@ -106,19 +106,29 @@ These come from Person 1's prototype and Person 4's interfaces.
 - **Checked on a live server:** two `curl` sessions got different users with 100,000 HOOP each, `/me` worked with a token, and no token or a bad token gave 401.
 - **For Person 3:** call `POST /trading/session` once when the app opens, keep the token, and send it on every request. P2-07 later adds `signup`, `login` and `guest`, which return the same `{token, user_id, cash}` shape.
 
-## ⬜ P2-04 · Market buy/sell
+## ✅ P2-04 · Market buy/sell
 - **Gate:** G1
-- **Depends on:** P2-02 ✅, P2-03
-- **What:** `POST /trading/orders {symbol, side: buy|sell, qty}`:
-  1. Check cash for a buy (estimate it with the ask, plus a margin for slippage and the fee) or holdings for a sell. The engine checks neither.
-  2. Call `get_market().submit_order(...)`.
-  3. For each `Fill`: convert the price to cents, charge the 0.10% fee, and update cash and the position in **one database transaction**.
-  4. Return the result, including `partially_filled` (makers ran out of shares) and the engine's `reason`.
-- **Done when:**
-  - Buying lowers cash and adds shares.
-  - Selling does the reverse.
-  - Overspending or overselling is rejected.
-  - Partial fills only apply what filled.
+- **What was built:** `POST /trading/orders {symbol, side: buy|sell, qty}` (needs the session token), with the logic in `trading/orders.py`.
+  - **Buys go to the engine in 10-share chunks.** Before each chunk, your remaining cash is checked against the current ask plus a 2% buffer and the fee. An order can never overspend. If cash or the makers' shares run out, it stops and returns `partially_filled` with a `reason` (`not enough cash` / `market makers ran out of shares`).
+  - **Sells** are checked against your holdings, then sent in one go.
+  - **Fee:** 0.10% of each fill's notional, rounded to the cent.
+  - **Ledger:** each fill becomes a `trades` row (`reason=market`, `receipt_status=pending`). Cash and the position (qty, cost basis without fees) update in **one database transaction**. Selling everything deletes the position. Cash can never go negative.
+  - **Response:** `order_id, status, symbol, side, requested_qty, filled_qty, average_price, total_fee, cash, position_qty, fills[{trade_id, qty, price, fee, t, counterparty}], reason`.
+  - **Errors:**
+    - `400`: not enough cash, or not enough shares
+    - `404`: unknown symbol
+    - `409`: the makers couldn't fill any of it
+    - `422`: bad input (qty ≤ 0, not whole, over 10,000, or side not buy/sell; short and cover come in P2-14)
+    - `401`: no token
+  - The route is `async` on purpose: engine calls run on the same thread that ticks the market, so they never race with it. **Keep this rule for any route that calls the engine.**
+  - Tests get a fresh `FakeMarket` each time (`market_provider.use_market`).
+- **Tests:** 20 in `test_orders.py`. 60 pass in total, 5 runs in a row.
+- **Checked on a live server:**
+  - Bought 20 SGA (average 150.98 vs ask 150.26).
+  - Sold 5.
+  - Overselling was refused.
+  - Buying 600 FOX filled 450 (every maker's shares) at an average 103.14 vs a 95 start: 8.6% slippage, which is a good demo moment.
+  - Buying FOX again then said the makers were out of shares.
 
 ## ⬜ P2-05 · Portfolio
 - **Gate:** G1
@@ -131,11 +141,11 @@ These come from Person 1's prototype and Person 4's interfaces.
   Those three fields match Person 4's `Portfolio`. Also return unrealised and realised profit/loss. Once P2-22 lands, also return payouts received.
 - **Done when:** the numbers add up after a sequence of buys and sells (test it).
 
-## ⬜ P2-06 · Trade record
+## 🟡 P2-06 · Trade record
 - **Gate:** G1
-- **Depends on:** P2-04
-- **What:**
-  - Every fill becomes a row in `trades`.
+- **Depends on:** P2-04 ✅
+- **Done in P2-04:** every fill is already saved as a row in `trades`.
+- **What's left:**
   - `GET /trading/trades` returns the user's fills oldest first, shaped like Person 4's `Trade`: `trade_id, user_id, symbol, side, qty, price, fee, t, reason`, plus `receipt_status`.
 - **Done when:** every order shows up in order with the right prices and fees.
 
