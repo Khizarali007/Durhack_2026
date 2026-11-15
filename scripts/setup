@@ -3,6 +3,13 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+if [ -z "${PYTHON:-}" ]; then
+  for candidate in python3.13 python3.12 python3.11 python3; do
+    if command -v "$candidate" >/dev/null && "$candidate" -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
+      PYTHON="$candidate"; break
+    fi
+  done
+fi
 PYTHON="${PYTHON:-python3}"
 "$PYTHON" -c 'import sys; assert sys.version_info >= (3, 11), "Python 3.11+ needed"' \
   || { echo "Python 3.11 or newer is required (set PYTHON=/path/to/python3.12)." >&2; exit 1; }
