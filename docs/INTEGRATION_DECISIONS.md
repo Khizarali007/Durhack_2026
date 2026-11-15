@@ -118,3 +118,12 @@ the decision, the options considered, why, and how to revert. Archive tags
 ## D25. Blocking onboarding replaced by an optional welcome card
 - **Decision:** `Onboarding.tsx` (which hid the whole app until a purchase) is deleted. Home shows a dismissible welcome card for brand-new players: two sentences, "Take the 2-minute tour" (starts the Welcome tutorial) and "Make your first investment" (the same quick buy, restyled with tokens). Dismissal is remembered per account in localStorage.
 - **Also:** the season bar and payout ledger are rewritten with the design system (no hardcoded colours, readable code) behind a new `src/api/season.ts`; payment and season-reset notices share one `Notice` component; the header gains a user menu with projector mode.
+
+## D26. Readable tickers (audit #4)
+- **Decision:** `market/engine.py make_tickers`: the 12 famous aliases first, then the surname (max 8 letters, accents and suffixes like Jr./II stripped), then first initial + surname, then a number. Deterministic by ESPN player id, so a ticker never changes between runs. All 580 are unique (Kyle Lowry → LOWRY, Seth Curry → SCURRY).
+- **Revert:** restore `ALIASES.get(name, f'NBA{pid}')`.
+
+## D27. Chart data flow (Part 2)
+- **Decision:** one point per market day. Every time maps to the end of its day (`dayKey`), the same timestamp as the day-close history point. History loads once per selection and season session (`GET /market/history`); live quotes call `series.update()` on today's point; a reset or a jump of more than a day reloads the closes after 1.5 s. Zoom is never reset by data, only by 1M / 3M / Season / Fit. Compares switch the price scale to % change and hide the dashed estimate. Colours come from new `--hs-color-chart-1..4` tokens (no green or red, which mean price moves). Early warnings (●) and storms (▼) are v5 series markers from `GET /market/events` plus live events.
+- **Sparklines:** 30 daily closes for all players from the new `GET /market/sparklines`, fetched once per market day, plus the live midpoint (the old ones were 30 seconds of tick noise, empty after each reload).
+- **Revert:** `git revert 8a0c460`.
