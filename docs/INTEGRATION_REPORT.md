@@ -27,6 +27,20 @@ Each pre-integration tip is tagged `archive/2026-11-15/<branch>`.
 | Mock mode (`VITE_USE_MOCKS=true`) for frontend-only work | Working (build verified) | Person 3 |
 | Person 1's standalone demo at `/demo` | Kept | Person 1 |
 
+### Added on `feature/login-activity-friends` (15 November, later)
+
+| Feature | Status | Notes |
+|---|---|---|
+| `/login`: Play as guest, log in, sign up; header user menu (Save your progress, projector mode, Log out) | **Working** | Person 2's auth endpoints, plus a new `POST /trading/upgrade` |
+| Accounts survive backend restarts and rewinds; calm "season was reset" notice | **Working** | `trading/identity.py`, `data/accounts.sqlite` (D23) |
+| Optional welcome card on Home (tour + quick first buy) replaces the blocking onboarding | **Working** | D25 |
+| Stock chart: history once, live `series.update()`, ranges, compare in %, markers, fills the column | **Working** | D27; 1 history request instead of 1 per second |
+| Readable tickers for all 580 players | **Working** | D26 |
+| Season review on Activity: insights engine (11 rules), summary strip, timeline | **Working** | D28 |
+| Coach Hoops (Gemini) | **Degraded**: template text until `GEMINI_API_KEY` is set | D28 |
+| Friends: five simulated rivals from real bots, Insights per rival, rival detail page; rivals on the leaderboard | **Working** | D29 |
+| Projector mode, Director page restyle, season bar/payout ledger/notices on the design system | **Working** | D30, docs/ui-audit.md |
+
 ## 2. Commands and test results
 
 Fresh clone (Python 3.11+, Node 20+):
@@ -40,11 +54,11 @@ scripts/setup_data --rebuild   # optional: re-download and regenerate data/runti
 
 Settings: copy `.env.example` to `.env`. Demo defaults: 300 bots (fixed pool), 60 s per day, start paused, `SOLANA_RECEIPTS=auto`.
 
-Results (last run):
-- Backend `cd backend && ../.venv/bin/python -m pytest -q`: **460 passed, 3 skipped** (live-devnet tests).
+Results (last run, after login/review/rivals):
+- Backend `cd backend && ../.venv/bin/python -m pytest -q`: **477 passed, 3 skipped** (live-devnet tests).
 - Root `tests/`: **7 passed**.
 - Frontend: `npm run build` clean, `npm run lint` clean, `npm run test:learning` **6/6**.
-- Playwright smoke `npm run test:e2e` (guest → buy → Next day until a payout → sell → score → Learn): **passes**, also from a brand-new clone in a temp folder following only the README.
+- Playwright smoke `npm run test:e2e`: **3/3**: (1) `/login` → Play as guest → welcome quick buy → Next day until a payout → sell → score → buy SGA → season review shows a card and Coach Hoops answers → Learn; (2) sign up → log out → wrong password explained → log in; (3) Friends lists 5 simulated rivals → Insights → rival page → rivals on the leaderboard. The original version also passed from a brand-new clone.
 - Manual (scripted) browser checks: Composition panel with 4 holdings (grade C, reason names Luka); storm story on the real backend (19 Feb calm → 20 Feb early warning H$124.18 → H$123.19 → 21 Feb storm H$111.11, no medical text, no page errors).
 
 ## 3. Decisions (full detail in INTEGRATION_DECISIONS.md)
@@ -83,6 +97,8 @@ Results (last run):
 9. Local single-laptop only: no public link was set up (Phase 2i skipped).
 
 ## 5. Human TODO
+
+0. **Optional: Coach Hoops via Gemini:** put `GEMINI_API_KEY=...` in `.env` (never commit it) and restart `scripts/demo`. Without it the button still works with template text.
 1. **Fund the devnet fee payer:** address `7ezcFoQa2rpEkveycovjCRkQXioeTT8XhKWPDQjKPk5A` (keypair in git-ignored `.solana/` on Khizar's laptop). Use https://faucet.solana.com, Devnet, 1–2 SOL. Check with `cd backend && ../.venv/bin/python -m trading.chain.setup_wallet`, then restart `scripts/demo`. The programmatic airdrop was rate-limited.
 2. **Chain-read leaderboard:** after step 1, set `SOLANA_PORTFOLIO_PROGRAM_ID=9FRpF58Q1rJFUFVAqrPWxQC54iFYunHsXj927vDrHBFp` in `.env` (Person 2 deployed it). Then confirm `GET /trading/leaderboard?source=chain` answers. Untested with the season engine.
 3. If the demo runs on another laptop, it needs its own funded fee payer (or copy `.solana/` privately; never commit it).

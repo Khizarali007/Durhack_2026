@@ -11,13 +11,14 @@ import LearnPage from './pages/LearnPage'
 import ActivityPage from './pages/ActivityPage'
 import LoginPage from './pages/LoginPage'
 import FriendsPage from './pages/FriendsPage'
-import RivalPage from './pages/RivalPage'
 
 // The trading screen pulls in the chart library, so it loads as its own chunk
 const StockPage = lazy(() => import('./pages/StockPage'))
 const StyleguidePage = lazy(() => import('./pages/StyleguidePage'))
 const DebugPage = lazy(() => import('./pages/DebugPage'))
 const DirectorPage = lazy(() => import('./pages/DirectorPage'))
+// The rival page draws an equity chart, so it shares the chart chunk instead of the main bundle
+const RivalPage = lazy(() => import('./pages/RivalPage'))
 
 export default function App() {
   return (
@@ -54,7 +55,7 @@ export default function App() {
               <Route path="learn" element={<LearnPage />} />
               <Route path="activity" element={<ActivityPage />} />
               <Route path="friends" element={<FriendsPage />} />
-              <Route path="friends/:id" element={<RivalPage />} />
+              <Route path="friends/:id" element={<Suspense fallback={null}><RivalPage /></Suspense>} />
               {/* Demo controls: deliberately not in the nav */}
               <Route path="director" element={<Suspense fallback={null}><DirectorPage /></Suspense>} />
               <Route

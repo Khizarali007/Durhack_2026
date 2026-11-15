@@ -173,3 +173,26 @@
   --hs-color-chart-3: #8250DF;
   --hs-color-chart-4: #1B7C83;
 }
+
+/* ===== Projector mode (header user menu): bigger type, stronger contrast, both themes ===== */
+[data-projector="true"] {
+  --hs-font-size-xs:  14px;
+  --hs-font-size-sm:  15px;
+  --hs-font-size-md:  17px;
+  --hs-font-size-lg:  20px;
+  --hs-font-size-xl:  25px;
+  --hs-font-size-2xl: 30px;
+  --hs-font-size-3xl: 40px;
+}
+
+[data-projector="true"][data-theme="dark"] {
+  --hs-color-text-secondary: #C9D1D9;
+  --hs-color-border:         #484F58;
+  --hs-color-border-subtle:  #30363D;
+}
+
+[data-projector="true"][data-theme="light"] {
+  --hs-color-text-secondary: #32383F;
+  --hs-color-border:         #8C959F;
+  --hs-color-border-subtle:  #D0D7DE;
+}

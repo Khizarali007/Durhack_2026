@@ -140,3 +140,7 @@ the decision, the options considered, why, and how to revert. Archive tags
 - **Opening shares:** every bot starts with about 2 shares of each player. Rival reviews use their real holdings (`holdings_qty`) and seed their cost basis at opening prices (`opening`), so equity, best/worst trade and composition are right. Their return is from their opening equity (cash + opening shares), shown as % so it compares fairly with a H$100,000 player.
 - **APIs:** `GET /learning/rivals` (ranked list including you, with "vs you" in % points), `GET /learning/rivals/{id}` (review, daily equity vs yours, composition, top holdings, key moves), `GET /learning/rivals/{id}/compare` (plain-English differences from both reviews and the lesson to try), and `POST /learning/coach {rival_id}`. The leaderboard mixes the rivals in, flagged "Simulated", so a solo player never sees an empty board.
 - **Revert:** remove `self.rivals = RivalTracker(...)` and its four hooks in `market/engine.py`.
+
+## D30. Projector mode and the Director page (Part 5 audit)
+- **Decision:** projector mode (header user menu) now overrides the font-size scale (+25–30%) and raises text-secondary and border contrast in both themes via `[data-projector="true"]` in `tokens.css`. The Director page is rebuilt on the design system and points the demo at Activity and Friends after the storm.
+- **Revert:** delete the projector block at the end of `tokens.css`.
