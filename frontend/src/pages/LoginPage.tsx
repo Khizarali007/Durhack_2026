@@ -3,6 +3,8 @@ import type { FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { ApiError, joinAsGuest, loginUser, signupUser, useSession } from '../api'
 import { Button, Card, Input, Tabs } from '../components/ui'
+import '../components/season.css'
+import '../components/Onboarding.css'
 import styles from './LoginPage.module.css'
 
 type Mode = 'login' | 'signup'
@@ -74,21 +76,21 @@ export default function LoginPage() {
   }
 
   return (
-    <main className={styles.page}>
-      <Card raised padding="lg" className={styles.card}>
-        <div className={styles.brand}>
-          <span className={styles.wordmark}>HoopStreet</span>
-          <span className={styles.tagline}>Cloudy with a chance of margin calls.</span>
+    <main className={`onboarding-page ${styles.page}`}>
+      <div className="onboarding-brand">
+        HoopStreet<span>2024–25 virtual season</span>
+      </div>
+      <div className="draft-heading">
+        <div>
+          <h1>Welcome to HoopStreet</h1>
+          <p>Every NBA player is a share. Start with H$100 of play money, build a roster and follow the season week by week.</p>
         </div>
-        <p className={styles.pitch}>
-          Every NBA player is a stock. Start with H$100,000 of play money, replay the 2024–25 season, and learn to invest
-          by doing.
-        </p>
-
+      </div>
+      <Card raised padding="lg" className={styles.card}>
         <Button variant="primary" size="lg" fullWidth onClick={() => void guest()} disabled={busy !== null}>
           {busy === 'guest' ? 'Starting…' : 'Play as guest'}
         </Button>
-        <p className={styles.hint}>No sign-up needed. You can save your progress later.</p>
+        <p className={styles.hint}>No sign-up needed. You can save your progress later from the menu.</p>
 
         <div className={styles.divider} role="separator">
           <span>or use an account</span>
@@ -136,7 +138,7 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className={styles.footnote}>Virtual money only. A replay of the real 2024–25 season, presented as live.</p>
+        <p className={styles.footnote}>Play money only. A replay of the real 2024–25 season.</p>
       </Card>
     </main>
   )

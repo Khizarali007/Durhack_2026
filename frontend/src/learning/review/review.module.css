@@ -1,223 +1,128 @@
-/* Season review: summary strip, review cards, Coach Hoops, timeline. Tokens only. */
+/* Review rows in Jonathan's overview style: 22px gutters, 13/12/11px type, quiet borders. */
 
-.summary {
+.row {
   display: flex;
-  flex-direction: column;
-  gap: var(--hs-space-3);
+  align-items: flex-start;
+  gap: 12px;
+  padding: 17px 22px;
+  border-top: 1px solid var(--hs-color-border-subtle);
 }
 
-.tiles {
-  margin: 0;
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--hs-space-3);
+.mark {
+  flex-shrink: 0;
 }
 
-.tile {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--hs-space-3) var(--hs-space-4);
-  background: var(--hs-color-bg-panel);
-  border: 1px solid var(--hs-color-border);
-  border-radius: var(--hs-radius-lg);
+.body {
+  flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
-.tile dd {
+.title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.text {
   margin: 0;
-  font-size: var(--hs-font-size-lg);
-  font-weight: var(--hs-font-weight-semibold);
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--hs-color-text-primary);
-  white-space: nowrap;
 }
 
-.tile dd.big {
-  font-size: var(--hs-font-size-xl);
-}
-
-.grade {
-  font-size: var(--hs-font-size-xl);
-}
-
-.sub {
-  font-size: var(--hs-font-size-xs);
+.muted {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--hs-color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.lesson {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--hs-space-1);
-  padding: var(--hs-space-3) var(--hs-space-4);
-  border-left: 3px solid var(--hs-color-accent);
-  border-radius: 0 var(--hs-radius-md) var(--hs-radius-md) 0;
-  background: var(--hs-color-accent-muted);
-  color: var(--hs-color-text-primary);
-}
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--hs-space-3);
-}
-
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hs-space-2);
-  padding: var(--hs-space-4);
-  background: var(--hs-color-bg-panel);
-  border: 1px solid var(--hs-color-border);
-  border-radius: var(--hs-radius-lg);
-  border-top-width: 3px;
-}
-
-.warning {
-  border-top-color: var(--hs-color-down);
-}
-
-.praise {
-  border-top-color: var(--hs-color-up);
-}
-
-.cardHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.tag {
+  color: var(--hs-color-text-secondary);
 }
 
 .impact {
-  font-weight: var(--hs-font-weight-semibold);
-}
-
-.cardTitle {
-  margin: 0;
-  font-size: var(--hs-font-size-md);
-  color: var(--hs-color-text-primary);
-}
-
-.what,
-.why,
-.next {
-  margin: 0;
-  font-size: var(--hs-font-size-sm);
-  line-height: var(--hs-line-height-normal);
-}
-
-.what {
-  color: var(--hs-color-text-primary);
-}
-
-.why,
-.next {
-  color: var(--hs-color-text-secondary);
-}
-
-.learn {
-  margin-top: auto;
-  font-size: var(--hs-font-size-sm);
-  color: var(--hs-color-accent);
-  text-decoration: none;
-}
-
-.learn:hover {
-  text-decoration: underline;
-}
-
-.learn:focus-visible {
-  outline: 2px solid var(--hs-color-accent);
-  outline-offset: 2px;
+  margin-left: auto;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .coach {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--hs-space-2);
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.linkButton {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.linkButton:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .coachAnswer {
   display: flex;
   flex-direction: column;
-  gap: var(--hs-space-1);
-  padding: var(--hs-space-3) var(--hs-space-4);
+  gap: 6px;
+  margin: 0 22px 18px;
+  padding: 14px 16px;
   border: 1px solid var(--hs-color-border);
-  border-radius: var(--hs-radius-lg);
+  border-radius: 10px;
   background: var(--hs-color-bg-panel-raised);
-  color: var(--hs-color-text-primary);
-  font-size: var(--hs-font-size-sm);
+  font-size: 12px;
 }
 
 .coachAnswer ul {
   margin: 0;
-  padding-left: var(--hs-space-5);
+  padding-left: 18px;
   display: flex;
   flex-direction: column;
-  gap: var(--hs-space-1);
+  gap: 4px;
+  line-height: 1.5;
 }
 
 .error {
   margin: 0;
+  font-size: 12px;
   color: var(--hs-color-down-text);
-  font-size: var(--hs-font-size-sm);
 }
 
 .timeline {
   margin: 0;
   padding: 0;
   list-style: none;
-  display: flex;
-  flex-direction: column;
 }
 
 .event {
-  display: grid;
-  grid-template-columns: 64px 72px 1fr;
-  align-items: baseline;
-  gap: var(--hs-space-3);
-  padding: var(--hs-space-2) 0;
-  border-bottom: 1px solid var(--hs-color-border-subtle);
-  font-size: var(--hs-font-size-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--hs-color-border-subtle);
 }
 
-.when {
-  color: var(--hs-color-text-secondary);
+.eventBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
-.kind {
-  justify-self: start;
-  padding: 0 var(--hs-space-2);
-  border-radius: var(--hs-radius-sm);
-  font-size: var(--hs-font-size-xs);
-  font-weight: var(--hs-font-weight-medium);
-  background: var(--hs-color-neutral-muted);
-  color: var(--hs-color-text-secondary);
-}
-
-.buy {
-  background: var(--hs-color-up-muted);
-  color: var(--hs-color-up-text);
-}
-
-.sell {
-  background: var(--hs-color-down-muted);
-  color: var(--hs-color-down-text);
-}
-
-.payout {
-  background: var(--hs-color-accent-muted);
-  color: var(--hs-color-accent);
-}
-
-.alert {
-  background: var(--hs-color-warn-muted);
-  color: var(--hs-color-warn-text);
-}
-
-.text {
-  color: var(--hs-color-text-primary);
+.dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin: 6px 8px;
+  border-radius: 50%;
+  background: var(--hs-color-text-secondary);
 }

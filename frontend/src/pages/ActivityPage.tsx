@@ -1,24 +1,30 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getReview, usePortfolio, useTrades } from '../api'
 import type { SeasonReview } from '../api'
+import { useSeason } from '../api/useSeason'
 import TradesTable from '../components/orders/TradesTable'
-import PayoutLedger from '../components/PayoutLedger'
-import { CoachPanel, InsightCard, ReviewTimeline, SummaryStrip } from '../learning/review/ReviewParts'
+import { CoachPanel, InsightRow, ReviewTimeline } from '../learning/review/ReviewParts'
 import { TUTORIALS } from '../learning/tour/tutorials'
 import { useTourState } from '../learning/tour/store'
-import styles from './ActivityPage.module.css'
+import { formatHOOP, formatPct, formatPnl } from '../utils/format'
+import '../components/season.css'
 
-/** "Your season review": what you did, what it cost or earned you, and what to try next. */
+/**
+ * Activity = what YOU did and how to improve (Person 4's review), in Jonathan's overview layout.
+ * Updates = what happened each week (Jonathan's reports). Money totals come from his reconciled
+ * season score; the review rules add best/worst sale, biggest drop and lessons.
+ */
 export default function ActivityPage() {
   const trades = useTrades()
   const { portfolio } = usePortfolio()
+  const { score } = useSeason()
   const tour = useTourState()
   const [data, setData] = useState<SeasonReview | null>(null)
   const [error, setError] = useState('')
   const paid = portfolio?.payouts_received ?? 0
   const equity = Math.round(portfolio?.equity ?? 0)
 
-  // Refresh when trades, payouts or the portfolio's value change (not on every tick).
   useEffect(() => {
     let alive = true
     getReview()
@@ -29,79 +35,109 @@ export default function ActivityPage() {
         }
       })
       .catch(() => {
-        if (alive) setError('The review is unavailable right now. It will refresh when the market reconnects.')
+        if (alive) setError('Your review is unavailable right now. It refreshes when the game reconnects.')
       })
     return () => {
       alive = false
     }
   }, [trades.length, paid, equity])
 
-  const lessons = TUTORIALS.filter((t) => tour.completed[t.id]).map((t) => ({ title: t.title, at: tour.completed[t.id].at }))
+  const lessons = TUTORIALS.filter((t) => tour.completed[t.id])
+  const s = data?.summary
+  const gain = score ? score.score - score.starting_cash : null
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Your season review</h1>
-        <p className={styles.lede}>What you did, what it earned or cost you in H$, and one thing to try next.</p>
+    <div className="overview-page">
+      <header className="overview-heading">
+        <h1>Activity</h1>
+        <span className="quiet-label">
+          What you did and how to improve <span className="separator">/</span>{' '}
+          <Link className="text-action" to="/updates">Weekly reports ↗</Link>
+        </span>
       </header>
 
-      {error && <p className={styles.muted} role="status">{error}</p>}
-      {!data && !error && <div className={`skeleton ${styles.skeleton}`} aria-busy="true" />}
+      {error && <p role="alert">{error}</p>}
 
-      {data && (
-        <>
-          <SummaryStrip summary={data.summary} />
-
-          <section className={styles.section} aria-labelledby="review-cards">
-            <div className={styles.sectionHead}>
-              <h2 id="review-cards" className={styles.sectionTitle}>Review</h2>
-              <CoachPanel />
-            </div>
-            {data.insights.length === 0 ? (
-              <p className={styles.muted}>
-                No review cards yet. Make a few trades and play some days: the coach spots concentration, storms, panic
-                sells, missed payouts, fees and good moves.
-              </p>
-            ) : (
-              <div className={styles.cards}>
-                {data.insights.map((ins, i) => (
-                  <InsightCard key={`${ins.id}-${ins.symbol ?? ''}-${i}`} insight={ins} />
-                ))}
-              </div>
-            )}
-          </section>
-
-          <div className={styles.columns}>
-            <section className={styles.section} aria-labelledby="review-timeline">
-              <h2 id="review-timeline" className={styles.sectionTitle}>Timeline</h2>
-              <ReviewTimeline items={data.timeline} />
-            </section>
-            <aside className={styles.side}>
-              <section className={styles.section} aria-labelledby="review-lessons">
-                <h2 id="review-lessons" className={styles.sectionTitle}>Lessons completed</h2>
-                {lessons.length === 0 ? (
-                  <p className={styles.muted}>No tutorials finished yet. The Learn page has six short ones.</p>
-                ) : (
-                  <ul className={styles.lessons}>
-                    {lessons.map((l) => (
-                      <li key={l.title}>
-                        ✓ {l.title}{' '}
-                        <span className={styles.muted}>{new Date(l.at).toLocaleDateString('en-GB')}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-              <PayoutLedger />
-            </aside>
+      <section className="balance-panel" aria-label="Season summary">
+        <div className="balance-main">
+          <span className="metric-label">
+            Season return <span title="From your season score: cash + estimated sale proceeds after costs + pending payments" className="metric-info">ⓘ</span>
+          </span>
+          <strong className="balance-number">{score ? formatPct(score.return_pct, 2) : '—'}</strong>
+          {gain !== null && <span className={gain >= 0 ? 'trend-up' : 'trend-down'}>{formatPnl(gain)}</span>}
+        </div>
+        <dl className="balance-stats">
+          <div>
+            <dt>Payments received</dt>
+            <dd>{score ? formatHOOP(score.payouts_received) : '—'}</dd>
           </div>
+          <div>
+            <dt>Fees paid</dt>
+            <dd>{score ? formatHOOP(score.fees_paid) : '—'}</dd>
+          </div>
+          <div>
+            <dt>Best sale</dt>
+            <dd>{s?.best_trade ? formatPnl(s.best_trade.pnl) : '—'}</dd>
+          </div>
+          <div>
+            <dt>Biggest drop</dt>
+            <dd>{s ? formatPct(s.max_drawdown_pct, 2) : '—'}</dd>
+          </div>
+          <div>
+            <dt>Diversification</dt>
+            <dd>{s?.grade ?? '—'}</dd>
+          </div>
+        </dl>
+      </section>
 
-          <details className={styles.receipts}>
-            <summary>Every fill and its Solana receipt ({trades.length})</summary>
-            <TradesTable trades={trades} showSymbol empty="Your trades will appear here." />
-          </details>
-        </>
+      {s && (
+        <section className="season-review" aria-label="Your biggest lesson">
+          <span className="metric-label">Your biggest lesson</span>
+          <p>{s.biggest_lesson}</p>
+        </section>
       )}
+
+      <div className="overview-grid">
+        <section className="holdings-panel" aria-label="Review">
+          <div className="panel-heading">
+            <h2>
+              Review <span className="count-badge">{data?.insights.length ?? 0}</span>
+            </h2>
+            <CoachPanel />
+          </div>
+          {data && data.insights.length === 0 && (
+            <p className="empty-holdings">
+              Nothing to review yet. Buy a few players and let the season play: you'll see what worked and what to try next.
+            </p>
+          )}
+          {data?.insights.map((ins, i) => <InsightRow key={`${ins.id}-${ins.symbol ?? ''}-${i}`} insight={ins} />)}
+        </section>
+
+        <section className="holdings-panel" aria-label="Timeline">
+          <div className="panel-heading">
+            <h2>Timeline</h2>
+            <span className="quiet-label">Newest first</span>
+          </div>
+          <div className="holdings-list">{data && <ReviewTimeline items={data.timeline} />}</div>
+          <details className="result-details panel-foot">
+            <summary>
+              Lessons completed · {lessons.length} <span>＋</span>
+            </summary>
+            {lessons.length === 0 ? (
+              <p className="fine-print">No tutorials finished yet. <Link to="/learn">Learn</Link> has six short ones.</p>
+            ) : (
+              lessons.map((t) => <p key={t.id} className="fine-print">✓ {t.title}</p>)
+            )}
+          </details>
+        </section>
+      </div>
+
+      <details className="result-details">
+        <summary>
+          Every trade and its Solana receipt ({trades.length}) <span>＋</span>
+        </summary>
+        <TradesTable trades={trades} showSymbol empty="Your trades will appear here." />
+      </details>
     </div>
   )
 }

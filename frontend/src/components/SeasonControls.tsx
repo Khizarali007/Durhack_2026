@@ -34,7 +34,7 @@ export default function SeasonControls(){
     <button disabled={disabled} onClick={()=>{const t=Date.parse((dateInput.current?.value??'')+'T00:00:00Z')/1000;if(Number.isFinite(t)){setDateError('');void changeTimeline({target_t:t})}else setDateError('Choose a season date first')}}>Go to date</button>
    </div>
    <input aria-label="Market timeline" type="range" min={clock.start_t} max={clock.end_t} step={86400} value={previewTime??clock.t} disabled={disabled} onChange={e=>setPreviewTime(Number(e.target.value))} onPointerUp={e=>{setPreviewTime(null);void changeTimeline({target_t:Number(e.currentTarget.value)})}} onKeyUp={e=>{if(['ArrowLeft','ArrowRight','Home','End','PageUp','PageDown'].includes(e.key)){setPreviewTime(null);void changeTimeline({target_t:Number(e.currentTarget.value)})}}}/>
-   <small>Rewind resets all accounts. Disable Solana writes before rewinding.</small>
+   <small>Rewind restarts all portfolios; logins are kept. Disable Solana writes before rewinding.</small>
    {score&&<p>Quoted equity: {formatHOOP(score.quoted_equity)} · Pending rights: {formatHOOP(score.pending_payouts)}.</p>}
   </details>
  </section>

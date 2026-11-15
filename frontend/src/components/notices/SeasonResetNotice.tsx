@@ -7,7 +7,7 @@ export default function SeasonResetNotice() {
   if (!me?.season_reset) return null
   return (
     <Notice tone="info" dismissLabel="Dismiss season reset notice" onDismiss={() => void acknowledgeSeasonReset()}>
-      The season was reset. Your account is safe; your portfolio restarted with H$100,000.
+      The season was reset. Your account is safe; your portfolio restarted with H$100.
     </Notice>
   )
 }

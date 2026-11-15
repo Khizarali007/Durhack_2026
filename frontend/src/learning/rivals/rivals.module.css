@@ -1,78 +1,36 @@
-/* Friends / practice rivals. Tokens only. */
+/* Friends / rivals: only what Jonathan's shared classes don't already cover. */
 
-.avatar {
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--hs-radius-md);
-  color: var(--hs-color-text-inverse);
-  font-size: var(--hs-font-size-sm);
-  font-weight: var(--hs-font-weight-semibold);
-  flex-shrink: 0;
+.compare {
+  margin: 0 22px;
 }
 
-.avatarLg {
-  width: 56px;
-  height: 56px;
-  font-size: var(--hs-font-size-lg);
-}
-
-.maya { background: var(--hs-color-chart-2); }
-.theo { background: var(--hs-color-chart-3); }
-.priya { background: var(--hs-color-chart-4); }
-.sam { background: var(--hs-color-warn); }
-.jordan { background: var(--hs-color-text-secondary); }
-.you { background: var(--hs-color-accent); }
-
-.insights {
+.body {
   display: flex;
   flex-direction: column;
-  gap: var(--hs-space-2);
-}
-
-.insightsOpen {
-  padding: var(--hs-space-4);
-  border: 1px solid var(--hs-color-border);
-  border-left: 3px solid var(--hs-color-accent);
-  border-radius: var(--hs-radius-lg);
-  background: var(--hs-color-bg-panel-raised);
-}
-
-.insightsTitle {
-  margin: 0;
-  font-size: var(--hs-font-size-md);
-  color: var(--hs-color-text-primary);
+  gap: 8px;
+  padding-bottom: 14px;
 }
 
 .diffs {
   margin: 0;
-  padding-left: var(--hs-space-5);
+  padding-left: 18px;
   display: flex;
   flex-direction: column;
-  gap: var(--hs-space-1);
+  gap: 5px;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--hs-color-text-primary);
-  font-size: var(--hs-font-size-sm);
-  line-height: var(--hs-line-height-normal);
-}
-
-.try {
-  margin: 0;
-  font-size: var(--hs-font-size-sm);
-}
-
-.try a {
-  color: var(--hs-color-accent);
-}
-
-.error {
-  margin: 0;
-  color: var(--hs-color-down-text);
-  font-size: var(--hs-font-size-sm);
 }
 
 .equityChart {
   position: relative;
-  height: 280px;
-  width: 100%;
+  height: 260px;
+  margin: 0 22px 18px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
 }

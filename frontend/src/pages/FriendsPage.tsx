@@ -2,11 +2,17 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getRivals, usePortfolio } from '../api'
 import type { RivalRow } from '../api'
-import { RivalAvatar, RivalInsights, SimulatedTag } from '../learning/rivals/RivalBits'
+import { RivalAvatar, RivalInsights } from '../learning/rivals/RivalBits'
 import { formatHOOP, formatPct } from '../utils/format'
-import styles from './FriendsPage.module.css'
+import '../components/season.css'
 
-/** Friends: you vs five simulated practice rivals trading the same season with real engine data. */
+function vsYou(r: RivalRow): string {
+  if (r.vs_you === undefined) return 'You'
+  if (Math.abs(r.vs_you) < 0.005) return 'Level with you'
+  return `${r.vs_you > 0 ? '+' : ''}${r.vs_you.toFixed(2)} pts vs you`
+}
+
+/** Friends: you against five practice rivals (computer traders with made-up names, real numbers). */
 export default function FriendsPage() {
   const [rows, setRows] = useState<RivalRow[] | null>(null)
   const [error, setError] = useState('')
@@ -31,71 +37,63 @@ export default function FriendsPage() {
   }, [equity])
 
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Friends</h1>
-        <p className={styles.lede}>
-          Five practice rivals trade the same season as you. They're simulated traders from the market itself, with
-          invented names; every number is real.
-        </p>
+    <div className="overview-page">
+      <header className="overview-heading">
+        <h1>Friends</h1>
+        <span className="quiet-label">
+          Practice rivals <span className="separator">/</span> Simulated traders
+        </span>
       </header>
+      <p className="quiet-label">
+        Five practice rivals play the same season as you. They're computer traders from the market with made-up names;
+        every number is real.
+      </p>
+      {error && <p role="alert">{error}</p>}
 
-      {error && <p className={styles.muted} role="status">{error}</p>}
-      {!rows && !error && <div className={`skeleton ${styles.skeleton}`} />}
-
-      {rows && (
-        <ol className={styles.list}>
-          {rows.map((r) => (
-            <li key={r.id} className={`${styles.row} ${r.id === 'you' ? styles.me : ''}`}>
-              <div className={styles.main}>
-                <span className={`num ${styles.rank}`}>{r.rank}</span>
-                <RivalAvatar id={r.id} name={r.name} />
-                <div className={styles.who}>
-                  {r.id === 'you' ? (
-                    <span className={styles.name}>You</span>
-                  ) : (
-                    <Link to={`/friends/${r.id}`} className={styles.name}>
-                      {r.name} <span className={styles.persona}>({r.persona})</span>
-                    </Link>
-                  )}
-                  {r.simulated ? <SimulatedTag /> : <span className={styles.muted}>your account</span>}
-                </div>
-                <dl className={styles.stats}>
-                  <div>
-                    <dt className="label">Return</dt>
-                    <dd className={`num ${r.return_pct > 0 ? 'trend-up' : r.return_pct < 0 ? 'trend-down' : ''}`}>
-                      {formatPct(r.return_pct, 2)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="label">Equity</dt>
-                    <dd className="num">{formatHOOP(r.equity, 0)}</dd>
-                  </div>
-                  <div>
-                    <dt className="label">Payouts</dt>
-                    <dd className="num">{formatHOOP(r.payouts, 0)}</dd>
-                  </div>
-                  <div>
-                    <dt className="label">Grade</dt>
-                    <dd>{r.grade ?? '–'}</dd>
-                  </div>
-                  <div>
-                    <dt className="label">Trades</dt>
-                    <dd className="num">{r.trades}</dd>
-                  </div>
-                  <div>
-                    <dt className="label">vs you</dt>
-                    <dd className={`num ${(r.vs_you ?? 0) > 0 ? 'trend-up' : (r.vs_you ?? 0) < 0 ? 'trend-down' : ''}`}>
-                      {r.vs_you === undefined ? '—' : `${r.vs_you > 0 ? '+' : ''}${r.vs_you.toFixed(2)} pts`}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
+      <section className="holdings-panel" aria-label="Rivals">
+        <div className="panel-heading">
+          <h2>
+            This season <span className="count-badge">{rows?.length ?? 0}</span>
+          </h2>
+          <span className="quiet-label">Ranked by season return</span>
+        </div>
+        {!rows && !error && <p className="empty-holdings">Loading…</p>}
+        {rows?.map((r) => {
+          const body = (
+            <>
+              <span className="quiet-label">{r.rank}</span>
+              <RivalAvatar name={r.name} />
+              <span className="holding-name">
+                <strong>{r.name}</strong>
+                <small>{r.simulated ? `${r.persona} · Simulated trader` : 'Your account'}</small>
+              </span>
+              <span className="holding-value">
+                <strong className={r.return_pct > 0 ? 'trend-up' : r.return_pct < 0 ? 'trend-down' : ''}>{formatPct(r.return_pct, 2)}</strong>
+                <small>
+                  {formatHOOP(r.equity)} · {vsYou(r)}
+                </small>
+              </span>
+            </>
+          )
+          return (
+            <div key={r.id}>
+              {r.simulated ? (
+                <Link to={`/friends/${r.id}`} className="holding-item">
+                  {body}
+                  <span className="row-arrow" aria-hidden="true">↗</span>
+                </Link>
+              ) : (
+                <div className="holding-item">{body}</div>
+              )}
               {r.simulated && <RivalInsights id={r.id} name={r.name} />}
-            </li>
-          ))}
-        </ol>
-      )}
+            </div>
+          )
+        })}
+        <div className="panel-foot">
+          <span>Return is measured from each trader's starting value.</span>
+          <Link to="/leaderboard">Leaderboard →</Link>
+        </div>
+      </section>
     </div>
   )
 }

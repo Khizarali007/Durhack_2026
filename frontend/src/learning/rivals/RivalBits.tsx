@@ -2,77 +2,65 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { compareRival, errorDetail } from '../../api'
 import type { RivalComparison } from '../../api'
-import { Button, Pill } from '../../components/ui'
 import { CoachPanel } from '../review/ReviewParts'
 import { learnHref } from '../review/links'
 import styles from './rivals.module.css'
 
-const AVATAR_CLASS: Record<string, string> = {
-  maya: styles.maya,
-  theo: styles.theo,
-  priya: styles.priya,
-  sam: styles.sam,
-  jordan: styles.jordan,
-  you: styles.you,
-}
-
-/** Initials in a token colour. Rivals are fictional; no photos, ever. */
-export function RivalAvatar({ id, name, size = 'md' }: { id: string; name: string; size?: 'md' | 'lg' }) {
+/** Initials tile in Jonathan's monogram style. Rivals are made up, so never a photo. */
+export function RivalAvatar({ name }: { name: string }) {
   return (
-    <span className={`${styles.avatar} ${size === 'lg' ? styles.avatarLg : ''} ${AVATAR_CLASS[id] ?? styles.you}`} aria-hidden="true">
+    <span className="player-monogram" aria-hidden="true">
       {name.slice(0, 2).toUpperCase()}
     </span>
   )
 }
 
-export function SimulatedTag() {
-  return <Pill variant="neutral">Simulated trader</Pill>
-}
-
-/** "Insights": what this rival did differently from you, what to try, and Coach Hoops. */
-export function RivalInsights({ id, name }: { id: string; name: string }) {
+/** "Compare with you": what this rival did differently, what to try, and Coach Hoops. Loads when opened. */
+export function RivalInsights({ id, name, open = false }: { id: string; name: string; open?: boolean }) {
   const [data, setData] = useState<RivalComparison | null>(null)
-  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [requested, setRequested] = useState(false)
 
-  async function load() {
-    setBusy(true)
-    setError('')
-    try {
-      setData(await compareRival(id))
-    } catch (err) {
-      setError(errorDetail(err))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (!data) {
-    return (
-      <div className={styles.insights}>
-        <Button variant="ghost" size="sm" onClick={() => void load()} disabled={busy}>
-          {busy ? 'Comparing…' : `Insights: you vs ${name}`}
-        </Button>
-        {error && <p className={styles.error} role="alert">{error}</p>}
-      </div>
-    )
+  function load() {
+    if (requested) return
+    setRequested(true)
+    compareRival(id)
+      .then(setData)
+      .catch((err: unknown) => setError(errorDetail(err)))
   }
 
   return (
-    <div className={`${styles.insights} ${styles.insightsOpen}`} role="region" aria-label={`You vs ${name}`}>
-      <h3 className={styles.insightsTitle}>What {name} did differently</h3>
-      <ul className={styles.diffs}>
-        {data.differences.map((d) => (
-          <li key={d}>{d}</li>
-        ))}
-      </ul>
-      <p className={styles.try}>
-        <span className="label">Try</span>{' '}
-        <Link to={learnHref(data.try.kind, data.try.id, data.try.label)}>
-          {data.try.kind === 'tutorial' ? 'the tutorial' : 'the glossary entry'} “{data.try.label}” →
-        </Link>
-      </p>
-      <CoachPanel rivalId={id} label={`Coach Hoops: me vs ${name}`} />
-    </div>
+    <details
+      className={`result-details ${styles.compare}`}
+      open={open || undefined}
+      onToggle={(e) => {
+        if ((e.currentTarget as HTMLDetailsElement).open) load()
+      }}
+      ref={(el) => {
+        if (el?.open && !requested) load()
+      }}
+    >
+      <summary>
+        Insights: you vs {name} <span>＋</span>
+      </summary>
+      {error && <p className="fine-print" role="alert">{error}</p>}
+      {!data && !error && <p className="fine-print">Comparing…</p>}
+      {data && (
+        <div className={styles.body}>
+          <ul className={styles.diffs}>
+            {data.differences.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+          <p className="fine-print">
+            Try:{' '}
+            <Link className="text-action" to={learnHref(data.try.kind, data.try.id, data.try.label)}>
+              {data.try.label} ↗
+            </Link>
+          </p>
+          <CoachPanel rivalId={id} label={`Ask Coach Hoops about you vs ${name}`} />
+        </div>
+      )}
+    </details>
   )
 }

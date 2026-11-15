@@ -5,6 +5,10 @@ import { useThemeContext } from '../../context/useThemeContext'
 import { readChartColors } from '../../utils/chartTheme'
 import styles from './rivals.module.css'
 
+// Jonathan's chart palette (PriceChart): first series green, second blue.
+const YOU_COLOR = '#45d6a5'
+const RIVAL_COLOR = '#6ba4ff'
+
 interface Point {
   t: number
   equity: number
@@ -29,8 +33,8 @@ export default function EquityCompareChart({ rival, you, rivalName }: { rival: P
       timeScale: { borderColor: c.border },
     })
     seriesRef.current = {
-      rival: chart.addSeries(LineSeries, { color: c.series[1], lineWidth: 2, title: rivalName, priceLineVisible: false }),
-      you: chart.addSeries(LineSeries, { color: c.series[0], lineWidth: 3, title: 'You', priceLineVisible: false }),
+      rival: chart.addSeries(LineSeries, { color: RIVAL_COLOR, lineWidth: 2, title: rivalName, priceLineVisible: false }),
+      you: chart.addSeries(LineSeries, { color: YOU_COLOR, lineWidth: 2, title: 'You', priceLineVisible: false }),
     }
     chartRef.current = chart
     return () => {
@@ -58,8 +62,6 @@ export default function EquityCompareChart({ rival, you, rivalName }: { rival: P
     if (!chart || !s) return
     const c = readChartColors()
     chart.applyOptions({ layout: { textColor: c.text }, grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } } })
-    s.rival.applyOptions({ color: c.series[1] })
-    s.you.applyOptions({ color: c.series[0] })
   }, [theme, projector])
 
   return <div ref={ref} className={styles.equityChart} aria-label={`Equity, ${rivalName} vs you`} role="img" />

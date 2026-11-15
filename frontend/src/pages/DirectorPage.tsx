@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { jumpToWembyStorm } from '../api'
-import { Button, Card } from '../components/ui'
-import styles from './DirectorPage.module.css'
+import '../components/season.css'
 
-/** Demo controls for presenters. Works against the real season replay. */
+/** Demo controls for presenters, in Jonathan's overview style. Works against the real season replay. */
 export default function DirectorPage() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
@@ -17,45 +16,38 @@ export default function DirectorPage() {
   }
 
   return (
-    <div className={styles.page}>
-      <header>
-        <h1 className={styles.title}>Replay controls</h1>
-        <p className={styles.muted}>
-          Use the season bar above to move the market. Every simulated day processes trades and payouts. Rewinding
-          restarts every portfolio; accounts are kept.
-        </p>
+    <div className="overview-page">
+      <header className="overview-heading">
+        <h1>Demo controls</h1>
+        <span className="quiet-label">For presenters</span>
       </header>
 
-      <Card padding="lg" className={styles.card}>
-        <h2 className={styles.cardTitle}>Storm demo: Wembanyama, February 2025</h2>
-        <ol className={styles.steps}>
-          <li>Jump to 19 Feb 2025 (forward jumps keep portfolios; it takes about 50 seconds).</li>
+      <section className="season-review" aria-label="Injury demo">
+        <div className="panel-heading">
+          <h2>Injury demo: Victor Wembanyama, February 2025</h2>
+        </div>
+        <ol className="fine-print">
+          <li>Jump to 19 Feb 2025. The season pauses there and portfolios are kept (about 50 seconds).</li>
           <li>
-            Buy a few <Link to="/stock/WEMBY">WEMBY</Link> shares. The Storm Radar is calm.
+            Buy a few <Link to="/stock/WEMBY">Victor Wembanyama</Link> shares. No injury news yet.
           </li>
           <li>
-            Press <b>Next day</b>: the official report lists him doubtful. Early warning, radar turns cloudy.
+            Open <b>Replay settings</b> in the season bar and press <b>Next day</b> (or press <b>Play season</b> and wait
+            about a minute). The official report lists him doubtful: an injury warning.
           </li>
+          <li>One more day: he is ruled out and the price drops. Anyone who sold on the warning avoided it.</li>
           <li>
-            Press <b>Next day</b> again: he is ruled out. Storm, and the price falls. Anyone who sold on the warning
-            stayed dry.
-          </li>
-          <li>
-            Open <Link to="/activity">Activity</Link> for the review card, and <Link to="/friends">Friends</Link> to see
+            Then open <Link to="/activity">Activity</Link> for your review, and <Link to="/friends">Friends</Link> to see
             how the rivals handled it.
           </li>
         </ol>
-        <div>
-          <Button variant="primary" onClick={() => void storm()} disabled={busy}>
-            {busy ? 'Jumping…' : 'Jump to 19 Feb 2025'}
-          </Button>
-        </div>
-        {message && <p className={styles.status} role="status">{message}</p>}
-      </Card>
+        <button className="season-primary" type="button" onClick={() => void storm()} disabled={busy}>
+          {busy ? 'Jumping…' : 'Jump to 19 Feb 2025'}
+        </button>
+        {message && <p className="quiet-label" role="status">{message}</p>}
+      </section>
 
-      <p className={styles.muted}>
-        Every injury headline is the real status from the NBA's official report; medical details are never shown.
-      </p>
+      <p className="fine-print">Injury news is the real status from the NBA's official report; medical details are never shown.</p>
     </div>
   )
 }

@@ -98,7 +98,7 @@ export function CompositionPanel() {
                 </div>
                 <div>
                   <dt className="label">Invested</dt>
-                  <dd className="num">{formatHOOP(c.invested, 0)}</dd>
+                  <dd className="num">{formatHOOP(c.invested)}</dd>
                 </div>
                 <div>
                   <dt className="label">Cash</dt>

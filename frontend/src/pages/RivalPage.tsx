@@ -1,50 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getRival, useComposition, usePortfolio } from '../api'
-import type { CompositionOut, RivalDetail } from '../api'
+import { getRival, usePortfolio } from '../api'
+import type { RivalDetail } from '../api'
+import { PlayerAvatar } from '../components/PlayerIdentity'
 import { ReviewTimeline } from '../learning/review/ReviewParts'
 import EquityCompareChart from '../learning/rivals/EquityCompareChart'
-import { RivalAvatar, RivalInsights, SimulatedTag } from '../learning/rivals/RivalBits'
+import { RivalInsights } from '../learning/rivals/RivalBits'
+import rivalStyles from '../learning/rivals/rivals.module.css'
 import { formatHOOP, formatPct, formatPnl, formatQty } from '../utils/format'
-import styles from './RivalPage.module.css'
+import '../components/season.css'
 
-function CompositionColumn({ title, comp }: { title: string; comp: CompositionOut | null }) {
-  return (
-    <section className={styles.panel} aria-label={title}>
-      <h3 className={styles.panelTitle}>
-        {title} <span className={styles.grade}>{comp?.grade ?? '–'}</span>
-      </h3>
-      {!comp || !comp.grade ? (
-        <p className={styles.muted}>All cash so far.</p>
-      ) : (
-        <>
-          <p className={styles.muted}>
-            {comp.holdings} {comp.holdings === 1 ? 'player' : 'players'} · {comp.teams} {comp.teams === 1 ? 'team' : 'teams'} ·
-            biggest player {comp.top_player_pct.toFixed(0)}%
-          </p>
-          <ul className={styles.bars}>
-            {comp.by_team.slice(0, 5).map((s) => (
-              <li key={s.key}>
-                <span className={styles.barLabel}>{s.label}</span>
-                <span className={styles.track} aria-hidden="true">
-                  <span className={styles.fill} style={{ transform: `scaleX(${Math.min(1, s.pct / 100)})` }} />
-                </span>
-                <span className="num">{s.pct.toFixed(1)}%</span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </section>
-  )
-}
-
-/** One rival up close: equity vs yours, composition side by side, holdings, best/worst trade and key moves. */
+/** One practice rival: their season against yours, what they own and their key moves. */
 export default function RivalPage() {
   const { id = '' } = useParams()
   const [data, setData] = useState<RivalDetail | null>(null)
   const [error, setError] = useState('')
-  const { composition: mine } = useComposition()
   const { portfolio } = usePortfolio()
   const equity = Math.round(portfolio?.equity ?? 0)
 
@@ -67,99 +37,108 @@ export default function RivalPage() {
 
   if (error) {
     return (
-      <div className={styles.page}>
-        <p className={styles.muted}>{error}</p>
-        <Link to="/friends">Back to Friends</Link>
+      <div className="overview-page">
+        <p role="alert">{error}</p>
+        <Link className="text-action" to="/friends">← Friends</Link>
       </div>
     )
   }
-  if (!data) return <div className={styles.page}><div className={`skeleton ${styles.skeleton}`} /></div>
+  if (!data) return <div className="overview-page"><p className="quiet-label">Loading…</p></div>
 
-  const { rival, review, your_summary: you } = data
+  const { rival, review, your_summary: you, composition: comp } = data
   const s = review.summary
+  const diff = s.return_pct - you.return_pct
   return (
-    <div className={styles.page}>
-      <Link to="/friends" className={styles.back}>← Friends</Link>
-      <header className={styles.header}>
-        <RivalAvatar id={rival.id} name={rival.name} size="lg" />
-        <div className={styles.headText}>
-          <h1 className={styles.title}>
-            {rival.name} <span className={styles.persona}>({rival.persona})</span>
-          </h1>
-          <p className={styles.muted}>{rival.strategy} A simulated trader from the market: invented name, real trades.</p>
-        </div>
-        <SimulatedTag />
+    <div className="overview-page">
+      <header className="overview-heading">
+        <h1>{rival.name}</h1>
+        <span className="quiet-label">
+          {rival.persona} <span className="separator">/</span> Simulated trader <span className="separator">/</span>{' '}
+          <Link className="text-action" to="/friends">All rivals</Link>
+        </span>
       </header>
+      <p className="quiet-label">{rival.strategy} A computer trader from the market with a made-up name; every number is real.</p>
 
-      <dl className={styles.tiles}>
-        <div>
-          <dt className="label">{rival.name}'s return</dt>
-          <dd className={`num ${s.return_pct >= 0 ? 'trend-up' : 'trend-down'}`}>{formatPct(s.return_pct, 2)}</dd>
+      <section className="balance-panel" aria-label={`${rival.name}'s season`}>
+        <div className="balance-main">
+          <span className="metric-label">{rival.name}'s season return</span>
+          <strong className="balance-number">{formatPct(s.return_pct, 2)}</strong>
+          <span className={diff >= 0 ? 'trend-up' : 'trend-down'}>
+            {diff >= 0 ? '+' : ''}
+            {diff.toFixed(2)} pts vs you
+          </span>
         </div>
-        <div>
-          <dt className="label">Your return</dt>
-          <dd className={`num ${you.return_pct >= 0 ? 'trend-up' : 'trend-down'}`}>{formatPct(you.return_pct, 2)}</dd>
-        </div>
-        <div>
-          <dt className="label">Payouts</dt>
-          <dd className="num">{formatHOOP(s.payouts, 0)}</dd>
-        </div>
-        <div>
-          <dt className="label">Best trade</dt>
-          <dd className="num">{s.best_trade ? `${formatPnl(s.best_trade.pnl)} ${s.best_trade.symbol}` : '—'}</dd>
-        </div>
-        <div>
-          <dt className="label">Worst trade</dt>
-          <dd className="num">{s.worst_trade ? `${formatPnl(s.worst_trade.pnl)} ${s.worst_trade.symbol}` : '—'}</dd>
-        </div>
-        <div>
-          <dt className="label">Trades</dt>
-          <dd className="num">{s.trades}</dd>
-        </div>
-      </dl>
-
-      <section className={styles.panel} aria-label="Equity">
-        <h2 className={styles.panelTitle}>Season so far: {rival.name} vs you (% change)</h2>
-        <EquityCompareChart rival={data.equity} you={data.your_equity} rivalName={rival.name} />
+        <dl className="balance-stats">
+          <div>
+            <dt>Your return</dt>
+            <dd>{formatPct(you.return_pct, 2)}</dd>
+          </div>
+          <div>
+            <dt>Payments received</dt>
+            <dd>{formatHOOP(s.payouts)}</dd>
+          </div>
+          <div>
+            <dt>Trades</dt>
+            <dd>{formatQty(s.trades)}</dd>
+          </div>
+          <div>
+            <dt>Best sale</dt>
+            <dd>{s.best_trade ? formatPnl(s.best_trade.pnl) : '—'}</dd>
+          </div>
+          <div>
+            <dt>Diversification</dt>
+            <dd>{comp.grade ?? '—'}</dd>
+          </div>
+        </dl>
       </section>
 
-      <RivalInsights id={rival.id} name={rival.name} />
+      <div className="overview-grid">
+        <div className={rivalStyles.stack}>
+          <section className="holdings-panel" aria-label="Season so far">
+            <div className="panel-heading">
+              <h2>Season so far</h2>
+              <span className="quiet-label">{rival.name} vs you · % change</span>
+            </div>
+            <EquityCompareChart rival={data.equity} you={data.your_equity} rivalName={rival.name} />
+            <RivalInsights id={rival.id} name={rival.name} open />
+          </section>
+        </div>
 
-      <div className={styles.split}>
-        <CompositionColumn title={`${rival.name}'s composition`} comp={data.composition} />
-        <CompositionColumn title="Your composition" comp={mine} />
-      </div>
-
-      <div className={styles.split}>
-        <section className={styles.panel} aria-label="Top holdings">
-          <h2 className={styles.panelTitle}>{rival.name}'s top holdings</h2>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th className={styles.right}>Shares</th>
-                <th className={styles.right}>Value</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className={rivalStyles.stack}>
+          <section className="holdings-panel" aria-label="Top holdings">
+            <div className="panel-heading">
+              <h2>
+                Top holdings <span className="count-badge">{comp.holdings}</span>
+              </h2>
+              <span className="quiet-label">{comp.teams} teams</span>
+            </div>
+            <div className="holdings-list">
               {data.top_holdings.map((h) => (
-                <tr key={h.symbol}>
-                  <td>
-                    <Link to={`/stock/${h.symbol}`}>{h.name}</Link>
-                  </td>
-                  <td className={`num ${styles.right}`}>{formatQty(h.qty)}</td>
-                  <td className={`num ${styles.right}`}>{formatHOOP(h.value, 0)}</td>
-                </tr>
+                <Link key={h.symbol} to={`/stock/${h.symbol}`} className="holding-item">
+                  <PlayerAvatar player={{ symbol: h.symbol, name: h.name }} />
+                  <span className="holding-name">
+                    <strong>{h.name}</strong>
+                    <small>{formatQty(h.qty)} shares</small>
+                  </span>
+                  <span className="holding-value">
+                    <strong>{formatHOOP(h.value)}</strong>
+                  </span>
+                  <span className="row-arrow" aria-hidden="true">↗</span>
+                </Link>
               ))}
-            </tbody>
-          </table>
-        </section>
-        <section className={styles.panel} aria-label="Key moves">
-          <h2 className={styles.panelTitle}>{rival.name}'s key moves</h2>
-          <div className={styles.scroll}>
-            <ReviewTimeline items={review.timeline.filter((i) => i.kind !== 'grade').slice(0, 40)} />
-          </div>
-        </section>
+            </div>
+          </section>
+
+          <section className="holdings-panel" aria-label="Key moves">
+            <div className="panel-heading">
+              <h2>Key moves</h2>
+              <span className="quiet-label">Newest first</span>
+            </div>
+            <div className="holdings-list">
+              <ReviewTimeline items={review.timeline.filter((i) => i.kind !== 'grade').slice(0, 40)} />
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   )

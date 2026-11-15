@@ -57,7 +57,7 @@ export async function jumpToWembyStorm(): Promise<DirectorResult> {
   if (USE_MOCKS) return mockDirector.playScenario('wemby_storm')
   try {
     await apiFetch('/market/timeline', { method: 'POST', body: JSON.stringify({ target_t: WEMBY_STORM_EVE_T }) })
-    return { ok: true, detail: 'Jumping to 19 Feb 2025. The season bar shows progress; trading resumes when it lands.' }
+    return { ok: true, detail: 'Jumping to 19 Feb 2025. The season bar shows progress; it pauses there when it lands.' }
   } catch (err) {
     return { ok: false, detail: errorDetail(err) }
   }
