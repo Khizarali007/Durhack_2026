@@ -113,3 +113,10 @@ the decision, the options considered, why, and how to revert. Archive tags
 - **Opening allocations: approximately 5%, 10%, 25%.** Shares remain whole units and the execution preview is authoritative. No forced diversification, auto-rebalancing, scripted profitable trades or future-season knowledge.
 - **Solana: forward replay is causal; rewind is a reset.** Allow forward replay while existing asynchronous receipt workers continue. Block backward replay when receipt/portfolio writes are enabled. UI does not claim that local completion implies chain confirmation.
 - **Weekly report scope:** captures the account immediately before a round and after the requested target. Trades between rounds affect the live/final score, but precede the next round's baseline. The last report is immutable and stored per browser tab, account and market session, not a multi-device history service.
+
+## 15 November — interface simplification
+
+- Replace promotional copy with functional labels and one Next week action. Keep the accepted liquidation score and market rules unchanged.
+- Put market depth, performance inputs, detailed attribution and replay settings behind disclosure. Active tutorials open the controls they teach.
+- Keep the buy/sell action pinned outside the scrollable order details.
+- Use brief entry/feedback animations, real replay progress and transient payment notifications. No invented chart movement or interpolated account balances; respect reduced-motion settings.

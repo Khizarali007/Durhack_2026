@@ -27,9 +27,9 @@ const MODES: { value: Mode; label: string }[] = [
 ]
 
 const MODE_HINT: Record<Mode, string> = {
-  market: 'Fills now at the best available price.',
-  limit: 'Waits until the market reaches your price. It never pays more, or sells for less, than your limit.',
-  stop: 'A safety net: sells your shares automatically if the bid falls to your stop price.',
+  market: 'Immediate execution',
+  limit: 'Executes at your limit or better',
+  stop: 'Triggers a market sell at your stop price',
 }
 
 interface OrderTicketProps {
@@ -195,6 +195,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
 
   return (
     <aside className={styles.ticket} aria-label={`Order ticket for ${player.name}`} data-tour="ticket">
+      <div className={styles.ticketBody}>
       <div className={styles.head}>
         <span className={styles.title}>Trade {symbol}</span>
         <span className={styles.keys} title="Keyboard: B for buy, S for sell, Enter in the quantity box to confirm">
@@ -264,7 +265,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
                 <button type="button" className={styles.priceFill} onClick={() => quote?.bid != null && setPriceText(round2(quote.bid * 0.9).toFixed(2))}>−10%</button>
               </>
             )}
-            <span className={styles.priceUnit}>HOOP</span>
+
           </div>
         </div>
       )}
@@ -273,7 +274,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         <span className={styles.estimateLabel}>{headlineLabel}</span>
         <span className={styles.estimateValue}>
           {headline !== null ? formatHOOP(headline) : '—'}
-          <span className={styles.unit}>HOOP</span>
+
         </span>
         <span className={styles.estimateSub}>{headlineSub}</span>
       </div>
@@ -297,6 +298,8 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         </div>
       </dl>
 
+      </div>
+      <div className={styles.ticketFooter}>
       <div className={styles.messages} aria-live="polite">
         {blocker !== null && (
           <p className={`${styles.msg} ${styles.blocker}`}><span aria-hidden="true">⚠</span> {blocker}</p>
@@ -317,6 +320,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
       </Button>
 
       {result !== null && <OrderResult result={result} onDismiss={() => setResult(null)} />}
+      </div>
     </aside>
   )
 }

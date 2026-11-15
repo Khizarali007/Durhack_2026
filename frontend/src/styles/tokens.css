@@ -6,32 +6,32 @@
 
 :root {
   /* --- Background --- */
-  --hs-color-bg-page:         #0D1117;
-  --hs-color-bg-panel:        #161B22;
-  --hs-color-bg-panel-raised: #1C2128;
+  --hs-color-bg-page:         #0B0F15;
+  --hs-color-bg-panel:        #111720;
+  --hs-color-bg-panel-raised: #18212D;
   --hs-color-bg-hover:        #21262D;
   --hs-color-bg-selected:     #1F2937;
 
   /* --- Borders --- */
-  --hs-color-border:        #30363D;
+  --hs-color-border:        #26313F;
   --hs-color-border-subtle: #21262D;
 
   /* --- Text --- */
-  --hs-color-text-primary:   #E6EDF3;
-  --hs-color-text-secondary: #8B949E;
+  --hs-color-text-primary:   #F0F3F8;
+  --hs-color-text-secondary: #94A0B2;
   --hs-color-text-disabled:  #484F58;
-  --hs-color-text-inverse:   #0D1117;
+  --hs-color-text-inverse:   #0B0F15;
 
   /* --- Accent (blue — not green or red) --- */
-  --hs-color-accent:       #2F81F7;
-  --hs-color-accent-hover: #388BFD;
+  --hs-color-accent:       #8FB5FF;
+  --hs-color-accent-hover: #AAC7FF;
   --hs-color-accent-muted: rgba(47, 129, 247, 0.15);
 
   /* --- Up / Buy (green) --- */
-  --hs-color-up:       #3FB950;
+  --hs-color-up:       #56D6A0;
   --hs-color-up-hover: #46C657;
   --hs-color-up-muted: rgba(63, 185, 80, 0.15);
-  --hs-color-up-text:  #3FB950;
+  --hs-color-up-text:  #56D6A0;
 
   /* --- Down / Sell (red) --- */
   --hs-color-down:       #F85149;

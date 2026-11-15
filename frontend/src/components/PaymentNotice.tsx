@@ -9,9 +9,10 @@ export default function PaymentNotice(){
  useEffect(()=>{
   if(user==null||paid==null)return
   const old=previous.current
-  if(old?.user===user&&paid>old.paid)setNotice({user,text:`Performance payment received: +${formatHOOP(paid-old.paid)} credited to your cash. See Activity for each payment.`})
+  if(old?.user===user&&paid>old.paid)setNotice({user,text:`+${formatHOOP(paid-old.paid)} payment received`})
   previous.current={user,paid}
  },[user,paid])
+ useEffect(()=>{if(!notice)return;const id=setTimeout(()=>setNotice(null),6000);return()=>clearTimeout(id)},[notice])
  if(!notice||notice.user!==user)return null
- return <div role="status" style={{padding:'10px 20px',background:'#145c46',color:'white',display:'flex',justifyContent:'space-between',gap:16}}><strong>{notice.text}</strong><button aria-label="Dismiss payment notice" onClick={()=>setNotice(null)}>×</button></div>
+ return <div role="status" className="payment-notice"><span className="payment-check" aria-hidden="true">✓</span><strong>{notice.text}</strong><button aria-label="Dismiss payment notice" onClick={()=>setNotice(null)}>×</button></div>
 }

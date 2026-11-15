@@ -1,51 +1,160 @@
-.season-controls {padding:12px 20px; border-bottom:1px solid var(--hs-color-border); background:var(--hs-color-bg-panel); font-size:13px; display:flex;flex-direction:column;gap:8px;}
+/* Shared trading workspace */
+.season-controls {flex-shrink:0;padding:14px 24px 10px;border-bottom:1px solid var(--hs-color-border);background:var(--hs-color-bg-panel);font-size:12px;}
 .season-row {display:flex;align-items:center;flex-wrap:wrap;gap:12px;}
-.season-controls button,.season-controls select,.season-controls input[type=date],.season-onboarding select {padding:7px 10px;border:1px solid #52617b;border-radius:7px;background:transparent;color:inherit;}
-.season-controls button:disabled {opacity:.45;}
-.season-controls input[type=range] {width:100%;accent-color:#45d6a5;}
-.season-onboarding {max-width:750px;margin:60px auto;padding:36px;line-height:1.7;border:1px solid #52617b;border-radius:16px;}
-.season-onboarding h1 {font-size:34px;}
-.season-onboarding button {padding:12px 20px;background:#45d6a5;color:#101a2c;border:0;border-radius:8px;font-weight:700;}
-.season-onboarding select {display:block;width:100%;margin:16px 0;}
-.season-payouts {padding:16px 24px;max-height:280px;overflow:auto;border:1px solid #52617b;border-radius:10px;}
-.season-payouts table {width:100%;text-align:left;border-spacing:8px;}
-
-.season-main {justify-content:space-between;gap:16px;}
-.season-main>div:first-child>div {color:var(--hs-color-text-secondary);margin-top:4px;}
-.season-score {display:flex;flex-direction:column;gap:4px;}
-.season-score>strong {font-size:22px;font-variant-numeric:tabular-nums;}
-.season-score small {font-size:14px;}
-.season-controls .season-primary {background:var(--hs-color-accent);color:var(--hs-color-bg-page,#0d1117);border:0;font-weight:700;padding:12px 18px;}
-.season-details summary, .season-review summary {cursor:pointer;color:var(--hs-color-text-secondary);padding:4px 0;}
-.season-details {max-height:240px;overflow:auto;}
+.season-main {justify-content:space-between;flex-wrap:nowrap;gap:28px;}
+.season-date {display:flex;align-items:center;gap:10px;white-space:nowrap;}
+.season-date>span:last-child {color:var(--hs-color-text-secondary);}
+.live-dot {width:6px;height:6px;border-radius:50%;background:var(--hs-color-accent);flex-shrink:0;}
+.live-dot.processing {animation:hs-pulse 1s ease-in-out infinite;}
+.season-progress {max-width:280px;flex:1;height:3px;background:var(--hs-color-border);overflow:hidden;border-radius:3px;}
+.season-progress>span {display:block;width:100%;height:100%;background:var(--hs-color-accent);transform-origin:left;transition:transform .6s ease-out;}
+.season-controls button,.season-controls select,.season-controls input[type=date] {padding:8px 12px;border:1px solid var(--hs-color-border);border-radius:7px;background:var(--hs-color-bg-panel-raised);color:var(--hs-color-text-primary);font:inherit;}
+.season-controls .season-primary,.action-primary {display:inline-flex;justify-content:center;align-items:center;gap:18px;background:var(--hs-color-accent);color:var(--hs-color-text-inverse);border:0;border-radius:8px;padding:11px 18px;font:inherit;font-weight:650;text-decoration:none;}
+.season-controls .quiet-button {background:transparent;border-color:transparent;color:var(--hs-color-text-secondary);}
+.season-controls button:disabled,.action-primary:disabled {opacity:.45;cursor:default;}
+.season-controls input[type=range] {width:100%;accent-color:var(--hs-color-accent);margin:14px 0;}
+.season-details {max-height:220px;overflow:auto;margin-top:7px;color:var(--hs-color-text-secondary);}
+.season-details summary {cursor:pointer;font-size:11px;display:list-item;width:fit-content;}
 .season-details p {margin:10px 0;}
-.season-review {background:var(--hs-color-bg-panel);border:1px solid var(--hs-color-border);border-radius:14px;padding:24px;line-height:1.6;}
-.season-review h2 {margin:0;font-size:24px;}
-.season-review h3 {margin:18px 0 8px;}
-.season-review p {margin:12px 0;}
-.season-review a {color:var(--hs-color-accent);}
-.round-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:20px 0;}
-.round-metrics dt {font-size:13px;color:var(--hs-color-text-secondary);}
-.round-metrics dd {font-size:24px;font-weight:650;margin:4px 0;font-variant-numeric:tabular-nums;}
-.season-hint {font-size:12px;color:var(--hs-color-text-secondary);max-width:950px;}
-.round-table {max-height:250px;overflow:auto;}
-.round-table table {width:100%;border-collapse:collapse;text-align:left;}
-.round-table td,.round-table th {padding:8px;border-bottom:1px solid var(--hs-color-border);}
-.round-table td:not(:first-child),.round-table th:not(:first-child) {text-align:right;font-variant-numeric:tabular-nums;}
-.season-onboarding {margin:24px auto;padding:28px 36px;}
-.season-onboarding input {padding:8px;border:1px solid var(--hs-color-border);border-radius:6px;background:var(--hs-color-bg-panel);color:var(--hs-color-text-primary);}
-.season-onboarding .season-row button {padding:8px 12px;background:transparent;border:1px solid var(--hs-color-border);color:var(--hs-color-text-primary);}
-.season-onboarding .season-row button[aria-pressed=true] {border-color:var(--hs-color-accent);background:var(--hs-color-bg-panel);}
-.season-onboarding details {margin-top:16px;}
-.season-steps {padding-left:22px;}
+.season-controls [role=alert] {display:block;color:var(--hs-color-down-text);padding:8px 0;}
+.progress-spinner {width:12px;height:12px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:hs-spin .8s linear infinite;}
+@keyframes hs-spin {to{transform:rotate(360deg)}}
 
-.season-onboarding {max-width:1120px;display:grid;grid-template-columns:340px minmax(0,1fr);gap:40px;line-height:1.5;}
-.season-onboarding h1 {font-size:32px;margin:0 0 20px;}
-.season-onboarding h2 {margin:0 0 12px;}
-.season-onboarding p {margin:12px 0;}
-.season-intro {border-right:1px solid var(--hs-color-border);padding-right:32px;}
-.season-intro li {margin:12px 0;}
-.season-intro small {color:var(--hs-color-text-secondary);}
-.player-presets {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
-.season-onboarding .player-presets button {font-size:12px;line-height:1.5;padding:8px;}
-@media(max-width:900px){.season-onboarding{grid-template-columns:1fr;margin:16px;}.season-intro{border-right:0;padding-right:0;}}
+/* Overview */
+.overview-page {flex:1;min-height:0;overflow:auto;padding:30px 36px;animation:hs-enter .25s ease-out;}
+.overview-heading {display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
+.overview-heading h1 {font-size:24px;font-weight:550;letter-spacing:-.6px;margin:0;}
+.quiet-label,.fine-print {font-size:12px;color:var(--hs-color-text-secondary);}
+.separator {margin:0 10px;opacity:.35;}
+.balance-panel {display:flex;align-items:center;gap:50px;padding:0 0 30px;border-bottom:1px solid var(--hs-color-border);margin-bottom:28px;}
+.balance-main {display:flex;flex-direction:column;gap:6px;min-width:330px;}
+.metric-label {font-size:12px;color:var(--hs-color-text-secondary);}
+.metric-info {opacity:.6;font-size:11px;cursor:help;}
+.balance-number {font-size:44px;line-height:1.2;font-weight:550;letter-spacing:-1.5px;font-variant-numeric:tabular-nums;}
+.balance-main>.trend-up,.balance-main>.trend-down {font-size:13px;font-variant-numeric:tabular-nums;}
+.balance-main .quiet-label {margin-left:7px;}
+.balance-stats {display:flex;flex:1;justify-content:space-between;gap:24px;margin:0;}
+.balance-stats dt {color:var(--hs-color-text-secondary);font-size:12px;}
+.balance-stats dd {margin:8px 0 0;font-size:20px;font-weight:500;font-variant-numeric:tabular-nums;}
+.overview-grid {display:grid;grid-template-columns:minmax(0,1.35fr) minmax(340px,1fr);gap:24px;align-items:start;}
+.holdings-panel,.season-review {border:1px solid var(--hs-color-border);border-radius:12px;background:var(--hs-color-bg-panel);overflow:hidden;}
+.panel-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.panel-heading h2 {font-size:15px;font-weight:550;margin:0;letter-spacing:-.2px;}
+.holdings-panel>.panel-heading {padding:20px 22px;}
+.count-badge {font-size:11px;background:var(--hs-color-bg-panel-raised);border:1px solid var(--hs-color-border);border-radius:5px;margin-left:6px;padding:2px 6px;color:var(--hs-color-text-secondary);}
+.text-action {font-size:12px;color:var(--hs-color-accent);text-decoration:none;}
+.holdings-list {max-height:330px;overflow:auto;}
+.holding-item {display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;padding:17px 22px;border-top:1px solid var(--hs-color-border-subtle);transition:background .16s;}
+.holding-item:hover {background:var(--hs-color-bg-hover);}
+.player-monogram {display:grid;place-items:center;width:36px;height:36px;border-radius:9px;background:var(--hs-color-bg-panel-raised);border:1px solid var(--hs-color-border);font-size:12px;font-weight:600;}
+.holding-name,.holding-value {display:flex;flex-direction:column;gap:4px;}
+.holding-name strong,.holding-value strong {font-weight:500;font-size:13px;}
+.holding-name small {font-size:11px;color:var(--hs-color-text-secondary);}
+.holding-value {margin-left:auto;text-align:right;font-variant-numeric:tabular-nums;}
+.holding-value small {font-size:12px;}
+.row-arrow {color:var(--hs-color-text-secondary);margin-left:7px;transition:transform .16s;}
+.holding-item:hover .row-arrow {transform:translate(2px,-2px);}
+.panel-foot {display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--hs-color-text-secondary);border-top:1px solid var(--hs-color-border);padding:14px 22px;}
+.panel-foot a,.overview-foot a {color:var(--hs-color-text-secondary);text-decoration:none;}
+.empty-holdings {padding:24px;text-align:center;color:var(--hs-color-text-secondary);}
+.overview-foot {display:flex;justify-content:space-between;margin-top:24px;color:var(--hs-color-text-secondary);font-size:11px;}
+
+/* Weekly and final feedback */
+.season-review {padding:22px;animation:hs-enter .3s ease-out;}
+.round-gain {display:block;font-size:32px;line-height:1.2;letter-spacing:-.8px;font-weight:500;margin:24px 0 4px;font-variant-numeric:tabular-nums;}
+.result-breakdown {margin:24px 0 18px;}
+.result-breakdown>div {display:flex;justify-content:space-between;gap:12px;margin:12px 0;animation:hs-enter .3s both;}
+.result-breakdown>div:nth-child(2) {animation-delay:50ms;}
+.result-breakdown>div:nth-child(3) {animation-delay:100ms;}
+.result-breakdown dt {font-size:12px;color:var(--hs-color-text-secondary);}
+.result-breakdown dt small {font-size:10px;margin-left:4px;opacity:.8;}
+.result-breakdown dd {margin:0;font-size:13px;font-variant-numeric:tabular-nums;}
+.result-details {border-top:1px solid var(--hs-color-border);font-size:12px;}
+.result-details>summary {list-style:none;display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:13px 0;color:var(--hs-color-text-secondary);}
+.result-details summary::-webkit-details-marker {display:none;}
+.result-details summary>span {transition:transform .2s;}
+.result-details[open] summary>span {transform:rotate(45deg);}
+.result-action {display:flex;align-items:center;justify-content:space-between;text-decoration:none;color:var(--hs-color-accent);font-size:13px;padding-top:16px;border-top:1px solid var(--hs-color-border);}
+.round-table {max-height:240px;overflow:auto;}
+.round-table table {width:100%;border-collapse:collapse;text-align:left;font-size:11px;}
+.round-table th {font-weight:500;color:var(--hs-color-text-secondary);}
+.round-table td,.round-table th {padding:9px 4px;border-bottom:1px solid var(--hs-color-border-subtle);}
+.round-table a {text-decoration:none;color:var(--hs-color-text-primary);}
+.round-table td:not(:first-child),.round-table th:not(:first-child) {text-align:right;font-variant-numeric:tabular-nums;}
+.result-details .fine-print {font-size:10px;line-height:1.5;}
+.outlook-item {display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;}
+.outlook-item b {font-weight:500;}
+.outlook-item small {width:100%;color:var(--hs-color-text-secondary);}
+.liquidity-notice {font-size:12px;color:var(--hs-color-warn-text);}
+.section-kicker {font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--hs-color-text-secondary);}
+.waiting-review h2 {font-size:23px;font-weight:500;margin:18px 0 8px;letter-spacing:-.5px;}
+.waiting-review p {color:var(--hs-color-text-secondary);font-size:13px;line-height:1.6;max-width:300px;}
+.round-steps {display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--hs-color-border);padding-top:22px;margin-top:24px;}
+.round-steps>span {font-size:12px;color:var(--hs-color-text-secondary);display:flex;flex-direction:column;gap:8px;}
+.round-steps b {font-weight:500;font-size:11px;}
+.round-steps>.done-step {color:var(--hs-color-accent);}
+
+/* First trade */
+.onboarding-page {max-width:1080px;margin:0 auto;padding:34px 24px 20px;animation:hs-enter .35s ease-out;}
+.onboarding-brand {font-size:18px;font-weight:650;letter-spacing:-.5px;display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;}
+.onboarding-brand>span {color:var(--hs-color-text-secondary);font-size:12px;font-weight:400;letter-spacing:0;}
+.season-onboarding {display:grid;grid-template-columns:1fr 1.2fr;border:1px solid var(--hs-color-border);border-radius:16px;background:var(--hs-color-bg-panel);overflow:hidden;}
+.season-intro {padding:36px;background:var(--hs-color-bg-page);border-right:1px solid var(--hs-color-border);}
+.season-intro h1 {font-size:32px;line-height:1.15;font-weight:500;letter-spacing:-1px;margin:20px 0 14px;}
+.season-intro>p {font-size:13px;color:var(--hs-color-text-secondary);line-height:1.7;max-width:280px;}
+.starting-balance {display:flex;flex-direction:column;gap:8px;margin:34px 0;}
+.starting-balance strong {font-size:36px;font-weight:500;letter-spacing:-1px;font-variant-numeric:tabular-nums;}
+.starting-balance small {color:var(--hs-color-text-secondary);font-size:11px;}
+.onboarding-steps {list-style:none;padding:0;margin:0;}
+.onboarding-steps li {display:flex;gap:16px;align-items:center;padding:13px 0;border-top:1px solid var(--hs-color-border-subtle);font-size:12px;}
+.onboarding-steps li>span {font-size:10px;color:var(--hs-color-text-secondary);font-variant-numeric:tabular-nums;}
+.onboarding-rules {font-size:11px;color:var(--hs-color-text-secondary);margin-top:20px;line-height:1.6;}
+.onboarding-rules summary {cursor:pointer;}
+.season-first-pick {padding:28px;}
+.player-presets {display:flex;gap:6px;margin:20px 0;}
+.player-presets button {flex:1;background:transparent;border:1px solid var(--hs-color-border);border-radius:6px;color:var(--hs-color-text-secondary);padding:8px 6px;font:inherit;font-size:10px;line-height:1.4;}
+.player-presets button[aria-pressed=true] {border-color:var(--hs-color-accent);color:var(--hs-color-accent);background:var(--hs-color-accent-muted);}
+.field-label {display:block;font-size:11px;color:var(--hs-color-text-secondary);margin:14px 0 8px;}
+.season-onboarding select,.season-onboarding input {border:1px solid var(--hs-color-border);border-radius:7px;color:var(--hs-color-text-primary);background:var(--hs-color-bg-page);font:inherit;padding:10px 12px;}
+.season-onboarding select {display:block;width:100%;}
+.opening-quote {display:flex;justify-content:space-between;margin-top:20px;gap:16px;}
+.opening-quote>div {display:flex;flex-direction:column;gap:6px;}
+.opening-quote span {color:var(--hs-color-text-secondary);font-size:11px;}
+.opening-quote strong {font-size:20px;font-weight:500;font-variant-numeric:tabular-nums;}
+.opening-forecast {display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--hs-color-text-secondary);margin:16px 0 20px;}
+.opening-forecast strong {font-weight:500;color:var(--hs-color-text-primary);font-size:12px;font-variant-numeric:tabular-nums;}
+.allocation-presets {display:flex;gap:8px;}
+.allocation-presets button {flex:1;text-align:left;background:var(--hs-color-bg-page);border:1px solid var(--hs-color-border);border-radius:7px;color:var(--hs-color-text-primary);padding:10px;font:inherit;font-size:13px;}
+.allocation-presets small {display:block;font-size:10px;color:var(--hs-color-text-secondary);margin-top:4px;}
+.allocation-presets button[aria-pressed=true] {border-color:var(--hs-color-accent);background:var(--hs-color-accent-muted);}
+.quantity-line {display:flex;align-items:center;justify-content:space-between;margin:16px 0;font-size:12px;color:var(--hs-color-text-secondary);}
+.quantity-line input {width:100px;text-align:right;}
+.opening-total {border-top:1px solid var(--hs-color-border);padding:16px 0;display:flex;align-items:center;justify-content:space-between;font-size:12px;}
+.opening-total small {display:block;font-size:10px;color:var(--hs-color-text-secondary);margin-top:4px;}
+.opening-total strong {font-size:20px;font-weight:500;font-variant-numeric:tabular-nums;}
+.opening-buy {width:100%;justify-content:space-between;}
+.onboarding-footer {margin-top:20px;font-size:10px;color:var(--hs-color-text-secondary);text-align:center;}
+
+/* Transaction feedback and compact research */
+.payment-notice {position:fixed;bottom:24px;right:24px;z-index:150;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--hs-color-border);background:var(--hs-color-bg-panel-raised);border-radius:10px;box-shadow:0 8px 30px #0003;animation:hs-notice .3s ease-out;}
+.payment-notice strong {font-size:12px;font-weight:500;}
+.payment-check {background:var(--hs-color-up-muted);color:var(--hs-color-up-text);width:24px;height:24px;display:grid;place-items:center;border-radius:50%;}
+.payment-notice button {background:none;border:0;color:var(--hs-color-text-secondary);font-size:18px;margin-left:8px;}
+.player-forecast {border-bottom:1px solid var(--hs-color-border);padding:12px 20px;font-size:12px;}
+.forecast-primary {display:flex;gap:12px;align-items:center;}
+.forecast-primary>span:first-child {color:var(--hs-color-text-secondary);}
+.forecast-primary strong {font-size:15px;font-weight:500;font-variant-numeric:tabular-nums;}
+.player-forecast details,.price-details {font-size:11px;color:var(--hs-color-text-secondary);margin-top:8px;}
+.price-details {grid-column:1/-1;}
+.player-forecast summary,.price-details summary {cursor:pointer;}
+.forecast-data {display:flex;gap:20px;flex-wrap:wrap;margin-top:12px;}
+.season-payouts {padding:20px;max-height:280px;overflow:auto;border:1px solid var(--hs-color-border);border-radius:10px;}
+.season-payouts table {width:100%;text-align:left;border-spacing:8px;}
+@keyframes hs-enter {from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes hs-notice {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:1050px){.overview-page{padding:24px}.balance-panel{gap:24px}.balance-main{min-width:270px}.balance-stats{gap:12px}.balance-stats dd{font-size:16px}.overview-grid{grid-template-columns:1fr 1fr}.season-date>span:last-child{display:none}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}}
+
+.market-depth {padding:12px 14px 4px;border-top:1px solid var(--hs-color-border);font-size:11px;color:var(--hs-color-text-secondary);}
+.market-depth>summary {cursor:pointer;}
+.season-payouts h2 {font-size:16px;font-weight:500;margin:0 0 16px;}

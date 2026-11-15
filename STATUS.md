@@ -4,6 +4,13 @@ Updated: 15 November 2026
 Working location: /Users/jonathanlyria/Documents/Projects/Durhack_2026
 Branch: change-tests, based on main e5ad6f7. Local work; do not push without instruction.
 
+## Latest interface pass
+- Removed taglines and repeated explanations. Overview now focuses on portfolio value, holdings, payments and the next round.
+- Compact first trade, short weekly/final results, optional research/depth details, fixed visible trade action.
+- Refined dark/light colors, typography, line icons, hover feedback, round entry and payment notifications. Reduced-motion preferences respected.
+- Build/lint and all nine frontend tests passed. Browser verified opening buy, weekly results, sell confirmation, dark/light layouts, and tutorial access to hidden controls. No backend changes in this pass.
+- Changes committed locally; require explicit instruction before pushing this interface pass.
+
 ## Milestone
 A clearer research → invest → play a week → review → decide loop, using the existing market and liquidation score.
 

@@ -48,7 +48,7 @@ export default function PriceChart({symbol}: {symbol:string;events?:MarketEvent[
   },[selection,symbol,theme,projector])
   return <section className={styles.panel} aria-label={`${symbol} price chart`} data-tour="stock-chart">
     <div className={styles.toolbar}>
-      <span>Quoted prices · daily observations · dashed analyst estimate</span>
+      <span>Price · 1D</span>
       <button onClick={()=>fit.current?.()}>Fit history</button>
       <select aria-label="Compare another player" value="" onChange={e=>{if(e.target.value)setCompare(old=>[...old.filter(x=>x!==e.target.value),e.target.value].slice(-3))}}>
         <option value="">Compare player…</option>
@@ -58,7 +58,7 @@ export default function PriceChart({symbol}: {symbol:string;events?:MarketEvent[
     </div>
     {error&&<p role="status">{error}</p>}
     <div ref={ref} style={{height:320,width:'100%'}}/>
-    <small>Bid/ask midpoint, not an executable price. Blank intervals mean no two-sided quote. Scroll to zoom; drag to pan.</small>
+    <small title="Indicative bid/ask midpoint. Gaps indicate no two-sided quote. Scroll to zoom; drag to pan.">Midpoint price · Dashed line: analyst estimate</small>
     <a className={styles.credit} href="https://www.tradingview.com/lightweight-charts/" target="_blank" rel="noreferrer">Charts: TradingView Lightweight Charts™</a>
   </section>
 }

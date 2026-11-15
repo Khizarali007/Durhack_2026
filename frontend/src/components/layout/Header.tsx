@@ -2,13 +2,12 @@ import { useSeason } from '../../api/useSeason'
 import { useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMarketTime, useMarketStream, usePortfolio } from '../../api'
+import { useMarketStream, usePortfolio } from '../../api'
 import { useThemeContext } from '../../context/useThemeContext'
-import { formatGameClock, formatHOOP } from '../../utils/format'
+import { formatHOOP } from '../../utils/format'
 import styles from './Header.module.css'
 
 export default function Header() {
-  const t = useMarketTime()
   const {score}=useSeason()
   const { connected } = useMarketStream()
   const { theme, toggleTheme } = useThemeContext()
@@ -39,9 +38,9 @@ export default function Header() {
 
   return (
     <header className={styles.header}>
-      <div className={styles.wordmark}>HoopStreet</div>
+      <div className={styles.wordmark}>HoopStreet<span className="brand-dot"/></div>
 
-      <div className={styles.clock} data-tour="header-clock">{formatGameClock(t)}</div>
+
 
       <div className={styles.right}>
         <form onSubmit={handleSearch} className={styles.searchForm} data-tour="header-search">
@@ -62,7 +61,7 @@ export default function Header() {
         </div>
 
         <div className={styles.statBlock} data-tour="header-equity">
-          <span className={styles.statLabel}>Season score</span>
+          <span className={styles.statLabel}>Portfolio</span>
           <span className={styles.statValue}>
             {score ? formatHOOP(score.score) : '—'}
           </span>

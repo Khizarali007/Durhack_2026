@@ -132,3 +132,8 @@
 .credit:hover {
   color: var(--hs-color-text-secondary);
 }
+
+.toolbar>span {font-size:12px;margin-right:auto;color:var(--hs-color-text-secondary);}
+.toolbar button,.toolbar select {font:inherit;font-size:11px;padding:6px 9px;border-radius:5px;border:1px solid var(--hs-color-border);background:var(--hs-color-bg-panel);color:var(--hs-color-text-primary);max-width:180px;}
+.toolbar button:hover {background:var(--hs-color-bg-hover);}
+.panel>small {padding:8px 16px;color:var(--hs-color-text-secondary);font-size:10px;}

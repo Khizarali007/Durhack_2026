@@ -1,3 +1,4 @@
+import { useTourState } from '../../learning/tour/store'
 import { useQuote, useMoveReason, useMarketTime } from '../../api'
 import type { Player, MarketEventKind } from '../../api'
 import { Badge, Pill } from '../ui'
@@ -26,6 +27,7 @@ interface PlayerCardProps {
 /** Who the stock is, what it costs against fair value, and why it last moved. */
 export default function PlayerCard({ player }: PlayerCardProps) {
   const quote = useQuote(player.symbol)
+  const tour = useTourState()
   const reason = useMoveReason(player.symbol)
   const flash = usePriceFlash(quote?.quoted_price ?? null)
   const initPrice = player.start_price
@@ -64,16 +66,14 @@ export default function PlayerCard({ player }: PlayerCardProps) {
       <div className={styles.priceBlock} data-tour="stock-price">
         <div className={`${styles.price} ${flashClass(flash)}`} aria-live="off">
           {formatPrice(price)}
-          <span className={styles.unit}>HOOP</span>
+
         </div>
         {changePct !== null
-          ? <Pill variant={changePct >= 0 ? 'up' : 'down'}>{trendArrow(changePct)} {formatPct(changePct)} since opening</Pill>
-          : <Pill variant="neutral">— since opening</Pill>}
+          ? <Pill variant={changePct >= 0 ? 'up' : 'down'}>{trendArrow(changePct)} {formatPct(changePct)} since start</Pill>
+          : <Pill variant="neutral">— since start</Pill>}
       </div>
 
       <div className={styles.valueLine} data-tour="stock-value-line">
-        <span>Quoted price <strong className={styles.num}>{formatPrice(price)}</strong></span>
-        <span className={styles.dot}>·</span>
         <span>Analyst estimate <strong className={styles.num}>{formatPrice(quote?.fair_value)}</strong></span>
         <span className={styles.dot}>·</span>
         <span className={`${styles.hype} ${hypeClass}`}>
@@ -81,14 +81,14 @@ export default function PlayerCard({ player }: PlayerCardProps) {
         </span>
       </div>
 
-      <div className={styles.lastTrade}>Last trade: {quote?.last_trade_t == null ? 'No trades yet' : `${formatPrice(quote.last)} · ${Math.max(0,Math.floor((now-quote.last_trade_t)/86400))} days ago`}. Analyst estimates can be wrong.</div>
+      <details className="price-details" open={tour.running||undefined}><summary>Market details</summary><div className={styles.lastTrade}>Last trade: {quote?.last_trade_t == null ? 'No trades yet' : `${formatPrice(quote.last)} · ${Math.max(0,Math.floor((now-quote.last_trade_t)/86400))} days ago`}.</div>
       <div className={styles.reason} title={reason?.text} data-tour="stock-why-moved">
         <RadarBadge symbol={player.symbol} showLabel />
         <span className={styles.reasonLabel}>{reason?.source === 'price' || reason === null ? 'Quote vs estimate' : 'Why did it move?'}</span>
         <span className={styles.reasonText}>
           {reason === null ? 'Waiting for the first price…' : <><span aria-hidden="true">{reasonIcon}</span> {reason.text}</>}
         </span>
-      </div>
+      </div></details>
     </section>
   )
 }
