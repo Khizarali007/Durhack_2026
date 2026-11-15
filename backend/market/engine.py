@@ -20,6 +20,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from market.core import load_data, load_injuries, make_markets
+from market.rivals import RivalTracker
 from market.valuation import CONFIG, day_end, payout_per_share, model_parameters
 from trading.payouts import payout_cents
 from trading.dividends import DividendSettlement
@@ -97,6 +98,8 @@ class LiveMarket:
         data, self.results = load_data(database or data_file('player_games_2024_25.sqlite'),
                                       values or data_file('starting_values_2024_25.csv'))
         self.markets = make_markets(data, seed, bot_count, bot_funding)
+        # Five named practice rivals (market/rivals.py), funded before the cash baseline below.
+        self.rivals = RivalTracker(self.markets)
         tickers = make_tickers({pid: p['name'] for pid, p in data.items()})
         self._players = [Player(pid, tickers[pid], p['name'], p['team'], self.markets[pid].fair_cents / 100)
                          for pid, p in sorted(data.items())]
@@ -123,6 +126,7 @@ class LiveMarket:
         self.human_shares = {}  # account/player -> net shares acquired from makers
         self.human_cash_flow = 0  # net pre-fee cash paid by humans to makers
         self._initial_cash = self._market_cash()
+        self.rivals.start(self)
         self.session_id = uuid.uuid4().hex
         self.settlement = None
         self._snapshots = {}
@@ -138,6 +142,7 @@ class LiveMarket:
 
     def _record_bot(self, bot_id, pid, side, qty, cents):
         self.markets[pid].last_trade_t = self._t
+        self.rivals.on_trade(bot_id, self.symbols[pid], side, qty, cents, self._t)
         self._bot_trades.append(BotTrade(bot_id, self.symbols[pid], side, qty, cents / 100, self._t))
 
     def _flush_bots(self):
@@ -193,6 +198,9 @@ class LiveMarket:
             rate=scores.get(pid,(0.,0.))[1]
             amounts = [(mm,payout_cents(qty,rate)) for mm,qty in zip(self.markets[pid].makers,r['makers'])]
             amounts += [(bots[bid],payout_cents(qty,rate)) for bid,qty in r['bots'].items()]
+            for bid,qty in r['bots'].items():
+                if bid in self.rivals.by_bot:
+                    self.rivals.on_payout(bid, r['symbol'], qty, payout_cents(qty,rate), day_end(day))
             credits.extend(amounts)
             totals[pid]=sum(amount for _,amount in amounts)
             for uid,qty in r['humans'].items():
@@ -373,6 +381,7 @@ class LiveMarket:
             m.bot_trades_today.clear()
         for bot in next(iter(self.markets.values())).bots:
             bot.orders_today = 0
+        self.rivals.on_day_close(self, day_end(day))
         self.day += timedelta(days=1)
 
     def _announce_injury(self, pid, report, day):

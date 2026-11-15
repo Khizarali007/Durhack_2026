@@ -84,6 +84,10 @@ class SeasonData:
     daily: Callable[[str], list[tuple[float, float]]] = lambda symbol: []
     # H$ per share that a game on this ISO date paid, or 0.0 / None when no game.
     game_payout: Callable[[str, str], float | None] = lambda symbol, day: None
+    # Actual shares held now, when the fills don't tell the whole story (rivals start with shares).
+    holdings_qty: dict[str, float] | None = None
+    # Shares held before the first fill, with their opening price (rivals start with shares).
+    opening: dict[str, tuple[float, float]] = field(default_factory=dict)
 
 
 # ---- outputs ------------------------------------------------------------------------------
@@ -167,7 +171,7 @@ class Order:
     realised: float | None = None     # sells: P&L after all fees, against average cost
 
 
-def group_orders(fills: list[Fill]) -> list[Order]:
+def group_orders(fills: list[Fill], opening: dict[str, tuple[float, float]] | None = None) -> list[Order]:
     """The season engine fills one share at a time; an order is what the player clicked."""
     groups: dict[str, list[Fill]] = defaultdict(list)
     for f in fills:
@@ -181,14 +185,17 @@ def group_orders(fills: list[Fill]) -> list[Order]:
                             sum(f.qty * f.price for f in fs) / qty, sum(f.fee for f in fs),
                             min(f.t for f in fs), fs[0].quoted_price))
     orders.sort(key=lambda o: o.t)
-    _realise(orders)
+    _realise(orders, opening or {})
     return orders
 
 
-def _realise(orders: list[Order]) -> None:
+def _realise(orders: list[Order], opening: dict[str, tuple[float, float]]) -> None:
     """Average-cost accounting with fees in the cost basis; fills in Order.realised for sells."""
     held: dict[str, float] = defaultdict(float)
     basis: dict[str, float] = defaultdict(float)
+    for symbol, (qty, price) in opening.items():
+        held[symbol] = qty
+        basis[symbol] = qty * price
     for o in orders:
         if o.side == "buy":
             held[o.symbol] += o.qty
@@ -468,7 +475,7 @@ def _praise(data: SeasonData, orders: list[Order], holdings: list[Holding]) -> l
 # ---- review ------------------------------------------------------------------------------------
 
 def _holdings_now(data: SeasonData, orders: list[Order]) -> list[Holding]:
-    held = positions_at(orders, float("inf"))
+    held = data.holdings_qty if data.holdings_qty is not None else positions_at(orders, float("inf"))
     return [Holding(s, data.names.get(s, s), data.teams.get(s, "?"), q * data.prices.get(s, 0.0))
             for s, q in held.items()]
 
@@ -546,7 +553,7 @@ def _timeline(data: SeasonData, orders: list[Order]) -> list[TimelineItem]:
 
 
 def review(data: SeasonData) -> Review:
-    orders = group_orders(data.fills)
+    orders = group_orders(data.fills, data.opening)
     holdings = _holdings_now(data, orders)
     comp = compose(holdings, data.cash)
     raw = (_concentration(data, holdings) + _bought_into_storm(data, orders) + _panic_sell(data, orders)
