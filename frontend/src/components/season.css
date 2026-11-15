@@ -117,6 +117,10 @@
 .field-label {display:block;font-size:11px;color:var(--hs-color-text-secondary);margin:14px 0 8px;}
 .season-onboarding select,.season-onboarding input {border:1px solid var(--hs-color-border);border-radius:7px;color:var(--hs-color-text-primary);background:var(--hs-color-bg-page);font:inherit;padding:10px 12px;}
 .season-onboarding select {display:block;width:100%;}
+.season-onboarding .first-player-search {display:block;width:100%;box-sizing:border-box;margin-bottom:8px;}
+.first-player-search::placeholder {color:var(--hs-color-text-secondary);}
+.season-onboarding select[size]:not([size="1"]) option {padding:8px;border-radius:4px;}
+.player-search-status {display:block;margin-top:6px;font-size:10px;color:var(--hs-color-text-secondary);}
 .opening-quote {display:flex;justify-content:space-between;margin-top:20px;gap:16px;}
 .opening-quote>div {display:flex;flex-direction:column;gap:6px;}
 .opening-quote span {color:var(--hs-color-text-secondary);font-size:11px;}

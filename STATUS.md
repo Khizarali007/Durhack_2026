@@ -5,6 +5,7 @@ Working location: /Users/jonathanlyria/Documents/Projects/Durhack_2026
 Branch: change-tests, based on main e5ad6f7. Local work; do not push without instruction.
 
 ## Latest interface pass
+- Added first-screen player search by name, team abbreviation or ticker, with accent-insensitive matching, visible results and keyboard support. Browser verified Dyson selection updates the quote, empty results, and clearing preserves the current pick. Production build and lint passed.
 - Removed taglines and repeated explanations. Overview now focuses on portfolio value, holdings, payments and the next round.
 - Compact first trade, short weekly/final results, optional research/depth details, fixed visible trade action.
 - Refined dark/light colors, typography, line icons, hover feedback, round entry and payment notifications. Reduced-motion preferences respected.
