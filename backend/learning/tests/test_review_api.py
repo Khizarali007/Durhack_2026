@@ -47,7 +47,7 @@ def test_review_after_a_buy_has_a_summary_cards_and_a_timeline(client):
     headers = {"Authorization": "Bearer " + session["token"]}
     assert c.get("/learning/review").status_code == 401
     empty = c.get("/learning/review", headers=headers).json()
-    assert empty["insights"] == [] and "first trade" in empty["summary"]["biggest_lesson"]
+    assert empty["insights"] == [] and "first players" in empty["summary"]["biggest_lesson"]
 
     c.post("/trading/orders", headers=headers, json={"symbol": "WEMBY", "side": "buy", "qty": 5})
     engine.news.append({"type": "event", "t": engine.market_time() + 86400, "symbol": "WEMBY", "kind": "injury",
@@ -57,8 +57,8 @@ def test_review_after_a_buy_has_a_summary_cards_and_a_timeline(client):
     assert r["summary"]["trades"] == 1 and r["summary"]["grade"] == "F"
     assert r["insights"][0]["id"] == "concentration"
     texts = [i["text"] for i in r["timeline"]]  # newest first
-    assert texts[0].startswith("Storm on a player you held: Victor Wembanyama ruled out")
-    buy = next(t for t in texts if t.startswith("You bought 5 WEMBY at H$"))
+    assert texts[0].startswith("Out for a player you owned: Victor Wembanyama ruled out")
+    buy = next(t for t in texts if t.startswith("You bought 5 shares of Victor Wembanyama at H$"))
     assert "the same day Wembanyama was ruled out" in buy
 
 
@@ -81,3 +81,13 @@ def test_coach_without_a_key_uses_the_template_and_sends_no_identity(client, mon
     out = c.post("/learning/coach", headers=headers, json={}).json()
     assert out == {"bullets": ["One.", "Two.", "Three."], "source": "gemini"}
     assert "secretname" not in seen["facts"] and session["user_id"] not in seen["facts"]
+
+
+def test_facts_for_gemini_are_preformatted_in_the_ui_denomination():
+    review = {"summary": {"return_pct": -0.43, "payouts": 30.62, "fees": 61.6, "trades": 1, "grade": "F",
+                          "max_drawdown_pct": -0.2, "biggest_lesson": "x"},
+              "insights": [{"id": "concentration", "tone": "warning", "title": "t", "impact": -1234.5, "next_time": "n"}]}
+    facts = coach_module.facts_for(review)
+    assert facts["season_return"] == "-0.43%" and facts["biggest_drop"] == "-0.20%"
+    assert facts["payouts"] == "H$0.03062" and facts["fees"] == "H$0.0616" and facts["starting_cash"] == "H$100.00"
+    assert facts["insights"][0]["impact"] == "-H$1.2345"

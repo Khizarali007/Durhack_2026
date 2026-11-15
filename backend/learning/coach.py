@@ -19,15 +19,19 @@ import logging
 import os
 from typing import Any
 
+from .currency import hoop, pnl
+
 log = logging.getLogger("learning.coach")
 
-COACH_TIMEOUT_S = float(os.environ.get("COACH_TIMEOUT_S", "8"))
-DEFAULT_MODEL = "gemini-2.5-flash"
+# Gemini rejects request deadlines under 10 s (400 INVALID_ARGUMENT), so never go below that.
+COACH_TIMEOUT_S = max(10.0, float(os.environ.get("COACH_TIMEOUT_S", "12")))
+DEFAULT_MODEL = "gemini-3.5-flash-lite"  # fast (~1-2 s) and cheapest; 2.5-flash is closed to new keys, 3.8-flash took >10 s
 SYSTEM = (
     "You are Coach Hoops, a cheerful basketball-themed trading coach inside HoopStreet, a game that "
     "teaches investing with virtual money (H$) on a replay of the 2024-25 NBA season. Write exactly 3 short "
     "bullets (max 25 words each) for a beginner, plain English, a little playful, weather-flavoured is fine. "
-    "Use only the facts given. Never give real financial advice, never mention real money or real brokers, "
+    "Use only the facts given and copy money amounts exactly as written (H$, small numbers: a player starts with H$100). "
+    "Never give real financial advice, never mention real money or real brokers, "
     "and never add medical details about players."
 )
 
@@ -37,11 +41,14 @@ _cache: dict[str, dict] = {}
 def facts_for(review: dict, comparison: dict | None = None) -> dict:
     """The only data that leaves the server: rules, numbers and lessons. No identities."""
     s = review["summary"]
+    # Money goes out already formatted in the UI's denomination (H$100 start), never as raw ledger units.
     facts: dict[str, Any] = {
-        "return_pct": s["return_pct"], "payouts": s["payouts"], "fees": s["fees"], "trades": s["trades"],
-        "composition_grade": s["grade"], "max_drawdown_pct": s["max_drawdown_pct"],
+        # Percentages as text too, so -0.2 can't be read as -20%.
+        "starting_cash": hoop(100_000), "season_return": f"{s['return_pct']:+.2f}%", "payouts": hoop(s["payouts"]),
+        "fees": hoop(s["fees"]), "trades": s["trades"],
+        "diversification_grade": s["grade"], "biggest_drop": f"{s['max_drawdown_pct']:.2f}%",
         "biggest_lesson": s["biggest_lesson"],
-        "insights": [{"rule": i["id"], "tone": i["tone"], "title": i["title"], "impact_hoop": i["impact"],
+        "insights": [{"rule": i["id"], "tone": i["tone"], "title": i["title"], "impact": pnl(i["impact"]),
                       "next_time": i["next_time"]} for i in review["insights"][:6]],
     }
     if comparison:
@@ -59,14 +66,14 @@ def template_bullets(review: dict, comparison: dict | None = None) -> list[str]:
         if ins["tone"] == "warning":
             bullets.append(f"{ins['title']}. Next time: {ins['next_time']}")
         else:
-            bullets.append(f"Nice one: {ins['title'].lower()}. {ins['next_time']}")
+            bullets.append(f"Nice one: {ins['title']}. {ins['next_time']}")
     s = review["summary"]
     if len(bullets) < 3:
-        bullets.append(f"You're at {s['return_pct']:+.2f}% with H${s['payouts']:,.2f} in payouts; fees so far H${s['fees']:,.2f}.")
+        bullets.append(f"You're at {s['return_pct']:+.2f}% for the season, with {hoop(s['payouts'])} in game payments and {hoop(s['fees'])} in fees.")
     if len(bullets) < 3:
-        bullets.append("Keep an eye on the Storm Radar: a cloud is your early warning before the price moves.")
+        bullets.append("Check injury news before you buy: a listing on the official report often comes before the price drops.")
     if len(bullets) < 3:
-        bullets.append("Spread your money across players and teams so one bad night can't sink the whole basket.")
+        bullets.append("Spread your money across players and teams so one bad night can't sink everything.")
     return bullets[:3]
 
 
@@ -98,7 +105,7 @@ async def _gemini(facts: dict) -> list[str] | None:
     try:
         text = await asyncio.wait_for(asyncio.to_thread(call), timeout=COACH_TIMEOUT_S)
     except Exception as exc:  # timeout, network, quota, bad key...
-        log.warning("Coach Hoops fell back to the template: %s", type(exc).__name__)
+        log.warning("Coach Hoops fell back to the template: %s %s", type(exc).__name__, str(exc)[:160])
         return None
     bullets = _parse(text)
     return bullets if len(bullets) == 3 else None
@@ -112,7 +119,8 @@ async def coach(subject: str, day: int, review: dict, comparison: dict | None = 
     if key in _cache:
         return _cache[key]
     bullets = await _gemini(facts)
-    result = ({"bullets": bullets, "source": "gemini"} if bullets
-              else {"bullets": template_bullets(review, comparison), "source": "template"})
-    _cache[key] = result
-    return result
+    if bullets:
+        result = {"bullets": bullets, "source": "gemini"}
+        _cache[key] = result  # only real answers are cached; a failed call can be retried
+        return result
+    return {"bullets": template_bullets(review, comparison), "source": "template"}
