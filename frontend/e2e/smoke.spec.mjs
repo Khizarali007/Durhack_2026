@@ -77,3 +77,20 @@ test('sign up, log out, log back in; wrong password is explained', async ({ page
   await page.getByRole('button', { name: 'Log in', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Top movers' })).toBeVisible()
 })
+
+test('Friends lists five simulated rivals, opens Insights, and rivals fill the leaderboard', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByRole('button', { name: 'Play as guest' }).click()
+  await expect(page.getByRole('heading', { name: 'Top movers' })).toBeVisible()
+  await page.getByRole('link', { name: /Friends/ }).click()
+  await expect(page.getByRole('heading', { name: 'Friends', level: 1 })).toBeVisible()
+  await expect(page.getByText('Simulated trader', { exact: true })).toHaveCount(5, { timeout: 15_000 })
+  await page.getByRole('button', { name: 'Insights: you vs Maya' }).click()
+  await expect(page.getByRole('heading', { name: 'What Maya did differently' })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(/^Maya holds \d+ players/)).toBeVisible()
+
+  await page.getByRole('link', { name: /Maya/ }).first().click()
+  await expect(page.getByRole('heading', { name: /Maya/, level: 1 })).toBeVisible()
+  await page.goto('/leaderboard')
+  await expect(page.getByText('Simulated', { exact: true }).first()).toBeVisible({ timeout: 15_000 })
+})
