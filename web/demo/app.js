@@ -268,10 +268,10 @@ function draw() {
   const p = players.find((p) => p.symbol === selected),
     q = quotes[selected];
   if (!p || !q) return;
-  const change = 100 * (q.last / p.start_price - 1);
+  const change = 100 * ((q.quoted_price ?? q.last) / p.start_price - 1);
   $("player").textContent = p.name;
   $("symbol").textContent = p.symbol;
-  $("price").textContent = money(q.last);
+  $("price").textContent = money(q.quoted_price ?? q.last);
   $("change").textContent =
     `${change >= 0 ? "+" : ""}${change.toFixed(2)}% since opening`;
   $("change").className = "change " + (change >= 0 ? "up" : "down");
@@ -284,7 +284,7 @@ function draw() {
       symbol: s,
       points: (history[s] || []).map((r) => [
         r.t,
-        percent ? 100 * (r.last / base - 1) : r.last,
+        percent ? 100 * ((r.mid ?? r.last) / base - 1) : (r.mid ?? r.last),
       ]),
       base,
     };
@@ -341,7 +341,7 @@ function draw() {
     symbols
       .map(
         (s, i) =>
-          `<button data-symbol="${esc(s)}" ${i ? "" : "disabled"}><span class="swatch" style="background:${colors[i]}"></span>${esc(players.find((p) => p.symbol === s)?.name || s)} · ${money(quotes[s]?.last)}${i ? " ×" : ""}</button>`,
+          `<button data-symbol="${esc(s)}" ${i ? "" : "disabled"}><span class="swatch" style="background:${colors[i]}"></span>${esc(players.find((p) => p.symbol === s)?.name || s)} · ${money(quotes[s]?.quoted_price ?? quotes[s]?.last)}${i ? " ×" : ""}</button>`,
       )
       .join("") + "<span>┄ Formula value (main player)</span>";
   $("legend")
@@ -364,7 +364,7 @@ function ingest(r) {
   lastDraw = Date.now();
   for (const [s, q] of Object.entries(quotes)) {
     const rows = (history[s] ??= []);
-    rows.push({ t: r.t, last: q.last, fair: q.fair_value });
+    rows.push({ t: r.t, mid: q.quoted_price, last: q.last, fair: q.fair_value });
     if (rows.length > 2000) {
       const compact = rows.filter((_, i) => i % 2 === 0);
       history[s] = compact;

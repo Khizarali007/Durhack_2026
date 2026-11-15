@@ -42,6 +42,7 @@ from .db import STARTING_CASH_CENTS, Database
 from .dividends import pending_by_user
 from .market_contract import MarketEngine, MarketTick
 from .money import market_mark, to_cents, to_hoop
+from .scoring import position_exit
 
 log = logging.getLogger("trading.leaderboard")
 
@@ -61,6 +62,7 @@ class Standing:
     receipts_confirmed: int    # of those, how many have a confirmed Solana receipt
     wallet_address: str | None
     in_mission: bool           # ranked on the real account saved before the mission
+    score_cents: int | None = None
     chain_verified: bool = False         # read from the player's portfolio account on Solana (P2-18)
     portfolio_address: str | None = None
     chain_updated_t: float | None = None  # market time of the on-chain state
@@ -101,9 +103,20 @@ def standings(db: Database, market: MarketEngine) -> list[Standing]:
             prices[symbol] = to_cents(market_mark(market,symbol))
         return prices[symbol]
 
+    exit_values: dict[str, int] = defaultdict(int)
+    use_exit = getattr(market, "liquidation_scoring", False)
+    exit_cache = {}
+    def exit_value(symbol, qty):
+        key = (symbol, qty)
+        if key not in exit_cache:
+            exit_cache[key] = position_exit(market, symbol, qty)[0]
+        return exit_cache[key]
+
     live_value: dict[str, int] = defaultdict(int)
     for user_id, symbol, qty in positions:
         live_value[user_id] += qty * price(symbol)
+        if use_exit:
+            exit_values[user_id] += exit_value(symbol, qty)
     counts = {user_id: (orders, confirmed) for user_id, orders, confirmed in activity}
 
     pending = pending_by_user(db)
@@ -117,13 +130,17 @@ def standings(db: Database, market: MarketEngine) -> list[Standing]:
         else:
             equity = u["cash_cents"] + live_value.get(u["user_id"], 0) + pending.get(u["user_id"],0)
             baseline = u["baseline_cents"] if u["baseline_cents"] is not None else STARTING_CASH_CENTS
+        score = equity
+        if use_exit:
+            score = (u["snap_cash"] + sum(exit_value(symbol, qty) for symbol, qty, _ in saved) if in_mission
+                     else u["cash_cents"] + exit_values.get(u["user_id"], 0) + pending.get(u["user_id"], 0))
         orders, confirmed = counts.get(u["user_id"], (0, 0))
-        rows.append((equity, u["created_at"], u, baseline, orders, confirmed, in_mission))
-    rows.sort(key=lambda r: (-r[0], r[1]))
+        rows.append((equity, u["created_at"], u, baseline, orders, confirmed, in_mission, score))
+    rows.sort(key=lambda r: (-r[-1], r[1]))
     return [
         Standing(rank, u["user_id"], display_name(u["username"], u["user_id"]), bool(u["is_guest"]), equity,
-                 baseline, orders, confirmed, u["address"], in_mission)
-        for rank, (equity, _, u, baseline, orders, confirmed, in_mission) in enumerate(rows, start=1)
+                 baseline, orders, confirmed, u["address"], in_mission, score_cents=score)
+        for rank, (equity, _, u, baseline, orders, confirmed, in_mission, score) in enumerate(rows, start=1)
     ]
 
 
@@ -170,6 +187,8 @@ def chain_standings(db: Database, market: MarketEngine, accounts: list[OnChainPo
 def standing_dict(s: Standing) -> dict:
     """The JSON shape shared by the REST endpoint and the live message."""
     return {"rank": s.rank, "user_id": s.user_id, "name": s.name, "is_guest": s.is_guest,
+            "score": to_hoop(s.score_cents if s.score_cents is not None else s.equity_cents),
+            "score_return_pct": round(100*((s.score_cents if s.score_cents is not None else s.equity_cents)/s.baseline_cents-1),2) if s.baseline_cents else 0,
             "equity": to_hoop(s.equity_cents), "total_pnl": to_hoop(s.total_pnl_cents), "return_pct": s.return_pct,
             "orders": s.orders, "receipts_confirmed": s.receipts_confirmed, "wallet_address": s.wallet_address,
             "in_mission": s.in_mission, "chain_verified": s.chain_verified,
@@ -191,7 +210,7 @@ class LeaderboardBroadcaster:
         self.db = db
         self.market = market
         self.publish = publish
-        self.interval_s = interval_s
+        self.interval_s = 86400 if getattr(market, "liquidation_scoring", False) else interval_s
         self._last_bucket: int | None = None
         self._last_sent: list | None = None
         self._queue = None
@@ -225,7 +244,7 @@ class LeaderboardBroadcaster:
             return None
         self._last_bucket = bucket
         message = leaderboard_message(standings(self.db, self.market), t)
-        fingerprint = [(e["user_id"], e["equity"]) for e in message["entries"]]
+        fingerprint = [(e["user_id"], e["equity"], e.get("score")) for e in message["entries"]]
         if fingerprint == self._last_sent:
             return None
         self._last_sent = fingerprint

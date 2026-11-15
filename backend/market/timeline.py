@@ -86,4 +86,14 @@ async def history(symbols: str):
     selected = symbols.split(',')
     if len(selected) > 4 or any(s not in m.ids for s in selected):
         raise HTTPException(422, 'Choose up to four known players')
-    return {'session_id': m.session_id, 'history': {s: m.timeline_history[s] for s in selected}}
+    histories = {}
+    for symbol in selected:
+        points = list(m.timeline_history[symbol])
+        current = m.history_point(symbol, m.market_time())
+        # Trades can change quotes while paused at an existing observation time.
+        if points and points[-1]['t'] == current['t']:
+            points[-1] = current
+        else:
+            points.append(current)
+        histories[symbol] = points
+    return {'session_id': m.session_id, 'history': histories}

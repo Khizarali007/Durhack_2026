@@ -16,3 +16,6 @@ data/source/
 .env.*
 *keypair*.json
 .solana/
+
+# Local benchmark reports (generated, reproducible)
+data/benchmark_*.json

@@ -1,0 +1,30 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--hs-radius-md);
+  font-weight: var(--hs-font-weight-semibold);
+  line-height: 1;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  user-select: none;
+  font-family: var(--hs-font-family);
+}
+
+.sm {
+  width: var(--hs-layout-badge-sm);
+  height: var(--hs-layout-badge-sm);
+  font-size: var(--hs-font-size-xs);
+}
+
+.md {
+  width: var(--hs-layout-badge-md);
+  height: var(--hs-layout-badge-md);
+  font-size: var(--hs-font-size-sm);
+}
+
+.lg {
+  width: var(--hs-layout-badge-lg);
+  height: var(--hs-layout-badge-lg);
+  font-size: var(--hs-font-size-md);
+}

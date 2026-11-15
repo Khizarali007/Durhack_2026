@@ -292,6 +292,8 @@ class EquityHistoryOut(BaseModel):
 
 
 class LeaderboardEntryOut(BaseModel):
+    score: float | None = None
+    score_return_pct: float | None = None
     rank: int
     user_id: str
     name: str = Field(description='Username, or "Guest 4085" for guests')
@@ -688,6 +690,14 @@ async def portfolio(user: User = Depends(current_user), db: Database = Depends(g
         ],
         margin=_margin_out(margin_view(db, market, user.user_id)),
     )
+
+
+@router.get('/season-score')
+async def season_result(user: User = Depends(current_user), db: Database = Depends(get_db)):
+    from .scoring import season_score
+    if not getattr(get_market(), 'liquidation_scoring', False):
+        raise HTTPException(409, 'Historical season challenge required')
+    return season_score(db, get_market(), user.user_id)
 
 
 @router.get("/margin")

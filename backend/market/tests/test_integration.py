@@ -371,3 +371,88 @@ def test_timeline_forward_settles_and_rewind_resets_accounts(engine, monkeypatch
             assert client.get('/market/timeline').json()['t'] == t
     finally:
         use_market(None)
+
+
+def test_season_score_matches_sale_including_fees_without_mutation(engine, account):
+    from trading.scoring import season_score
+    db, uid = account
+    place_market_order(db, engine, uid, 'WEMBY', 'buy', 650)
+    before = state(engine)
+    result = season_score(db, engine, uid)
+    assert result['score'] < 100000  # buying cannot manufacture a competition gain
+    assert state(engine) == before
+    sold = place_market_order(db, engine, uid, 'WEMBY', 'sell', 650)
+    assert result['score'] == sold.cash_cents_after / 100
+
+
+def test_season_score_at_finish_and_missing_liquidity(engine, account):
+    from trading.scoring import season_score
+    db, uid = account
+    place_market_order(db, engine, uid, 'WEMBY', 'buy', 10)
+    engine.finished = True
+    result = season_score(db, engine, uid)
+    assert result['net_sale_proceeds'] > 0 and result['finished']
+    for maker in engine.markets[1].makers:
+        maker.cash = 0
+    empty = season_score(db, engine, uid)
+    assert empty['net_sale_proceeds'] == 0
+    assert empty['unsold_shares'] == {'WEMBY': 10}
+
+
+def test_quote_history_distinguishes_trade_and_current_quote(engine):
+    q = engine.quote('WEMBY')
+    assert q.last_trade_t is None
+    assert q.quoted_price == round((q.bid + q.ask) / 2, 2)
+    engine.submit_order(account_id='a', symbol='WEMBY', side='buy', qty=1)
+    assert engine.quote('WEMBY').last_trade_t == engine.market_time()
+    engine._close_day()
+    point = engine.timeline_history['WEMBY'][-1]
+    assert point['mid'] == engine.quote('WEMBY').quoted_price
+    assert point['last_trade_t'] < point['t']
+
+
+@pytest.mark.parametrize('count', [300, 10000])
+def test_larger_speculative_population_conserves_funding_and_inventory(engine,count):
+    from market.core import make_markets
+    players={1:{'name':'A','team':'BOS','expected_score':10,'starting_price':60}}
+    markets=make_markets(players,2026,bot_count=count)
+    m=markets[1]
+    assert len(m.bots)==count
+    assert sum(b.cash for b in m.bots)==300_000_000
+    assert sum(b.holdings.get(1,0) for b in m.bots)==600
+    assert sum(mm.shares for mm in m.makers)==3900
+    if count==10000:
+        assert sum(bool(b.holdings) for b in m.bots)==600
+    for _ in range(10):m.bot_round()
+    m.check_ledger()
+    expanded=make_markets(players,2026,bot_count=count,bot_funding='per_bot')[1]
+    assert sum(b.cash for b in expanded.bots)==count*10_000_000
+
+
+def test_adding_to_existing_position_cannot_raise_exit_score(engine,account):
+    from trading.scoring import season_score
+    db,uid=account
+    place_market_order(db,engine,uid,'WEMBY','buy',100)
+    before=season_score(db,engine,uid)['score']
+    place_market_order(db,engine,uid,'WEMBY','buy',500)
+    assert season_score(db,engine,uid)['score'] < before
+
+
+def test_opening_returns_compare_like_for_like_quotes(engine):
+    for player in engine.players():
+        assert player.start_price == engine.quote(player.symbol).quoted_price
+
+
+def test_paused_history_reflects_trade_without_duplicate_timestamp(engine):
+    from market.timeline import history
+    use_market(engine)
+    try:
+        old_point = dict(engine.timeline_history['WEMBY'][-1])
+        engine.submit_order(account_id='a', symbol='WEMBY', side='buy', qty=100)
+        points = asyncio.run(history('WEMBY'))['history']['WEMBY']
+        assert len(points) == 1
+        assert points[-1]['mid'] == engine.quote('WEMBY').quoted_price
+        assert points[-1]['mid'] != old_point['mid']
+        assert engine.timeline_history['WEMBY'][-1] == old_point
+    finally:
+        use_market(None)

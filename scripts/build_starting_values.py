@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import sqlite3
+import statistics
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
@@ -75,11 +76,30 @@ def load_birthdates(source_dir: Path, player_ids: set[int]) -> dict[int, str]:
     return birthdates
 
 
+def newcomer_prior(scores):
+    """Equal-player prior from first-observed 2021–22 through 2023–24 NBA seasons.
+
+    Two older seasons act as a wash-in window. This is a newcomer proxy, not
+    verified draft status, and uses no 2024–25 results or later roster roles.
+    Equal-player averaging prevents high-minute rookies dominating the prior.
+    """
+    means = []
+    for seasons in scores.values():
+        observed = [season for season, games in seasons.items() if games]
+        if observed and 2022 <= min(observed) <= 2024:
+            means.append(statistics.mean(seasons[min(observed)]))
+    if not means:
+        raise ValueError("No historical newcomer cohort available")
+    return statistics.mean(means), len(means)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-dir", type=Path, default=Path("data/source"))
     parser.add_argument("--database", type=Path, default=Path("data/player_games_2024_25.sqlite"))
     parser.add_argument("--output", type=Path, default=Path("data/starting_values_2024_25.csv"))
+    parser.add_argument("--newcomer-prior", choices=("league", "conservative"), default="league",
+                        help="Opening prior for players with no NBA history; conservative uses historical newcomers")
     args = parser.parse_args()
     args.source_dir.mkdir(parents=True, exist_ok=True)
 
@@ -112,9 +132,9 @@ def main() -> None:
                     value = max(0., value)
                     all_scores.append(value)
                     player_id = int(row["athlete_id"])
-                    if player_id in players:
-                        scores[player_id][season].append(value)
+                    scores[player_id][season].append(value)
     league_mean = sum(all_scores) / len(all_scores)
+    rookie_mean, rookie_count = newcomer_prior(scores)
     birthdates = load_birthdates(args.source_dir, set(players))
 
     values = []
@@ -137,7 +157,7 @@ def main() -> None:
                 for season in available
             ) / weight_total
         else:
-            expected_score = league_mean
+            expected_score = rookie_mean if args.newcomer_prior == "conservative" else league_mean
         birthdate = birthdates.get(player_id)
         age = player_age(birthdate) if birthdate else None
         # A small, capped age adjustment avoids making age dominate observed quality.
@@ -167,6 +187,7 @@ def main() -> None:
         writer = csv.DictWriter(file, fieldnames=fields)
         writer.writeheader()
         writer.writerows(values)
+    print(f"No-history policy: {args.newcomer_prior}; newcomer prior {rookie_mean:.3f} from {rookie_count} prior players")
     print(f"Saved {len(values)} starting values to {args.output}; league prior-season Game Score {league_mean:.2f}; ages known for {sum(bool(v['age']) for v in values)}")
 
 

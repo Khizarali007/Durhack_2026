@@ -1,0 +1,48 @@
+.root {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-radius: var(--hs-radius-md);
+  overflow: hidden;
+  border: 1px solid var(--hs-color-border);
+}
+
+.option {
+  height: var(--hs-layout-btn-height-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  font-family: var(--hs-font-family);
+  font-weight: var(--hs-font-weight-medium);
+  font-size: var(--hs-font-size-md);
+  color: var(--hs-color-text-secondary);
+  transition: var(--hs-transition-default);
+  outline: none;
+}
+
+.option:hover:not(.active) {
+  background: var(--hs-color-bg-hover);
+  color: var(--hs-color-text-primary);
+}
+
+.option:focus-visible {
+  outline: 2px solid var(--hs-color-accent);
+  outline-offset: -2px;
+}
+
+.active.colorBuy {
+  background: var(--hs-color-up);
+  color: var(--hs-color-text-inverse);
+}
+
+.active.colorSell {
+  background: var(--hs-color-down);
+  color: var(--hs-color-text-inverse);
+}
+
+.active.colorDefault {
+  background: var(--hs-color-accent);
+  color: var(--hs-color-text-inverse);
+}

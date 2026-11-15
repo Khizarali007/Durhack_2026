@@ -51,6 +51,10 @@ class Quote:
     last: float                # last executed trade: this IS "the price"
     fair_value: float          # projected Game Score x injury factor, in HOOP
     makers: tuple[MakerQuote, ...]
+    quoted_price: float | None = None
+    last_trade_t: float | None = None
+    injury_status: str = ""
+    injury_reason: str = ""
 
 
 @dataclass(frozen=True)

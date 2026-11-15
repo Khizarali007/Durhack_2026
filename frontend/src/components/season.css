@@ -1,0 +1,11 @@
+.season-controls {padding:12px 20px; border-bottom:1px solid var(--hs-color-border); background:var(--hs-color-bg-panel); font-size:13px; display:flex;flex-direction:column;gap:8px;}
+.season-row {display:flex;align-items:center;flex-wrap:wrap;gap:12px;}
+.season-controls button,.season-controls select,.season-controls input[type=date],.season-onboarding select {padding:7px 10px;border:1px solid #52617b;border-radius:7px;background:transparent;color:inherit;}
+.season-controls button:disabled {opacity:.45;}
+.season-controls input[type=range] {width:100%;accent-color:#45d6a5;}
+.season-onboarding {max-width:750px;margin:60px auto;padding:36px;line-height:1.7;border:1px solid #52617b;border-radius:16px;}
+.season-onboarding h1 {font-size:34px;}
+.season-onboarding button {padding:12px 20px;background:#45d6a5;color:#101a2c;border:0;border-radius:8px;font-weight:700;}
+.season-onboarding select {display:block;width:100%;margin:16px 0;}
+.season-payouts {padding:16px 24px;max-height:280px;overflow:auto;border:1px solid #52617b;border-radius:10px;}
+.season-payouts table {width:100%;text-align:left;border-spacing:8px;}

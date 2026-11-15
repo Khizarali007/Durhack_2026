@@ -35,6 +35,8 @@ async def status(request: Request):
     m = get_market()
     return {'engine': type(m).__name__, 't': m.market_time(), 'players': len(m.players()),
             'currency': 'virtual USD',
+            'bot_count':len(next(iter(m.markets.values())).bots) if hasattr(m,'markets') else None,
+            'bot_funding':getattr(m,'replay_config',{}).get('bot_funding'),
             'receipts_enabled': getattr(request.app.state, 'receipts', None) is not None,
             'chain_portfolios_enabled': getattr(request.app.state, 'portfolios', None) is not None, 'real_seconds_per_historical_day': getattr(m, 'day_seconds', None),
             'finished': getattr(m, 'finished', False),
@@ -64,7 +66,7 @@ async def live_quotes(websocket: WebSocket):
     getter = None
     last_sent = 0.0
     try:
-        await websocket.send_json({'type': 'market_tick', 't': m.market_time(),
+        await websocket.send_json({'type': 'market_tick', 'session_id': getattr(m, 'session_id', None), 't': m.market_time(),
                                    'quotes': {s: asdict(m.quote(s)) for s in symbols}})
         while True:
             getter = asyncio.create_task(queue.get())
@@ -76,6 +78,9 @@ async def live_quotes(websocket: WebSocket):
                 receiver.result()
                 receiver = asyncio.create_task(websocket.receive_text())
             if getter not in done:
+                if getattr(m, 'paused', False):
+                    await websocket.send_json({'type':'market_tick','session_id':getattr(m,'session_id',None),
+                                               't':m.market_time(),'quotes':{s:asdict(m.quote(s)) for s in symbols}})
                 getter.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await getter
@@ -87,7 +92,7 @@ async def live_quotes(websocket: WebSocket):
                 if not m.finished and time.monotonic() - last_sent < 0.2:
                     continue
                 last_sent = time.monotonic()
-                await websocket.send_json({'type': 'market_tick', 't': event.t,
+                await websocket.send_json({'type': 'market_tick', 'session_id': getattr(m, 'session_id', None), 't': event.t,
                                            'quotes': {s: asdict(event.quotes[s]) for s in symbols}})
     except (WebSocketDisconnect, RuntimeError):
         pass
@@ -116,6 +121,9 @@ async def valuation(symbol: str):
             'next_game_expected_payout':m.expected_payout(), 'fair_value':m.fair_cents/100,
             'last_trade':m.last_cents/100, 'portfolio_mark':engine.mark_price(symbol),
             'cumulative_actual_payout_per_share':m.cumulative_payout,
-            'injury_status':m.injury_status, 'injury_level':m.injury_level,
+            'injury_status':m.injury_status or 'No report', 'injury_level':m.injury_level,
+            'injury_reason':m.injury_reason, 'games_observed':m.games_observed,
+            'prior_games':m.prior_games, 'last_game_score':m.last_game_score, 'last_game_day':m.last_game_day,
+            'confidence':'No NBA history: uncertain prior' if m.prior_games==0 else 'Limited NBA history' if m.prior_games<20 else 'Prior NBA history',
             'annual_exit_probability':annual_exit(m.age+max(0,m.valuation_time-OPENING_T)/YEAR_SECONDS),
             'future_payouts': [{'opportunity':k+1,'conditional_score':projected_score(m.ability_score,m.form_score,k)} for k in (0,4,9,19)]}

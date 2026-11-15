@@ -1,0 +1,89 @@
+/* Three columns, full height. Each column scrolls on its own; the page never does. */
+.page {
+  display: grid;
+  grid-template-columns: var(--hs-layout-col-left) minmax(0, 1fr) var(--hs-layout-col-right);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.centre {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Below the chart: your position and open orders in this stock */
+.below {
+  flex-shrink: 0;
+  height: 190px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--hs-color-border);
+  background: var(--hs-color-bg-panel);
+}
+
+.missing {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hs-space-2);
+  padding: var(--hs-space-8);
+  text-align: center;
+}
+
+.missing h1 {
+  margin: 0;
+  font-size: var(--hs-font-size-xl);
+  color: var(--hs-color-text-primary);
+}
+
+.missing p {
+  margin: 0;
+  color: var(--hs-color-text-secondary);
+}
+
+.link {
+  color: var(--hs-color-accent);
+  font-weight: var(--hs-font-weight-medium);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.skeletonCard {
+  height: 124px;
+  margin: var(--hs-space-3) var(--hs-space-4);
+}
+
+.skeletonChart {
+  flex: 1;
+  margin: 0 var(--hs-space-4) var(--hs-space-4);
+}
+
+.skeletonTicket {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+  padding: var(--hs-space-4);
+  background: var(--hs-color-bg-panel);
+  border-left: 1px solid var(--hs-color-border);
+}
+
+.skeletonLine {
+  height: 44px;
+}
+
+/* Narrower laptops: trim the side columns before the chart */
+@media (max-width: 1365px) {
+  .page {
+    grid-template-columns: 280px minmax(0, 1fr) 320px;
+  }
+}

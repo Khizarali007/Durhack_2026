@@ -37,6 +37,7 @@ class Trader:
     orders_today: int = 0
     orders_total: int = 0
     bot_id: str = ""
+    position_limit_cents: int = BOT_MAX_POSITION_CENTS
 
 
 @dataclass
@@ -67,6 +68,10 @@ class Market:
     volume_today: int = 0
     bot_trades_today: dict[str, int] = field(default_factory=dict)
 
+    prior_games: int = 0
+    last_game_score: float | None = None
+    last_game_day: str | None = None
+    last_trade_t: float | None = None
     trade_observer: object = None
     age: float = 27.
     schedule: tuple = ()
@@ -133,15 +138,15 @@ class Market:
             if not quantity:
                 return None
             bot.cash -= price * quantity
-            bot.holdings[self.player_id] += quantity
+            bot.holdings[self.player_id] = bot.holdings.get(self.player_id, 0) + quantity
             maker.cash += price * quantity
             maker.shares -= quantity
         else:
-            quantity = min(quantity, bot.holdings[self.player_id], maker.cash // price)
+            quantity = min(quantity, bot.holdings.get(self.player_id, 0), maker.cash // price)
             if not quantity:
                 return None
             bot.cash += price * quantity
-            bot.holdings[self.player_id] -= quantity
+            bot.holdings[self.player_id] = bot.holdings.get(self.player_id, 0) - quantity
             maker.cash -= price * quantity
             maker.shares += quantity
         self.last_cents = price
@@ -156,8 +161,8 @@ class Market:
         return price, quantity
 
     def bot_round(self, has_game: bool = False) -> None:
-        order = list(self.bots)
-        self.rng.shuffle(order)
+        # Bound work per round while drawing from the complete speculative population.
+        order = self.rng.sample(self.bots, min(120, len(self.bots)))
         for bot in order:
             if bot.orders_today >= BOT_MAX_ORDERS_PER_DAY:
                 continue
@@ -200,7 +205,7 @@ class Market:
             if side:
                 size = self.rng.randint(3, 12) if bot.style in ("news", "risk_averse") and signal else self.rng.randint(1, 8)
                 if side == "buy" and ask:
-                    capacity = max(0, BOT_MAX_POSITION_CENTS - bot.holdings[self.player_id] * ask[0])
+                    capacity = max(0, bot.position_limit_cents - bot.holdings.get(self.player_id, 0) * ask[0])
                     size = min(size, capacity // ask[0])
                 self.trade(bot, side, size)
 
@@ -233,8 +238,8 @@ class Market:
 
     def check_ledger(self) -> None:
         assert all(trader.cash >= 0 and trader.shares >= 0 for trader in self.makers)
-        assert all(bot.cash >= 0 and bot.holdings[self.player_id] >= 0 for bot in self.bots)
-        assert sum(trader.shares for trader in self.makers) + sum(bot.holdings[self.player_id] for bot in self.bots) == self.initial_shares
+        assert all(bot.cash >= 0 and bot.holdings.get(self.player_id, 0) >= 0 for bot in self.bots)
+        assert sum(trader.shares for trader in self.makers) + sum(bot.holdings.get(self.player_id, 0) for bot in self.bots) == self.initial_shares
 
 
 def load_data(path: Path, values_path: Path) -> tuple[dict[int, dict], dict[str, dict[int, list[float]]]]:
@@ -271,22 +276,29 @@ def load_data(path: Path, values_path: Path) -> tuple[dict[int, dict], dict[str,
     return players, results
 
 
-def make_markets(players: dict[int, dict], seed: int) -> dict[int, Market]:
+def make_markets(players: dict[int, dict], seed: int, bot_count: int = BOT_COUNT, bot_funding: str = "fixed") -> dict[int, Market]:
+    if not 1 <= bot_count <= 10_000 or bot_funding not in ("fixed", "per_bot"):
+        raise ValueError("Choose 1–10,000 bots and fixed/per_bot funding")
     markets = {}
     network_rng = random.Random(seed)
     styles = ("value", "momentum", "risk_averse", "news", "contrarian")
-    bots = [Trader(START_CASH_CENTS, style=styles[i % len(styles)],
+    total_cash = START_CASH_CENTS * (BOT_COUNT if bot_funding == "fixed" else bot_count)
+    cash_each, extra_cash = divmod(total_cash, bot_count)
+    bots = [Trader(cash_each + int(i < extra_cash), position_limit_cents=BOT_MAX_POSITION_CENTS, style=styles[i % len(styles)],
                    bias=network_rng.gauss(0, 0.025),
                    bot_id=f"{styles[i % len(styles)]}-{i // len(styles) + 1:02d}")
-            for i in range(BOT_COUNT)]
+            for i in range(bot_count)]
     for player_id, player in sorted(players.items()):
         # Keep the age-adjusted opening estimate as the first fair value.
         mean = max(0., player["expected_score"] * player.get("age_factor", 1))
         fair = max(MIN_PRICE_CENTS, round(player["starting_price"] * 100))
         rng = random.Random(seed + player_id)
         makers = [Trader(MAKER_CASH_CENTS, MAKER_STARTING_SHARES) for _ in range(3)]
-        for bot in bots:
-            bot.holdings[player_id] = INITIAL_BOT_SHARES
+        each, remainder = divmod(BOT_COUNT * INITIAL_BOT_SHARES, bot_count)
+        for bot in bots if each else ():
+            bot.holdings[player_id] = each
+        for bot in network_rng.sample(bots, remainder):
+            bot.holdings[player_id] = each + 1
         for index in range(BOT_COUNT * INITIAL_BOT_SHARES):
             makers[index % 3].shares -= 1
         markets[player_id] = Market(
@@ -296,6 +308,7 @@ def make_markets(players: dict[int, dict], seed: int) -> dict[int, Market]:
         market = markets[player_id]
         market.ability_score = mean
         market.age = player.get('age', 27.)
+        market.prior_games = player.get('prior_games',0)
         market.schedule = player.get('schedule', ())
         market.update_fair()
         market.last_cents = market.prior_close = market.fair_cents
@@ -370,7 +383,7 @@ def simulate(database: Path, values: Path, output: Path, seed: int, rounds: int,
                 for _ in range(rounds):
                     market.bot_round()
                 # Daily cutoff snapshot: later buyers do not acquire this entitlement.
-                snapshot = [(mm, mm.shares) for mm in market.makers] + [(bot,bot.holdings[market.player_id]) for bot in market.bots]
+                snapshot = [(mm, mm.shares) for mm in market.makers] + [(bot,bot.holdings.get(market.player_id, 0)) for bot in market.bots]
                 market.valuation_time = day_end(day)-43200
                 market.detach(day)
                 scores = day_results.get(market.player_id, [])

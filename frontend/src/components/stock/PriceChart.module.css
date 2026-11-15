@@ -1,0 +1,134 @@
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 400px;
+  min-width: 0;
+  background: var(--hs-color-bg-page);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hs-space-3);
+  padding: var(--hs-space-2) var(--hs-space-4);
+  border-bottom: 1px solid var(--hs-color-border-subtle);
+  flex-shrink: 0;
+  min-height: 40px;
+}
+
+.timeframes {
+  display: flex;
+  gap: var(--hs-space-1);
+}
+
+.tf {
+  min-width: 36px;
+  height: var(--hs-layout-btn-height-sm);
+  padding: 0 var(--hs-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--hs-radius-sm);
+  background: transparent;
+  color: var(--hs-color-text-secondary);
+  font-family: inherit;
+  font-size: var(--hs-font-size-sm);
+  font-weight: var(--hs-font-weight-medium);
+  cursor: pointer;
+  transition: var(--hs-transition-default);
+}
+
+.tf:hover {
+  color: var(--hs-color-text-primary);
+  background: var(--hs-color-bg-hover);
+}
+
+.tf:focus-visible {
+  outline: 2px solid var(--hs-color-accent);
+  outline-offset: 1px;
+}
+
+.tfActive,
+.tfActive:hover {
+  color: var(--hs-color-accent);
+  background: var(--hs-color-accent-muted);
+  border-color: var(--hs-color-accent);
+}
+
+/* Fixed-width digits and no wrapping, so the toolbar never reflows as prices tick */
+.legend {
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+  flex-shrink: 0;
+}
+
+.status {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-disabled);
+  white-space: nowrap;
+}
+
+.chartWrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.chart {
+  position: absolute;
+  inset: 0;
+}
+
+.tip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 14px));
+  max-width: 260px;
+  padding: var(--hs-space-2) var(--hs-space-3);
+  background: var(--hs-color-bg-panel-raised);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-md);
+  box-shadow: var(--hs-shadow-pop);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.tipKind {
+  font-size: var(--hs-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  color: var(--hs-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.tipText {
+  font-size: var(--hs-font-size-sm);
+  color: var(--hs-color-text-primary);
+  line-height: var(--hs-line-height-tight);
+}
+
+.tipHint {
+  margin-top: var(--hs-space-1);
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-disabled);
+}
+
+.credit {
+  position: absolute;
+  left: var(--hs-space-3);
+  bottom: 30px;
+  font-size: 10px;
+  color: var(--hs-color-text-disabled);
+  text-decoration: none;
+  z-index: 3;
+}
+
+.credit:hover {
+  color: var(--hs-color-text-secondary);
+}

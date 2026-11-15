@@ -1,0 +1,63 @@
+.strip {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 1.2fr;
+  gap: var(--hs-space-3);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--hs-space-3) var(--hs-space-4);
+  background: var(--hs-color-bg-panel);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-lg);
+  min-width: 0;
+}
+
+.stat dt {
+  font-size: var(--hs-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  color: var(--hs-color-text-secondary);
+  font-weight: var(--hs-font-weight-medium);
+}
+
+.stat dd {
+  margin: 0;
+  font-size: var(--hs-font-size-xl);
+  font-weight: var(--hs-font-weight-semibold);
+  color: var(--hs-color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stat dd.big {
+  font-size: var(--hs-font-size-2xl);
+}
+
+/* Trend classes must win over the default number colour */
+.stat dd:global(.trend-up)   { color: var(--hs-color-up-text); }
+.stat dd:global(.trend-down) { color: var(--hs-color-down-text); }
+
+.unit {
+  font-size: var(--hs-font-size-xs);
+  font-weight: var(--hs-font-weight-medium);
+  color: var(--hs-color-text-secondary);
+  letter-spacing: var(--hs-letter-spacing-label);
+}
+
+.sub {
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skeleton {
+  height: 86px;
+  border-radius: var(--hs-radius-lg);
+}

@@ -1,0 +1,93 @@
+@import './styles/tokens.css';
+
+/* ---- Reset ---- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ---- Base ---- */
+body {
+  margin: 0;
+  font-family: var(--hs-font-family);
+  font-size: var(--hs-font-size-md);
+  line-height: var(--hs-line-height-normal);
+  color: var(--hs-color-text-secondary);
+  background: var(--hs-color-bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ---- Utility: tabular numerals ---- */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ---- Utility: label style ---- */
+.label {
+  font-size: var(--hs-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  color: var(--hs-color-text-secondary);
+  font-weight: var(--hs-font-weight-medium);
+}
+
+/* ---- Price flash animations ---- */
+@keyframes hs-flash-up {
+  0%   { background-color: var(--hs-color-up-muted); }
+  100% { background-color: transparent; }
+}
+
+@keyframes hs-flash-down {
+  0%   { background-color: var(--hs-color-down-muted); }
+  100% { background-color: transparent; }
+}
+
+.flash-up {
+  animation: hs-flash-up var(--hs-duration-flash) var(--hs-ease-default) forwards;
+}
+
+.flash-down {
+  animation: hs-flash-down var(--hs-duration-flash) var(--hs-ease-default) forwards;
+}
+
+/* ---- Loading skeleton pulse (opacity only: never moves layout) ---- */
+@keyframes hs-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+.skeleton {
+  background: var(--hs-color-bg-hover);
+  border-radius: var(--hs-radius-sm);
+  animation: hs-pulse 1.4s ease-in-out infinite;
+}
+
+/* ---- Trend colours: always paired with a sign or arrow in the markup ---- */
+.trend-up   { color: var(--hs-color-up-text); }
+.trend-down { color: var(--hs-color-down-text); }
+.trend-flat { color: var(--hs-color-text-secondary); }
+
+@media (prefers-reduced-motion: reduce) {
+  .flash-up,
+  .flash-down,
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* ---- Text for screen readers only ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -108,3 +108,28 @@ Next: compare multiple seeds and held-out seasons before claiming robust
 strategy performance. Agree an explicit payout/settlement contract before
 treating the reference formula as intrinsic financial value. The replay is
 daily; it cannot reproduce intraday information timing from daily final reports.
+
+
+## 15 November 2026 — season challenge integration (supersedes earlier scope)
+
+The current dividend contract is documented in docs/dividend-model.md; earlier
+statements above describing shares as having no payout contract are historical.
+Currency in the UI is now virtual dollars. Human order matching is implemented.
+
+Confirmed by the user: rank final portfolios using estimated liquidation value
+after fees and price impact. This avoids scoring a purchase-induced quote rise
+as cash profit. Pending rights are included once; paid dividends already sit in cash.
+Alternative marked-price ranking is retained only as a separate equity display.
+Reconsider if a real simultaneous end-of-season auction is introduced.
+
+Confirmed by the user: retain speculative bot personalities and increase their
+number, rather than introduce target-portfolio rebalancing. Count is configurable
+through 10,000; the test uses 300. Total cash funding remains a pending choice.
+Both fixed-pool and per-bot funding are supported so this choice is explicit.
+The original share supply is preserved in both cases. More traders alone cannot
+guarantee active two-sided trading indefinitely.
+
+Prepared, not approved: replace the league-level no-history prior with a cautious
+historical newcomer prior. Active opening values have not been regenerated.
+An alternative is excluding those players for the demo. Reconsider the simple
+prior when trustworthy preseason draft/role and playing-time estimates exist.

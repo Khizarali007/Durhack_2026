@@ -1,0 +1,97 @@
+{
+  "_notes": "Single source for tooltips, the glossary on /learn and the learning API. Terms used by the tutorials and missions.",
+  "terms": [
+    {
+      "term": "Player share",
+      "short": "A virtual entitlement to performance payouts. It is not ownership of the player, their salary or their team."
+    },
+    {
+      "term": "Virtual dollars",
+      "short": "The game currency. Every account starts with $100,000; it cannot be cashed out."
+    },
+    {
+      "term": "Bid",
+      "short": "The best price someone will pay right now. You sell at the bid."
+    },
+    {
+      "term": "Ask",
+      "short": "The best price someone will sell for right now. You buy at the ask."
+    },
+    {
+      "term": "Spread",
+      "short": "The gap between bid and ask. A small toll you pay every time you trade."
+    },
+    {
+      "term": "Analyst estimate",
+      "short": "A model estimate of discounted future performance payments. It can be wrong and is not an executable price."
+    },
+    {
+      "term": "Market order",
+      "short": "Buy or sell right now at the best available price. Fast, no haggling."
+    },
+    {
+      "term": "Fee",
+      "short": "A small cut (0.10%) taken on every trade. Lots of tiny trades add up."
+    },
+    {
+      "term": "Realised profit",
+      "short": "Profit you've locked in by selling. Money in the bank."
+    },
+    {
+      "term": "Unrealised profit",
+      "short": "Profit on shares you still hold. It can still vanish if the price drops."
+    },
+    {
+      "term": "Hot streak",
+      "short": "A run of big games. Prices often jump - and the hype often fades a bit afterwards."
+    },
+    {
+      "term": "Volatility",
+      "short": "How jumpy a price is. High volatility = stormy weather on the ticker."
+    },
+    {
+      "term": "Cash",
+      "short": "Virtual dollars available for purchases or reserved by open buy orders. Payouts increase this balance."
+    },
+    {
+      "term": "Quoted portfolio value",
+      "short": "Cash plus holdings at current quote midpoints plus pending payout estimates. The competition uses net liquidation value instead."
+    },
+    {
+      "term": "Market maker",
+      "short": "A dealer quoting buy and sell prices with finite cash and shares. A quote can disappear when inventory or cash runs out."
+    },
+    {
+      "term": "Slippage",
+      "short": "The extra you pay when a big order eats through the best price and fills at worse ones."
+    },
+    {
+      "term": "Limit order",
+      "short": "An order with your price on it. It waits until the market comes to you, and never pays more than your limit."
+    },
+    {
+      "term": "Stop-loss",
+      "short": "A safety net: it sells your shares automatically if the bid falls to the price you set."
+    },
+    {
+      "term": "Market premium",
+      "short": "How far the quoted price sits above the analyst estimate. The estimate can be wrong; the gap need not close."
+    },
+    {
+      "term": "Candlestick",
+      "short": "One bar on the chart: where the price opened, closed, and how high and low it went in that time."
+    },
+    {
+      "term": "Diversification",
+      "short": "Spreading money across players and teams reduces exposure to any one outcome; it does not guarantee a profit."
+    },
+    {
+      "term": "Season score",
+      "short": "Cash plus estimated proceeds from selling all holdings after fees and price impact, plus pending payment rights. Paid dividends are already in cash."
+    },
+    {
+      "term": "Performance payout",
+      "short": "$0.02 per positive Game Score point per share. Hold at the synthetic noon cutoff; actual game performance settles at day close. A missed game pays zero."
+    }
+  ]
+}

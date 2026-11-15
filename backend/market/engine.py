@@ -13,8 +13,10 @@ import math
 import uuid
 import logging
 import random
+from collections import defaultdict
 from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
+from dataclasses import replace
 from pathlib import Path
 
 from market.core import load_data, load_injuries, make_markets
@@ -39,19 +41,20 @@ class LiveMarket:
     supports_payouts = True
     settles_payouts_directly = True
     requires_fresh_session = True
+    liquidation_scoring = True
     execution_chunk_size = 1  # exact cash/limit check before every human share
 
     def __init__(self, *, database=None, values=None, injuries=None, seed=2026,
-                 day_seconds=60.0, tick_seconds=0.5):
+                 day_seconds=60.0, tick_seconds=0.5, bot_count=30, bot_funding="fixed"):
         if not math.isfinite(day_seconds) or day_seconds <= 0:
             raise ValueError("day_seconds must be finite and positive")
         if not math.isfinite(tick_seconds) or tick_seconds <= 0:
             raise ValueError("tick_seconds must be finite and positive")
-        self.replay_config = dict(database=database, values=values, injuries=injuries, seed=seed, day_seconds=day_seconds, tick_seconds=tick_seconds)
+        self.replay_config = dict(database=database, values=values, injuries=injuries, seed=seed, day_seconds=day_seconds, tick_seconds=tick_seconds, bot_count=bot_count, bot_funding=bot_funding)
         self.day_seconds, self.tick_seconds = day_seconds, tick_seconds
         data, self.results = load_data(database or ROOT / 'data/player_games_2024_25.sqlite',
                                       values or ROOT / 'data/starting_values_2024_25.csv')
-        self.markets = make_markets(data, seed)
+        self.markets = make_markets(data, seed, bot_count, bot_funding)
         self._players = [Player(pid, ALIASES.get(p['name'], f'NBA{pid}'), p['name'], p['team'], self.markets[pid].fair_cents / 100)
                          for pid, p in sorted(data.items())]
         self.ids = {p.symbol: p.player_id for p in self._players}
@@ -65,11 +68,12 @@ class LiveMarket:
         self._t = self.day.timestamp()
         self.finished = False
         self._quote_cache = {}
+        self._players = [replace(p, start_price=self.mark_price(p.symbol)) for p in self._players]
         self._tick_count = 0
         self.paused = False
         self.playback_rate = 1.0
         self.start_t = self._t
-        self.timeline_history = {p.symbol: [{"t": self._t, "last": self.markets[p.player_id].last_cents/100, "fair": self.markets[p.player_id].fair_cents/100}] for p in self._players}
+        self.timeline_history = {p.symbol: [self.history_point(p.symbol, self._t)] for p in self._players}
         self.rng = random.Random(seed + 9999991)
         self._orders = itertools.count(1)
         self._subscribers = []
@@ -89,6 +93,7 @@ class LiveMarket:
             m.trade_observer = self._record_bot
 
     def _record_bot(self, bot_id, pid, side, qty, cents):
+        self.markets[pid].last_trade_t = self._t
         self._bot_trades.append(BotTrade(bot_id, self.symbols[pid], side, qty, cents / 100, self._t))
 
     def _flush_bots(self):
@@ -111,12 +116,18 @@ class LiveMarket:
         day = self.day.date().isoformat()
         if day in self._snapshots or day in self._settled_days:
             return
+        # Sparse ownership indexing avoids checking every bot against every player.
+        bot_owners = defaultdict(dict)
+        for bot in next(iter(self.markets.values())).bots:
+            for pid, qty in bot.holdings.items():
+                if qty:
+                    bot_owners[pid][bot.bot_id] = qty
         records = {}
         for pid,m in self.markets.items():
             records[pid] = {'symbol':self.symbols[pid],
                 'humans':{uid:qty for (uid,p),qty in self.human_shares.items() if p==pid and qty},
                 'makers':[mm.shares for mm in m.makers],
-                'bots':{b.bot_id:b.holdings[pid] for b in m.bots},
+                'bots':bot_owners.get(pid, {}),
                 'expected':m.expected_payout() if day in m.schedule else 0.}
         cutoff_t = self.day.timestamp() + 43200
         if self.settlement:
@@ -185,7 +196,7 @@ class LiveMarket:
 
     def quote(self, symbol):
         m = self.markets[self.ids[symbol]]
-        key = (m.last_cents, m.fair_cents, m.injury_status,
+        key = (m.last_cents, m.last_trade_t, m.fair_cents, m.injury_status, m.injury_reason,
                tuple((maker.cash, maker.shares) for maker in m.makers))
         cached = self._quote_cache.get(symbol)
         if cached and cached[0] == key:
@@ -196,9 +207,15 @@ class LiveMarket:
         bids = [q.bid for q in makers if q.bid is not None]
         asks = [q.ask for q in makers if q.ask is not None]
         result = Quote(symbol, max(bids) if bids else None, min(asks) if asks else None,
-                     m.last_cents / 100, m.fair_cents / 100, makers)
+                     m.last_cents / 100, m.fair_cents / 100, makers,
+                     round((max(bids)+min(asks))/2,2) if bids and asks else None, m.last_trade_t, m.injury_status, m.injury_reason)
         self._quote_cache[symbol] = (key, result)
         return result
+
+    def history_point(self, symbol, t):
+        q = self.quote(symbol)
+        return {"t": t, "last": q.last, "fair": q.fair_value, "mid": q.quoted_price,
+                "bid": q.bid, "ask": q.ask, "last_trade_t": q.last_trade_t}
 
     def last_price(self, symbol):
         return self.quote(symbol).last
@@ -219,6 +236,7 @@ class LiveMarket:
             maker.shares -= direction * take
             maker.cash += direction * take * price
             m.last_cents = price
+            m.last_trade_t = self._t
             m.trades_today.append(price)
             m.volume_today += take
             fills.append(Fill(order_id, symbol, side, take, price / 100, f'MM{index+1}', self._t))
@@ -242,8 +260,7 @@ class LiveMarket:
     def preview_order(self, *, symbol, side, qty):
         if symbol not in self.ids or side not in ('buy', 'sell') or type(qty) is not int or qty <= 0:
             return OrderResult('preview', 'rejected', (), qty, 'invalid symbol, side or quantity')
-        if self.finished:
-            return OrderResult('preview', 'rejected', (), qty, 'replay has ended')
+        # Closing quotes remain available for non-mutating season scoring.
         # Only maker/execution state needs copying; never mutate RNG, bots or counters.
         m = copy.copy(self.markets[self.ids[symbol]])
         m.makers = copy.deepcopy(m.makers)
@@ -258,11 +275,11 @@ class LiveMarket:
             yield
             return
         saved = (copy.deepcopy(m.makers), m.last_cents, list(m.trades_today), m.volume_today,
-                 dict(self.human_shares), self.human_cash_flow)
+                 dict(self.human_shares), self.human_cash_flow, m.last_trade_t)
         try:
             yield
         except BaseException:
-            m.makers, m.last_cents, m.trades_today, m.volume_today, self.human_shares, self.human_cash_flow = saved
+            m.makers, m.last_cents, m.trades_today, m.volume_today, self.human_shares, self.human_cash_flow, m.last_trade_t = saved
             raise
 
     def subscribe(self):
@@ -295,12 +312,15 @@ class LiveMarket:
                 m.injury_signal = 0.0
             scores = self.results.get(day, {}).get(pid, [])
             m.reveal(scores)
+            if scores:
+                m.last_game_score = sum(scores)/len(scores)
+                m.last_game_day = day
             if scores and m.injury_factor < 1:
                 m.injury_factor = 1.0
                 m.availability_probability = CONFIG.healthy_availability
                 m.injury_status, m.injury_reason = 'Available', 'Played in official box score'
                 m.update_fair()
-            self.timeline_history[self.symbols[pid]].append({"t": day_end(day), "last": m.last_cents/100, "fair": m.fair_cents/100})
+            self.timeline_history[self.symbols[pid]].append(self.history_point(self.symbols[pid], day_end(day)))
             m.price_history.append(m.last_cents)
             m.prior_close = m.last_cents
             m.trades_today.clear()
@@ -354,7 +374,12 @@ class LiveMarket:
         human_totals = {}
         for (_, pid), qty in self.human_shares.items():
             human_totals[pid] = human_totals.get(pid, 0) + qty
+        bot_totals = defaultdict(int)
+        for bot in next(iter(self.markets.values())).bots:
+            assert bot.cash >= 0
+            for pid, qty in bot.holdings.items():
+                assert pid in self.markets and qty >= 0
+                bot_totals[pid] += qty
         for pid, m in self.markets.items():
             assert all(mm.cash >= 0 and mm.shares >= 0 for mm in m.makers)
-            assert all(b.cash >= 0 and b.holdings[pid] >= 0 for b in m.bots)
-            assert sum(mm.shares for mm in m.makers) + sum(b.holdings[pid] for b in m.bots) + human_totals.get(pid, 0) == m.initial_shares
+            assert sum(mm.shares for mm in m.makers) + bot_totals[pid] + human_totals.get(pid, 0) == m.initial_shares
