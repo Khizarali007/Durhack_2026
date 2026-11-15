@@ -4,7 +4,7 @@ import styles from '../OrderTicket.module.css'
 
 export interface BreakdownLine {
   label: string
-  /** virtual dollars amount, or null to show a dash. */
+  /** HOOP amount, or null to show a dash. */
   value: number | null
   help?: ReactNode
 }

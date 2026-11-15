@@ -28,7 +28,7 @@ export default function PortfolioPage() {
           <div className={styles.empty}>
             <span className={styles.emptyIcon} aria-hidden="true">⛅</span>
             <h3>Nothing here yet: clear skies, zero exposure</h3>
-            <p>You have {portfolio.cash.toLocaleString('en-US', { maximumFractionDigits: 0 })} virtual dollars to play with. Pick a player who is moving and buy your first 10 shares.</p>
+            <p>You have {portfolio.cash.toLocaleString('en-US', { maximumFractionDigits: 0 })} HOOP to play with. Pick a player who is moving and buy your first 10 shares.</p>
             <Link to="/" className={styles.cta}>See today's top movers</Link>
           </div>
         ) : (

@@ -46,7 +46,7 @@ export default function HomePage() {
         <p className={styles.note}>Change since the opening price, re-ranked every second</p>
         <p className={styles.lede}>
           HoopStreet is a practice stock market where every NBA player is a share. You start with
-          $100,000 in virtual cash. Buy future performance, earn game payouts, and grow your portfolio through the 2024–25 season. No real money.
+          H$100,000 in virtual cash. Buy future performance, earn game payouts, and grow your portfolio through the 2024–25 season. No real money.
         </p>
       </header>
 

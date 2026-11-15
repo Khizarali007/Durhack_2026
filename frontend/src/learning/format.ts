@@ -13,9 +13,9 @@ export function formatPrice(x: number | null | undefined): string {
   return price(x)
 }
 
-/** "+776.60 HOOP" / "-12.00 HOOP" */
+/** "+H$776.60" / "-H$12.00" */
 export function formatHoop(x: number): string {
-  return `${formatPnl(x)} virtual dollars`
+  return formatPnl(x)
 }
 
 /** "+16.2%" */

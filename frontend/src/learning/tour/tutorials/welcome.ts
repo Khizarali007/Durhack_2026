@@ -5,7 +5,7 @@ export const welcome: Tutorial = {
  teaches:['Virtual dollars','Cash','Quoted portfolio value','Season score','Player share'],
  recap:['Located cash and quoted equity','Distinguished the exit score from quoted equity','Explored replay controls and the player screen'],
  steps:[
-  {route:'/',title:'Welcome to HoopStreet',body:'Start with $100,000 virtual cash. Invest in NBA performance through the 2024–25 regular season. Player shares pay game dividends; they are not ownership of the player.',complete:{type:'next'}},
+  {route:'/',title:'Welcome to HoopStreet',body:'Start with H$100,000 virtual cash. Invest in NBA performance through the 2024–25 regular season. Player shares pay game dividends; they are not ownership of the player.',complete:{type:'next'}},
   {route:'/',target:'header-cash',title:'Your cash',body:'Buying spends cash. Sales and performance payments add cash. Open buy orders reserve part of the balance, so check Spendable before buying.',complete:{type:'next'}},
   {route:'/',target:'header-equity',title:'Quoted equity',body:'Equity includes holdings at the bid/ask midpoint and pending payout estimates. You cannot necessarily sell for this amount.',complete:{type:'next'}},
   {route:'/',target:'season-controls',title:'Your season score',body:'The competition uses cash plus estimated sale proceeds after fees and price impact, plus pending payment rights. Paid dividends are already in cash. Unsellable shares contribute zero to this estimate.',complete:{type:'next'}},

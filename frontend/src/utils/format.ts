@@ -2,8 +2,10 @@
 
 const DASH = '—'
 
+/** HOOP, the game's virtual currency, shown as H$1,234.56 (never real money). */
 export function formatHOOP(value: number, decimals = 2): string {
-  return value.toLocaleString('en-US', { style:'currency', currency:'USD', minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+  const n = Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+  return `${value < 0 ? '-' : ''}H$${n}`
 }
 
 /** A price to 2 dp, or a dash when there is no price (a maker with nothing to quote). Never 0. */

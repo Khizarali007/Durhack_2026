@@ -34,7 +34,7 @@ async def quote(symbol: str):
 async def status(request: Request):
     m = get_market()
     return {'engine': type(m).__name__, 't': m.market_time(), 'players': len(m.players()),
-            'currency': 'virtual USD',
+            'currency': 'HOOP (virtual)',
             'bot_count':len(next(iter(m.markets.values())).bots) if hasattr(m,'markets') else None,
             'bot_funding':getattr(m,'replay_config',{}).get('bot_funding'),
             'receipts_enabled': getattr(request.app.state, 'receipts', None) is not None,
