@@ -6,6 +6,7 @@ import { formatPct, formatPrice, trendArrow } from '../../utils/format'
 import { teamColor, playerInitials } from '../../utils/teamColors'
 import { usePriceFlash, flashClass } from '../../hooks/usePriceFlash'
 import styles from './PlayerCard.module.css'
+import RadarBadge from '../market/RadarBadge'
 
 const KIND_ICON: Record<MarketEventKind, string> = {
   early_warning: '⚠',
@@ -81,8 +82,9 @@ export default function PlayerCard({ player }: PlayerCardProps) {
       </div>
 
       <div className={styles.lastTrade}>Last trade: {quote?.last_trade_t == null ? 'No trades yet' : `${formatPrice(quote.last)} · ${Math.max(0,Math.floor((now-quote.last_trade_t)/86400))} days ago`}. Analyst estimates can be wrong.</div>
-      <div className={styles.reason} title={reason?.text}>
-        <span className={styles.reasonLabel}>Quote vs estimate</span>
+      <div className={styles.reason} title={reason?.text} data-tour="stock-why-moved">
+        <RadarBadge symbol={player.symbol} showLabel />
+        <span className={styles.reasonLabel}>{reason?.source === 'price' || reason === null ? 'Quote vs estimate' : 'Why did it move?'}</span>
         <span className={styles.reasonText}>
           {reason === null ? 'Waiting for the first price…' : <><span aria-hidden="true">{reasonIcon}</span> {reason.text}</>}
         </span>

@@ -74,3 +74,6 @@ export type { TutorialMoment } from './tutorialDirector'
 // Portfolio Composition (Person 4): % by team and player, concentration, A–F grade.
 export { useComposition } from './useComposition'
 export type { Composition, CompositionSlice, CompositionGrade } from './useComposition'
+
+// Demo shortcut: the Wembanyama storm (19-20 Feb 2025) on the real season replay.
+export { jumpToWembyStorm, WEMBY_STORM_EVE_T } from './director'

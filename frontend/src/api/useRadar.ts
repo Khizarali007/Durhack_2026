@@ -74,7 +74,8 @@ subscribeMarketReset(() => {
   rebuildSummary()
 })
 
-function injuryRadar(status?:string):RadarState { return status==="Out"||status==="Doubtful"?"storm":status==="Questionable"||status==="Probable"?"cloudy":"calm" }
+/** Official injury report: Out is a storm; Questionable or Doubtful is the early warning. */
+function injuryRadar(status?:string):RadarState { return status==="Out"?"storm":status==="Questionable"||status==="Doubtful"?"cloudy":"calm" }
 
 export function getRadarState(symbol: string): RadarState {
   if(!USE_MOCKS)return injuryRadar(getCachedQuote(symbol)?.injury_status)

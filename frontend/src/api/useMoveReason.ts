@@ -1,10 +1,12 @@
 import type { MarketEventKind } from './types'
+import { USE_MOCKS } from './config'
 import { useQuote } from './useQuote'
 import { useMarketTime } from './useMarketTime'
 import { useSymbolEvents, useWhistleLine } from './eventLog'
 
-/** How long a headline keeps explaining the price: 30 market minutes. */
-const REASON_WINDOW_S = 30 * 60
+/** How long a headline keeps explaining the price. The season replay runs a day a minute,
+ *  so there it is one market day; the mock market keeps 30 market minutes. */
+const REASON_WINDOW_S = USE_MOCKS ? 30 * 60 : 24 * 60 * 60
 
 export interface MoveReason {
   text: string
@@ -34,6 +36,15 @@ export function useMoveReason(symbol: string): MoveReason | null {
     return { text: `Final whistle: ${recentWhistle.line.headline}`, source: 'whistle', kind: null, t: recentWhistle.t }
   }
   if (quote === null || quote.fair_value <= 0) return null
+
+  // The official injury report keeps explaining the price for as long as it stands.
+  const status = quote.injury_status
+  if (status === 'Out') {
+    return { text: 'Storm: ruled out on the official injury report, so expected payouts fall', source: 'event', kind: 'injury', t: null }
+  }
+  if (status === 'Questionable' || status === 'Doubtful') {
+    return { text: `Early warning: listed ${status.toLowerCase()} on the official injury report`, source: 'event', kind: 'early_warning', t: null }
+  }
 
   const gapPct = ((quote.quoted_price ?? quote.last) - quote.fair_value) / quote.fair_value * 100
   const size = Math.abs(gapPct).toFixed(1)
