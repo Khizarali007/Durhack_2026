@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# One-time setup from a fresh clone: Python venv, backend deps, frontend deps, data check.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+PYTHON="${PYTHON:-python3}"
+"$PYTHON" -c 'import sys; assert sys.version_info >= (3, 11), "Python 3.11+ needed"' \
+  || { echo "Python 3.11 or newer is required (set PYTHON=/path/to/python3.12)." >&2; exit 1; }
+[ -x .venv/bin/python ] || "$PYTHON" -m venv .venv
+.venv/bin/python -m pip install -q --upgrade pip
+.venv/bin/python -m pip install -q -r backend/requirements.txt
+command -v npm >/dev/null || { echo "Node.js 20+ and npm are required for the frontend." >&2; exit 1; }
+(cd frontend && npm ci --no-audit --no-fund)
+scripts/setup_data
+echo
+echo "Setup done. Next: scripts/demo  (one port, http://127.0.0.1:8000)  or  scripts/dev  (hot reload)."

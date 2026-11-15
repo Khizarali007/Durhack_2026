@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Demo: build the frontend once, then ONE process on one port serves the app, API and WebSockets.
+set -euo pipefail
+. "$(dirname "${BASH_SOURCE[0]}")/_env.sh"
+if [ "${SKIP_BUILD:-0}" != 1 ]; then (cd frontend && npm run build); fi
+echo "HoopStreet demo: http://127.0.0.1:$PORT   (Ctrl+C to stop)"
+exec "$PY" -m uvicorn main:app --app-dir backend --host "${HOST:-127.0.0.1}" --port "$PORT"

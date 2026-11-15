@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Checks the committed runtime data bundle. --rebuild downloads the sources and regenerates it.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+PY="$ROOT/.venv/bin/python"; [ -x "$PY" ] || PY=python3
+if [ "${1:-}" = "--rebuild" ]; then
+  echo "Downloading SportsDataverse box scores and official injury reports (about 120 MB)..."
+  "$PY" scripts/import_player_box.py
+  PYTHONPATH=scripts "$PY" scripts/build_starting_values.py
+  "$PY" scripts/import_injury_reports.py
+  "$PY" scripts/build_runtime_bundle.py
+fi
+missing=0
+for f in player_games_2024_25.sqlite starting_values_2024_25.csv injury_reports_2024_25.csv; do
+  if [ ! -s "data/runtime/$f" ] && [ ! -s "data/$f" ]; then echo "Missing data/runtime/$f" >&2; missing=1; fi
+done
+if [ "$missing" = 1 ]; then
+  echo "The runtime data bundle is missing. Run: scripts/setup_data --rebuild  (needs internet)" >&2
+  exit 1
+fi
+echo "Data OK: 2024-25 season replay (580 players, 1,231 games) and the official injury-report feed."
