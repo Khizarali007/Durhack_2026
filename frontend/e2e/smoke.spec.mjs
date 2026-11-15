@@ -37,6 +37,20 @@ test('guest: login page → welcome quick buy → next days pay out → sell →
   await expect(page.locator('[data-tour="ticket-result"]')).toBeVisible({ timeout: 20_000 })
   await expect(controls.getByText(/Estimated exit value: -?H\$/)).toBeVisible({ timeout: 20_000 })
 
+  // One more trade, still held: the review must now have a card about it.
+  await page.goto('/stock/SGA')
+  const sgaBuy = page.getByRole('complementary', { name: /Order ticket for/ }).getByRole('button', { name: /^Buy 10 SGA/ })
+  await expect(sgaBuy).toBeEnabled({ timeout: 20_000 })
+  await sgaBuy.click()
+  await expect(page.locator('[data-tour="ticket-result"]')).toBeVisible({ timeout: 20_000 })
+
+  await page.goto('/activity')
+  await expect(page.getByRole('heading', { name: 'Your season review' })).toBeVisible()
+  await expect(page.locator('article').filter({ hasText: 'on one player' })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText(/^You bought 10 JOKIC at H\$/)).toBeVisible()
+  await page.getByRole('button', { name: 'Explain with Coach Hoops' }).click()
+  await expect(page.getByText(/Coach Hoops · /)).toBeVisible({ timeout: 15_000 })
+
   await page.goto('/learn')
   await expect(page.getByRole('heading', { name: 'Learn', level: 1 })).toBeVisible()
   expect(errors).toEqual([])
