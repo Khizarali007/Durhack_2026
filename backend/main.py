@@ -40,6 +40,31 @@ from learning.adapters.season_market import SeasonMarketAdapter
 from learning.composition_api import router as composition_router
 
 
+OFF_VALUES = ("off", "0", "false", "no")
+
+
+async def _receipts_decision(app: FastAPI, fresh: bool) -> tuple[bool, str | None]:
+    """Whether to start the receipt worker, and a calm note for the UI when not.
+    The auto probe runs once per process (a timeline rewind must not wait on devnet again)."""
+    mode = os.environ.get("SOLANA_RECEIPTS", "off" if fresh else "on").lower()
+    if mode in OFF_VALUES:
+        return False, "Solana receipts are off for this run."
+    if mode != "auto":
+        return True, None
+    probe = getattr(app.state, "receipts_probe", None)
+    if probe is None:
+        from trading.chain.status import chain_status
+        status = await chain_status()
+        if status.ready:
+            probe = (True, None)
+        elif not status.reachable:
+            probe = (False, "Solana devnet isn't answering, so receipts are paused. Trades work as normal.")
+        else:
+            probe = (False, "The devnet fee payer needs test SOL, so receipts are paused. Trades work as normal.")
+        app.state.receipts_probe = probe
+    return probe
+
+
 @asynccontextmanager
 async def market_runtime(app: FastAPI):
     market = get_market()
@@ -54,17 +79,22 @@ async def market_runtime(app: FastAPI):
         market.bind_settlement(app.state.trading_db, app.state.live.publish_user, app.state.live.publish_public)
     market_task = asyncio.create_task(market.run())
 
-    # Solana receipts (P2-09). SOLANA_RECEIPTS=off runs without them.
+    # Solana receipts (P2-09). off | on | auto (auto = on only if devnet answers and the
+    # fee payer is funded). Trades never wait for Solana either way.
     app.state.receipts = None
-    if receipt_worker.receipts_enabled() and (not fresh or os.environ.get("SOLANA_RECEIPTS", "off").lower() == "on"):
+    receipts_on, app.state.receipts_note = await _receipts_decision(app, fresh)
+    if receipts_on:
         app.state.receipts = receipt_worker.ReceiptWorker(
             app.state.trading_db, receipt_worker.sender_factory(),
             notify=receipt_notifier(app.state.trading_db, app.state.live))
         await app.state.receipts.start()
 
     # Bot trades: one bundle (and one receipt) per market minute (P2-10).
+    # The season replay closes a "market minute" every tick (2 a second), far beyond devnet's
+    # rate limit, so bundles are still recorded and hashed but only sent with SOLANA_BOT_BUNDLES=on.
+    send_bundles = app.state.receipts and (not fresh or os.environ.get("SOLANA_BOT_BUNDLES", "off").lower() == "on")
     bundles = BotBundleRecorder(app.state.trading_db, market,
-                                on_bundle=app.state.receipts.enqueue_bundle if app.state.receipts else None)
+                                on_bundle=app.state.receipts.enqueue_bundle if send_bundles else None)
     await bundles.start()
 
     # Limit and stop-loss orders fire on market ticks (P2-11); their trades get receipts too.
@@ -195,7 +225,8 @@ class SPAStaticFiles(StaticFiles):
         try:
             return await super().get_response(path, scope)
         except StarletteHTTPException as exc:
-            if exc.status_code != 404 or path.startswith(("market/", "trading/", "learning/")):
+            # Only client routes (no file extension) fall back; a missing file stays a 404.
+            if exc.status_code != 404 or path.startswith(("market/", "trading/", "learning/")) or "." in path.rsplit("/", 1)[-1]:
                 raise
             return await super().get_response("index.html", scope)
 

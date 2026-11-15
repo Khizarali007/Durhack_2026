@@ -73,7 +73,7 @@ export default function TradesTable({ trades, showSymbol = false, empty }: Trade
                     <a className={styles.explorer} href={t.receipt.explorer_url} target="_blank" rel="noreferrer">Explorer ↗</a>
                   </>
                 ) : (
-                  <span className={`${styles.tag} ${styles.tagNeutral}`}>{t.receipt.status === 'disabled' ? 'Off for this demo' : t.receipt.status === 'failed' ? 'Failed' : '◷ Settling…'}</span>
+                  <span className={`${styles.tag} ${styles.tagNeutral}`}>{t.receipt.status === 'disabled' ? 'Solana paused' : t.receipt.status === 'failed' ? 'Failed' : '◷ Settling…'}</span>
                 )}
               </td>
             </tr>

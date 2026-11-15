@@ -37,7 +37,7 @@ async def status(request: Request):
             'currency': 'HOOP (virtual)',
             'bot_count':len(next(iter(m.markets.values())).bots) if hasattr(m,'markets') else None,
             'bot_funding':getattr(m,'replay_config',{}).get('bot_funding'),
-            'receipts_enabled': getattr(request.app.state, 'receipts', None) is not None,
+            'receipts_enabled': getattr(request.app.state, 'receipts', None) is not None, 'receipts_note': getattr(request.app.state, 'receipts_note', None),
             'chain_portfolios_enabled': getattr(request.app.state, 'portfolios', None) is not None, 'real_seconds_per_historical_day': getattr(m, 'day_seconds', None),
             'finished': getattr(m, 'finished', False),
             'payouts_enabled': getattr(m, 'supports_payouts', True),
