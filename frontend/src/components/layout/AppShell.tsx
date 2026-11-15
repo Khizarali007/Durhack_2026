@@ -8,6 +8,7 @@ import SeasonControls from '../SeasonControls'
 import Onboarding from '../Onboarding'
 import PaymentNotice from '../PaymentNotice'
 import SeasonResetNotice from '../notices/SeasonResetNotice'
+import { StormAlertPopup } from '../notices/StormAlerts'
 import LeftNav from './LeftNav'
 import styles from './AppShell.module.css'
 
@@ -77,6 +78,7 @@ export default function AppShell() {
       <Header />
       <SeasonControls />
       <SeasonResetNotice />
+      <StormAlertPopup />
       <PaymentNotice />
       <div className={styles.below}>
         <LeftNav />

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   useQuote, usePortfolio, useReservedCash, useOrderQuote, useSession,
   placeOrder, placeOpenOrder, errorDetail, FEE_RATE,
 } from '../../api'
+import { getCachedQuote } from '../../api'
 import type { Player } from '../../api'
 import { Button, SegmentedControl } from '../ui'
 import { priceInputText } from '../../utils/currency'
@@ -52,10 +54,17 @@ export default function OrderTicket({ player }: OrderTicketProps) {
   const { portfolio } = usePortfolio()
   const reserved = useReservedCash()
 
-  const [side, setSide] = useState<Side>('buy')
-  const [mode, setMode] = useState<Mode>('market')
-  const [qtyText, setQtyText] = useState('10')
-  const [priceText, setPriceText] = useState('')
+  // Storm alert actions open the ticket ready to confirm: ?action=stop (stop-loss 5% under the bid)
+  // or ?action=trim&qty=N (sell half). Nothing is placed until the player presses the button.
+  const [searchParams] = useSearchParams()
+  const action = searchParams.get('action')
+  const [side, setSide] = useState<Side>(() => (action === 'stop' || action === 'trim' ? 'sell' : 'buy'))
+  const [mode, setMode] = useState<Mode>(() => (action === 'stop' ? 'stop' : 'market'))
+  const [qtyText, setQtyText] = useState(() => (action === 'trim' && searchParams.get('qty') ? String(searchParams.get('qty')) : '10'))
+  const [priceText, setPriceText] = useState(() => {
+    const bid = action === 'stop' ? getCachedQuote(player.symbol)?.bid : null
+    return bid != null ? priceInputText(round2(bid * 0.95)) : ''
+  })
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<TicketResult | null>(null)
   const qtyRef = useRef<HTMLInputElement>(null)

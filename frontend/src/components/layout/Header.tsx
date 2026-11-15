@@ -6,6 +6,7 @@ import { useMarketStream, usePortfolio } from '../../api'
 import { useThemeContext } from '../../context/useThemeContext'
 import { formatHOOP } from '../../utils/format'
 import UserMenu from './UserMenu'
+import { StormBell } from '../notices/StormAlerts'
 import styles from './Header.module.css'
 
 export default function Header() {
@@ -84,6 +85,8 @@ export default function Header() {
           role="status"
           aria-label={connected ? 'Market connected' : 'Market reconnecting'}
         />
+
+        <StormBell />
 
         <UserMenu />
       </div>

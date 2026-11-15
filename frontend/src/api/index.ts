@@ -94,3 +94,7 @@ export type { SeasonReview, Insight, TimelineItem, ReviewSummary, TradeResult, C
 // Friends: five simulated practice rivals from the real market.
 export { getRivals, getRival, compareRival } from './rivals'
 export type { RivalProfile, RivalRow, RivalDetail, RivalComparison, CompositionOut } from './rivals'
+
+// Personal storm alerts for players you hold.
+export { useStormAlerts, updateAlert, markAllRead } from './useStormAlerts'
+export type { StormAlert } from './useStormAlerts'
