@@ -19,6 +19,10 @@ data/source/
 *.db
 # Local benchmark reports (generated, reproducible)
 data/benchmark_*.json
+# The compact runtime bundle IS committed (scripts/build_runtime_bundle.py)
+!data/runtime/
+!data/runtime/*.csv
+!data/runtime/*.sqlite
 
 # Secrets (keep .env.example)
 .env

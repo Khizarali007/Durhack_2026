@@ -26,6 +26,13 @@ from trading.dividends import DividendSettlement
 from trading.market_contract import Player, Quote, MakerQuote, Fill, OrderResult, MarketTick, BotTrade, BotTradeSummary
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def data_file(name):
+    """A locally rebuilt file in data/ wins; otherwise use the committed data/runtime/ bundle."""
+    local = ROOT / 'data' / name
+    return local if local.exists() else ROOT / 'data' / 'runtime' / name
+
 ALIASES = {
     "Shai Gilgeous-Alexander": "SGA", "Nikola Jokic": "JOKIC",
     "Giannis Antetokounmpo": "GIANNIS", "Luka Doncic": "LUKA",
@@ -52,8 +59,8 @@ class LiveMarket:
             raise ValueError("tick_seconds must be finite and positive")
         self.replay_config = dict(database=database, values=values, injuries=injuries, seed=seed, day_seconds=day_seconds, tick_seconds=tick_seconds, bot_count=bot_count, bot_funding=bot_funding)
         self.day_seconds, self.tick_seconds = day_seconds, tick_seconds
-        data, self.results = load_data(database or ROOT / 'data/player_games_2024_25.sqlite',
-                                      values or ROOT / 'data/starting_values_2024_25.csv')
+        data, self.results = load_data(database or data_file('player_games_2024_25.sqlite'),
+                                      values or data_file('starting_values_2024_25.csv'))
         self.markets = make_markets(data, seed, bot_count, bot_funding)
         self._players = [Player(pid, ALIASES.get(p['name'], f'NBA{pid}'), p['name'], p['team'], self.markets[pid].fair_cents / 100)
                          for pid, p in sorted(data.items())]
@@ -61,7 +68,7 @@ class LiveMarket:
         if len(self.ids) != len(self._players):
             raise ValueError('Duplicate player ticker')
         self.symbols = {v: k for k, v in self.ids.items()}
-        path = injuries if injuries is not None else ROOT / 'data/injury_reports_2024_25.csv'
+        path = injuries if injuries is not None else data_file('injury_reports_2024_25.csv')
         self.injuries = load_injuries(path)
         self.day = datetime.fromisoformat(min(self.results)).replace(tzinfo=timezone.utc)
         self.end = datetime.fromisoformat(max(self.results)).replace(tzinfo=timezone.utc) + timedelta(days=1)
