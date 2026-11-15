@@ -39,8 +39,10 @@ test('rescaling preserves buying power and cash conservation including tiny fees
 })
 test('learning examples match the scaled payout and score without double counting',()=>{
  const questions=JSON.parse(fs.readFileSync('../content/learning-check.json','utf8'))
- const payout=questions.find(q=>q.explanation.includes('Game Score')||q.explanation.includes('0.00002'))
- assert.ok(payout.explanation.includes('H$0.004'))
+ const payout=questions.find(q=>q.id==='payout')
+ assert.ok(payout.explanation.includes('H$0.04'))
+ assert.equal(payout.options[payout.answer], 'H$0.04')
+ assert.equal(new Set(payout.options).size, payout.options.length)
  const score=questions.find(q=>q.question.includes('season score'))
  assert.equal(score.options[score.answer],'H$100.205')
 })

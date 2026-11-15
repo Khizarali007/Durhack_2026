@@ -17,7 +17,8 @@ scripts/setup     # venv, backend deps, frontend deps, data check (one time)
 scripts/demo      # builds the frontend; ONE process on http://127.0.0.1:8000
 ```
 
-Open http://127.0.0.1:8000 with **H$100**, build a diversified starter portfolio,
+Open http://127.0.0.1:8000 with **H$100**. Search the roster, filter by NBA team,
+and buy shares in at least three players across two teams,
 then press **Start season**. The market runs continuously and weekly reports
 appear in **Updates**. Stop the server with Ctrl+C.
 
@@ -41,6 +42,13 @@ and percentage returns do not change. The API, integer ledger and signed receipt
 retain their existing accounting units (1,000 API units = H$1). Display and price
 input conversion lives in `frontend/src/utils/currency.ts`; do not rescale API
 responses a second time. One ledger cent represents H$0.00001.
+
+The live market now makes each share a 10× larger claim: prices, expected
+payments and actual game payments all increase together. A former H$0.15 share
+is now approximately H$1.50. The human starting budget remains H$100; bots and
+dealers receive proportionate funding to preserve their trading capacity.
+Each eligible share pays H$0.0002 per positive Game Score point. These economics
+apply to a new market session; old running processes must be restarted.
 
 ## Tests
 

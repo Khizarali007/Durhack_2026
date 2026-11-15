@@ -5,13 +5,14 @@ Working location: /Users/jonathanlyria/Documents/Projects/Durhack_2026
 Branch: change-tests. Commit locally; push only when explicitly requested.
 
 ## Current milestone
-H$100 denomination throughout the game, preserving economic behavior and existing holdings.
+Neutral fantasy roster setup with H$100 cash and shares worth 10× more.
 
 ## Latest change
-- Currency display/input boundary scales all monetary amounts by 1,000: H$100 starting cash, corresponding share prices, fees, payouts, reports and tutorial examples. Shares and return percentages are unchanged.
-- Kept ledger/API units for precision and signed-receipt compatibility. One stored cent now displays as H$0.00001. Price input supports five decimals and converts back to API units.
-- Build/lint, 4 currency tests, 3 season/setup tests, 6 learning tests and 23 backend open-order tests passed. Browser verified fresh H$100, one-share buy leaving H$99.84579, H$0.15 limit placement/cancellation, scaled charts and existing reports.
-- New preview: http://localhost:8006 (fresh opening screen); http://127.0.0.1:8006 has a one-share test purchase. Both use the latest backend; receipts off.
+- Removed featured Jokic/Wembanyama/Daniels suggestions and default selection. All players remain available through a neutral price-sorted, searchable list with team filters and pagination.
+- New roster builder shows empty slots, budget, actual holdings, qualification checks and a compact purchase panel. Sell an existing pick to change the roster; normal spread and fees apply.
+- Live prices and both forecast/actual dividends scale 10×. Institutional funding and position limits scale with them; human cash stays H$100. Setup allocation buttons are H$10/H$15/H$20.
+- New preview: http://localhost:8007. Fresh paused session; receipts off. Earlier server ports retain older economies.
+- Implementation: components/Onboarding.tsx and Onboarding.css; backend/market/valuation.py and core.py; learning examples/glossary; regression tests.
 
 ## Completed
 - Replaced Next week with Play season / Pause. Starting after setup runs the market continuously; reports never stop it.
@@ -22,14 +23,15 @@ H$100 denomination throughout the game, preserving economic behavior and existin
 - Welcome tutorial and overview updated for continuous play. Previous UI simplification, order action visibility and learning features retained.
 
 ## Verification
-- Backend suite: 71 passed, 1 optional devnet test skipped. Added boundary capture, no auto-pause, report reconciliation, final interval, large-step, isolation and authenticated endpoint/reset coverage.
-- Frontend production build and lint passed; 3 season/setup tests and 6 learning tests passed.
-- Browser: bought Jokic, Wembanyama and Daniels; first purchase did not exit setup; reload preserved setup; third diversified position enabled Start season. Playback continued through four weekly boundaries; all four reports remained after refresh and the first report stayed unchanged.
+- Backend full suite: 464 passed, 3 skipped. Additional valuation run: 7 passed, including two new cases verifying 10× price/payment scaling with unchanged yield for healthy and injured players.
+- Frontend build/lint passed; 3 season/setup, 6 learning and 4 currency tests passed. Quiz answers and glossary use the new payout coefficient.
+- Browser: H$100 empty roster, no selected player; team filtering and name search; Luka/Tatum/Curry buys; 3 diversified positions unlocked Start; selling Curry removed the holding and locked Start; repurchase unlocked it. Start entered the dashboard and Pause stopped playback. No real Solana writes.
+- Updated the previously stale Playwright smoke script to the new roster flow. Its flow was exercised through the browser tools; the Playwright CLI suite was not run.
 
 ## Run / inspect
-- Current preview: http://localhost:8006 (new server with current backend; receipts off).
-- Run: SOLANA_RECEIPTS=off MARKET_START_PAUSED=1 MARKET_BOT_COUNT=300 MARKET_BOT_FUNDING=fixed MARKET_DAY_SECONDS=60 .venv/bin/uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8006
-- Older ports may still run earlier backend code. Use 8006 for these changes.
+- Current preview: http://localhost:8007 (new server with current backend; receipts off).
+- Run: SOLANA_RECEIPTS=off MARKET_START_PAUSED=1 MARKET_BOT_COUNT=300 MARKET_BOT_FUNDING=fixed MARKET_DAY_SECONDS=60 .venv/bin/uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8007
+- Older ports may still run earlier backend code. Use 8007 for these changes.
 
 ## Limits / next actions
 - Reports and accounts reset on rewind or server restart. Demo clock is shared across accounts; this is not an independent replay per user.

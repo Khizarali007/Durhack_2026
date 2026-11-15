@@ -14,12 +14,12 @@
     "id": "payout",
     "question": "You hold 10 shares at the game cutoff and the player records Game Score 20. What is the performance payment?",
     "options": [
-      "H$0.004",
-      " H$0.02",
-      "H$0.04"
+      "H$0.04",
+      "H$0.02",
+      "H$0.40"
     ],
     "answer": 0,
-    "explanation": "10 shares \u00d7 H$0.00002 \u00d7 20 = H$0.004. The payment is virtual cash, separate from the stock price."
+    "explanation": "10 shares \u00d7 H$0.0002 \u00d7 20 = H$0.04. The payment is virtual cash, separate from the stock price."
   },
   {
     "id": "cutoff",

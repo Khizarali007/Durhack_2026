@@ -9,7 +9,7 @@ def test_agreed_response_examples():
     assert ability==pytest.approx(20.45)
     assert form==24
     assert projected_score(ability,form)==pytest.approx(21.3375)
-    assert payout_per_share(40)==.8
+    assert payout_per_share(40)==8
     ability=form=20
     for _ in range(5):
         ability,form=update_expectations(ability,form,5)
@@ -22,7 +22,7 @@ def test_infinite_formula_matches_direct_sum():
     ability,form,age=20,24,30
     hazard=math.log1p(.2)-math.log1p(-annual_exit(age))
     # Moderate Out: initial availability zero, recovers toward .9 over 10 games.
-    direct=sum(.02*math.exp(-hazard*(k+1)/82)*(.9-.9*math.exp(-k/10))*
+    direct=sum(.2*math.exp(-hazard*(k+1)/82)*(.9-.9*math.exp(-k/10))*
                (ability+.25*(form-ability)*.9**k) for k in range(12000))
     actual=dividend_value(ability,form,age=age,status='Out',level='moderate')
     assert actual==pytest.approx(direct,rel=1e-10)
@@ -33,7 +33,7 @@ def test_detachment_removes_only_that_payment():
     before=dividend_value(20,20,schedule=schedule)
     after=dividend_value(20,20,schedule=schedule,excluded={'2024-10-22'})
     hazard=math.log1p(.2)-math.log1p(-annual_exit(27))
-    assert before-after==pytest.approx(.02*.9*20*math.exp(-hazard*86400/YEAR_SECONDS))
+    assert before-after==pytest.approx(.2*.9*20*math.exp(-hazard*86400/YEAR_SECONDS))
 
 
 def test_injury_reduces_near_payout_more_than_career_value():
@@ -44,7 +44,23 @@ def test_injury_reduces_near_payout_more_than_career_value():
 
 
 def test_reputation_affects_forecast_not_identical_actual_payout():
-    assert payout_per_share(25)==.5
+    assert payout_per_share(25)==5
     low=dividend_value(*update_expectations(5,5,25))
     high=dividend_value(*update_expectations(25,25,25))
     assert high>low
+
+
+@pytest.mark.parametrize('status,level', [('', ''), ('Out', 'severe')])
+def test_larger_share_claim_scales_price_and_payments_together(monkeypatch, status, level):
+    from dataclasses import replace
+    from market import valuation
+    args = dict(age=24, schedule=('2024-10-22', '2024-10-25'), status=status, level=level)
+    price = valuation.dividend_value(18, 24, **args)
+    payout = valuation.payout_per_share(30)
+    forecast = valuation.expected_fixture_payout(18, 24, status, level)
+    monkeypatch.setattr(valuation, 'CONFIG', replace(valuation.CONFIG, dollars_per_score=.02))
+    original = valuation.dividend_value(18, 24, **args)
+    assert price == pytest.approx(original * 10)
+    assert payout == pytest.approx(valuation.payout_per_share(30) * 10)
+    assert forecast == pytest.approx(valuation.expected_fixture_payout(18, 24, status, level) * 10)
+    assert payout / price == pytest.approx(valuation.payout_per_share(30) / original)

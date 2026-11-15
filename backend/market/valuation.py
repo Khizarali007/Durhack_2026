@@ -4,6 +4,9 @@ from datetime import datetime, timezone
 from functools import lru_cache
 import math
 
+# A share now bundles ten of the original payout claims; human starting cash stays fixed.
+SHARE_VALUE_MULTIPLIER = 10
+
 YEAR_SECONDS = 365.25 * 86400
 OPENING_T = datetime(2024, 10, 22, tzinfo=timezone.utc).timestamp()
 NEXT_SEASON_T = datetime(2025, 10, 22, tzinfo=timezone.utc).timestamp()
@@ -16,7 +19,7 @@ class ModelConfig:
     form_weight: float = .25
     form_decay: float = .90
     max_ability_surprise: float = 15.
-    dollars_per_score: float = .02
+    dollars_per_score: float = .02 * SHARE_VALUE_MULTIPLIER
     annual_required_return: float = .20
     healthy_availability: float = .90
     annual_game_opportunities: int = 82

@@ -95,7 +95,7 @@
     },
     {
       "term": "Performance payout",
-      "short": "H$0.00002 per positive Game Score point per share. Hold at the synthetic noon cutoff; actual game performance settles at day close. A missed game pays zero."
+      "short": "H$0.0002 per positive Game Score point per share. Hold at the synthetic noon cutoff; actual game performance settles at day close. A missed game pays zero."
     }
   ]
 }

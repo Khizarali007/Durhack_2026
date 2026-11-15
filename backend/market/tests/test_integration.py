@@ -243,7 +243,7 @@ def test_cutoff_holder_is_paid_after_selling_and_late_buyer_is_not(engine, accou
     from trading.portfolio import build_portfolio
     db, uid, day = prepare_payout(engine, account)
     pending=pending_by_user(db)[uid]
-    assert pending==360
+    assert pending==3600
     place_market_order(db, engine, uid, 'WEMBY', 'sell', 10)
     other=create_guest_user(db).user_id
     place_market_order(db, engine, other, 'WEMBY', 'buy', 10)
@@ -251,11 +251,11 @@ def test_cutoff_holder_is_paid_after_selling_and_late_buyer_is_not(engine, accou
     assert build_portfolio(db,engine,uid).equity_cents==before[uid]+pending
     engine._close_day()
     after=dict(db.conn.execute('SELECT user_id,cash_cents FROM users'))
-    assert after[uid]-before[uid]==800
+    assert after[uid]-before[uid]==8000
     assert after[other]==before[other]
     assert not pending_by_user(db)
-    assert engine.institutional_dividends+sum(engine.human_dividends.values())==360000
-    assert db.conn.execute('SELECT qty_held,amount_cents FROM payouts WHERE user_id=?',(uid,)).fetchone()[:]==(10,800)
+    assert engine.institutional_dividends+sum(engine.human_dividends.values())==3600000
+    assert db.conn.execute('SELECT qty_held,amount_cents FROM payouts WHERE user_id=?',(uid,)).fetchone()[:]==(10,8000)
     engine._pay_day(day)
     assert dict(db.conn.execute('SELECT user_id,cash_cents FROM users'))==after
     assert db.conn.execute('SELECT count(*) FROM payouts').fetchone()[0]==1
@@ -274,7 +274,7 @@ def test_settlement_failure_rolls_back_every_owner_and_can_retry(engine, account
     assert db.conn.execute("SELECT count(*) FROM dividend_events WHERE status='settled'").fetchone()[0]==0
     db.conn.execute('DROP TRIGGER reject_dividend')
     engine._pay_day(day)
-    assert db.conn.execute('SELECT cash_cents FROM users WHERE user_id=?',(uid,)).fetchone()[0]==cash+800
+    assert db.conn.execute('SELECT cash_cents FROM users WHERE user_id=?',(uid,)).fetchone()[0]==cash+8000
     engine.check_ledger()
 
 
@@ -283,7 +283,7 @@ def test_full_event_queue_cannot_drop_money(engine, account):
     q=engine.subscribe()
     for _ in range(q.maxsize):q.put_nowait(None)
     engine._pay_day(day)
-    assert db.conn.execute('SELECT sum(amount_cents) FROM payouts').fetchone()[0]==800
+    assert db.conn.execute('SELECT sum(amount_cents) FROM payouts').fetchone()[0]==8000
     engine.unsubscribe(q)
 
 
@@ -342,7 +342,7 @@ def test_timeline_forward_settles_and_rewind_resets_accounts(engine, monkeypatch
             assert status['t'] == start+86400 and status['paused']
             assert status['session_id'] == session
             portfolio = client.get('/trading/portfolio', headers=headers).json()
-            assert portfolio['payouts_received'] == 8.0
+            assert portfolio['payouts_received'] == 80.0
             assert portfolio['positions'][0]['qty'] == 10
             history = client.get('/market/history?symbols=WEMBY').json()['history']['WEMBY']
             assert len(history) == 2 and history[-1]['t'] == start+86400
@@ -386,12 +386,12 @@ def test_timeline_forward_settles_and_rewind_resets_accounts(engine, monkeypatch
 def test_season_score_matches_sale_including_fees_without_mutation(engine, account):
     from trading.scoring import season_score
     db, uid = account
-    place_market_order(db, engine, uid, 'WEMBY', 'buy', 650)
+    place_market_order(db, engine, uid, 'WEMBY', 'buy', 65)
     before = state(engine)
     result = season_score(db, engine, uid)
     assert result['score'] < 100000  # buying cannot manufacture a competition gain
     assert state(engine) == before
-    sold = place_market_order(db, engine, uid, 'WEMBY', 'sell', 650)
+    sold = place_market_order(db, engine, uid, 'WEMBY', 'sell', 65)
     assert result['score'] == sold.cash_cents_after / 100
 
 
@@ -428,7 +428,7 @@ def test_larger_speculative_population_conserves_funding_and_inventory(engine,co
     markets=make_markets(players,2026,bot_count=count)
     m=markets[1]
     assert len(m.bots)==count
-    assert sum(b.cash for b in m.bots)==300_000_000
+    assert sum(b.cash for b in m.bots)==3_000_000_000
     assert sum(b.holdings.get(1,0) for b in m.bots)==600
     assert sum(mm.shares for mm in m.makers)==3900
     if count==10000:
@@ -436,15 +436,15 @@ def test_larger_speculative_population_conserves_funding_and_inventory(engine,co
     for _ in range(10):m.bot_round()
     m.check_ledger()
     expanded=make_markets(players,2026,bot_count=count,bot_funding='per_bot')[1]
-    assert sum(b.cash for b in expanded.bots)==count*10_000_000
+    assert sum(b.cash for b in expanded.bots)==count*100_000_000
 
 
 def test_adding_to_existing_position_cannot_raise_exit_score(engine,account):
     from trading.scoring import season_score
     db,uid=account
-    place_market_order(db,engine,uid,'WEMBY','buy',100)
+    place_market_order(db,engine,uid,'WEMBY','buy',10)
     before=season_score(db,engine,uid)['score']
-    place_market_order(db,engine,uid,'WEMBY','buy',500)
+    place_market_order(db,engine,uid,'WEMBY','buy',50)
     assert season_score(db,engine,uid)['score'] < before
 
 
@@ -478,10 +478,10 @@ def test_season_report_reconciles_sold_positions_payouts_and_pending_rights(engi
         assert s['contributors'][0]['investment_gain'] + s['payouts_received'] + s['pending_payouts'] == pytest.approx(s['score']-s['starting_cash'])
         return s
     pending = check()
-    assert pending['contributors'][0]['pending'] == 3.6
+    assert pending['contributors'][0]['pending'] == 36.0
     engine._pay_day(day)
     paid = check()
-    assert paid['contributors'][0]['payouts'] == 8.0
+    assert paid['contributors'][0]['payouts'] == 80.0
     place_market_order(db, engine, uid, 'WEMBY', 'sell', 6)
     sold = check()
     assert sold['net_sale_proceeds'] == 0
@@ -513,7 +513,7 @@ def test_forward_replay_with_receipts_preserves_account_and_blocks_rewind(engine
                     time.sleep(.01)
                 assert not status['busy'] and status['error'] is None
                 assert status['session_id'] == engine.session_id
-                assert client.get('/trading/portfolio',headers=headers).json()['payouts_received'] == 8
+                assert client.get('/trading/portfolio',headers=headers).json()['payouts_received'] == 80
                 assert client.post('/market/timeline',json={'target_t':engine.start_t}).status_code == 409
             finally:
                 app.state.receipts = None
@@ -536,7 +536,7 @@ def test_continuous_weekly_reports_capture_every_boundary_without_pausing(engine
     first = copy.deepcopy(reports.for_user(uid)['reports'][0])
     assert first['before']['score'] == 100000
     assert first['after']['t'] == engine.start_t + 7*86400
-    assert first['after']['payouts_received'] == 8
+    assert first['after']['payouts_received'] == 80
     assert not engine.paused and not engine.finished
     other = create_guest_user(db).user_id
     place_market_order(db, engine, uid, 'WEMBY', 'sell', 3)

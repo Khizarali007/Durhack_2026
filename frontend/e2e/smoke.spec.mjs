@@ -1,43 +1,47 @@
-// Core loop: join as guest -> first purchase -> advance the market -> payout -> sell -> score, then Learn.
+// Run against an isolated, paused historical demo: this test places virtual trades.
 import { test, expect } from '@playwright/test'
 
-const hoop = (text) => Number(text.replace(/[^0-9.-]/g, ''))
-
-test('guest buys, the season pays out, guest sells, score shows; Learn opens', async ({ page }) => {
+test('build a searchable diversified roster, edit a pick, then start the season', async ({ page }) => {
   const errors = []
-  page.on('pageerror', (e) => errors.push(e.message))
-
+  page.on('pageerror', e => errors.push(e.message))
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Back your basketball judgement.' })).toBeVisible()
-  const buy = page.getByRole('button', { name: 'Buy shares and enter the season' })
-  await expect(buy).toBeEnabled({ timeout: 20_000 })
-  await buy.click()
-
-  const controls = page.getByRole('region', { name: 'Season challenge controls' })
-  await expect(controls).toBeVisible()
-  const credited = controls.getByText('Payouts credited:').locator('b')
-
-  // Replay day by day until a game payout lands (Jokic's first game is on day 3).
-  for (let day = 0; day < 6 && hoop(await credited.innerText()) <= 0; day++) {
-    const next = controls.getByRole('button', { name: 'Next day' })
-    await expect(next).toBeEnabled({ timeout: 30_000 })
-    await next.click()
-    await page.waitForTimeout(1500)
+  await expect(page.getByRole('heading', { name: 'Build your roster' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Player order' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Start season', exact: true })).toBeDisabled()
+  const search = page.getByRole('searchbox', { name: 'Search players' })
+  const players = page.getByRole('region', { name: 'Available players' })
+  async function buy(name) {
+    await search.fill(name)
+    await players.getByRole('button', { name: new RegExp(name) }).click()
+    const button = page.getByRole('button', { name: /^Buy \d+ shares$/ })
+    await expect(button).toBeEnabled()
+    await button.click()
+    await expect(page.getByRole('button', { name: `Manage ${name}`, exact: true })).toBeVisible()
   }
-  await expect.poll(async () => hoop(await credited.innerText()), { timeout: 30_000 }).toBeGreaterThan(0)
+  await buy('Luka Doncic')
+  await expect(page.getByRole('button', { name: 'Start season', exact: true })).toBeDisabled()
+  await search.fill('')
+  await page.getByLabel('Filter by team').selectOption('BOS')
+  await expect(players.getByRole('button', { name: /Jayson Tatum/ })).toBeVisible()
+  await buy('Jayson Tatum')
+  await page.getByLabel('Filter by team').selectOption('')
+  await buy('Stephen Curry')
+  await expect(page.getByRole('button', { name: 'Start season', exact: true })).toBeEnabled()
 
-  await page.goto('/stock/JOKIC')
-  const ticket = page.getByRole('complementary', { name: /Order ticket for/ })
-  await ticket.getByRole('radio', { name: 'Sell' }).or(ticket.getByRole('button', { name: 'Sell', exact: true })).first().click()
-  await ticket.getByRole('button', { name: 'Max' }).click()
-  const sell = ticket.getByRole('button', { name: /^Sell \d/ })
-  await expect(sell).toBeEnabled({ timeout: 20_000 })
+  await page.getByRole('button', { name: 'Manage Stephen Curry', exact: true }).click()
+  await page.getByRole('button', { name: 'Sell', exact: true }).click()
+  const sell = page.getByRole('button', { name: /^Sell \d+ shares$/ })
+  await expect(sell).toBeEnabled()
   await sell.click()
-  await expect(page.locator('[data-tour="ticket-result"]')).toBeVisible({ timeout: 20_000 })
-
-  await expect(controls.getByText(/Estimated exit value: -?H\$/)).toBeVisible({ timeout: 20_000 })
-
-  await page.goto('/learn')
-  await expect(page.getByRole('heading', { name: 'Learn', level: 1 })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Manage Stephen Curry', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Start season', exact: true })).toBeDisabled()
+  await buy('Stephen Curry')
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Start season', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Start season', exact: true }).click()
+  const controls = page.getByRole('region', { name: 'Season challenge controls' })
+  await expect(controls.getByRole('button', { name: 'Pause', exact: true })).toBeVisible()
+  await controls.getByRole('button', { name: 'Pause', exact: true }).click()
+  await expect(controls.getByRole('button', { name: 'Play season', exact: true })).toBeVisible()
   expect(errors).toEqual([])
 })
