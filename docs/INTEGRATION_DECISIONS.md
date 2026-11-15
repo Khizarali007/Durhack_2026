@@ -75,3 +75,32 @@ the decision, the options considered, why, and how to revert. Archive tags
 ## D16. Shorts and leverage stay off in this build
 - **Decision:** unchanged from midnight-pizza (`LiveMarket.supports_advanced_trading = False`). Phase 2(d) was out of scope for the time limit.
 - **Revert/enable:** set `supports_advanced_trading = True` after testing Person 2's margin monitor against the season engine.
+
+## D17. Composition grade (Phase 2b)
+- **Decision:** the backend (`backend/learning/composition.py`) grades the invested basket from player weights: effective holdings = 1/HHI, plus caps on the biggest player and team. Ladder: A ≥ 8 effective, player ≤ 20%, team ≤ 30%; B ≥ 5, ≤ 30%, ≤ 40%; C ≥ 3, player ≤ 50%; D ≥ 1.5; else F. Cash is shown but not graded; shorts count as exposure. `GET /learning/composition` uses Person 2's bearer auth. The panel sits in Person 3's Portfolio mount; a compact chip sits in the account strip.
+- **Options:** a client-side grade (rejected: the brief asks for the backend); a volatility-weighted risk score (more realistic, not explainable in one line).
+- **Why:** each rung can be explained in one sentence and checked by a test. The one-line reason always names the biggest problem (one player, one team, too few names).
+- **Revert:** remove the `composition_router` include in `main.py` and the panel import in `PortfolioPage.tsx`.
+
+## D18. Person 3 files touched during integration
+`AppShell.tsx` (reconnect copy), `PortfolioPage.tsx` + `.module.css` (Composition panel; sections no longer squeezed, which fixed the holdings table collapsing), `AccountStrip.tsx` + `.module.css` (5th "Composition" cell; leftover "virtual $" removed), `PlayerCard.tsx` (Radar badge, "Why did it move?" label, `data-tour="stock-why-moved"` restored, unit HOOP), `OrderTicket.tsx` (unit HOOP), `TradesTable.tsx` ("Solana paused"), `DirectorPage.tsx` (storm shortcut on the real backend), `radarInfo.ts` (tooltips), `api/*` (additive: composition hook, `reconnectSession`, `jumpToWembyStorm`, `/learning/` routing in `apiFetch`, radar mapping, reason window).
+
+## D19. Solana receipts: `auto` mode (Phase 2a)
+- **Decision:** `SOLANA_RECEIPTS=auto` is the demo default. At startup (once per process) it checks devnet and the fee-payer balance with a 5 s timeout. Receipts start only if both are fine; otherwise `/market/status.receipts_note` explains calmly and trades show "Solana paused". `on` and `off` still force it either way. Person 2's worker already retries with backoff and never blocks a trade.
+- **Why:** an unfunded fee payer or flaky venue wifi must never produce a wall of failed receipts on stage.
+- **Revert:** `SOLANA_RECEIPTS=off` (old demo behaviour) or `on` (always try).
+
+## D20. Bot-bundle receipts off in the season replay
+- **Decision:** bundles are still recorded and hashed for audit, but only sent on-chain with `SOLANA_BOT_BUNDLES=on`.
+- **Why:** the replay runs a day per minute, so a "market minute" closes every tick (twice a second): far above devnet's rate limit (about 10 status calls per 10 s) and the fee budget. Human trade receipts are the ones judges see.
+- **Revert:** `SOLANA_BOT_BUNDLES=on`.
+
+## D21. Early warnings from the official injury report (Phase 2c)
+- **Decision:** when a player's official status changes, the engine publishes an event: Questionable/Doubtful → `early_warning` (radar cloudy), Out → `injury` (radar storm). Events go to the market WebSocket and `GET /market/events`. "Why did it move?" names the report for as long as the status stands. Probable is treated as calm.
+- **Privacy:** the player-facing reason is now "Listed out on the official NBA injury report"; the medical reason column is never shown (it previously reached the stock card).
+- **Shortcut:** `/director` → "Jump to 19 Feb 2025" (forward jump keeps accounts; measured 47 s). From there: Next day → Wembanyama listed doubtful (early warning, about −0.8%); Next day → ruled out (storm, about −10%).
+- **Not changed:** the engine still reveals each day's final report at day close; there is no intra-day timing. The early warning is the real Doubtful listing a day before the Out.
+- **Revert:** `git revert d075db0 eea796d`.
+
+## D22. Currency unit labels
+- Price blocks show `H$111.11 HOOP` (an `H$` number plus a small HOOP unit label). Slightly redundant, kept because the unit label is part of Person 3's layout; drop the `unit` spans to tidy it.
