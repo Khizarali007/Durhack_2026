@@ -64,7 +64,6 @@ export default function PlayerCard({ player }: PlayerCardProps) {
       <div className={styles.priceBlock} data-tour="stock-price">
         <div className={`${styles.price} ${flashClass(flash)}`} aria-live="off">
           {formatPrice(price)}
-          <span className={styles.unit}>HOOP</span>
         </div>
         {changePct !== null
           ? <Pill variant={changePct >= 0 ? 'up' : 'down'}>{trendArrow(changePct)} {formatPct(changePct)} since opening</Pill>
