@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git -C \"c:\\\\Users\\\\eshan\\\\Documents\\\\Durhack-2026\\\\Durhack_2026\" status)",
-      "Bash(git -C \"c:\\\\Users\\\\eshan\\\\Documents\\\\Durhack-2026\\\\Durhack_2026\" branch -a)",
-      "Bash(npm run *)"
-    ]
-  }
-}
