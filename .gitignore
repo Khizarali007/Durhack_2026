@@ -1,21 +1,31 @@
 # Python and editors
 __pycache__/
 .venv/
+venv/
 *.pyc
 .pytest_cache/
 .idea/
 .DS_Store
+
+# Node
+node_modules/
+dist/
+
 # Local datasets and account databases
 data/*.csv
 data/source/
 *.sqlite
 *.sqlite-*
 *.db
-# Secrets
+# Local benchmark reports (generated, reproducible)
+data/benchmark_*.json
+
+# Secrets (keep .env.example)
 .env
 .env.*
+!.env.example
 *keypair*.json
 .solana/
 
-# Local benchmark reports (generated, reproducible)
-data/benchmark_*.json
+# Editor/agent local settings
+.claude/settings.local.json

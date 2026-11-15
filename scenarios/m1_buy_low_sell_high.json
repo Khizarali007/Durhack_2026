@@ -1,0 +1,55 @@
+{
+  "id": "m1_buy_low_sell_high",
+  "title": "Buy low, sell high",
+  "mission_number": 1,
+  "duration_s": 45,
+  "symbols": ["SGA"],
+  "start_state": {
+    "cash": 100000,
+    "positions": []
+  },
+  "timeline": [
+    {
+      "t": 0,
+      "kind": "message",
+      "text": "Opening bell! Clear skies over the court. Prices are calm for now."
+    },
+    {
+      "t": 3,
+      "kind": "hint",
+      "text": "Watch the ticker - a player is heating up."
+    },
+    {
+      "t": 10,
+      "kind": "hot_streak",
+      "symbol": "SGA",
+      "impact": 0.18,
+      "storm": 1.3,
+      "headline": "SGA heating up: three straight 35-point nights"
+    },
+    {
+      "t": 18,
+      "kind": "message",
+      "text": "Forecast: sunshine for SGA. Buyers are piling in."
+    },
+    {
+      "t": 26,
+      "kind": "hint",
+      "text": "Hot streaks cool down. A profit only counts once you sell."
+    },
+    {
+      "t": 35,
+      "kind": "message",
+      "text": "The hype is drifting off. Ten seconds to the closing bell!"
+    }
+  ],
+  "goal": {
+    "type": "round_trip_profit",
+    "symbol": "SGA",
+    "params": {
+      "min_realised_pnl": 0
+    },
+    "text": "Buy SGA, then sell it for a profit before the bell."
+  },
+  "lesson": "You only make money when you sell for more than you paid - and hype doesn't last forever."
+}
