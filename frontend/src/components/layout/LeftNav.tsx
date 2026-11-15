@@ -14,6 +14,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Market',      to: '/market',      glyph: '⇅', also: ['/stock'] },
   { label: 'Portfolio',   to: '/portfolio',   glyph: '◔' },
   { label: 'Leaders',     to: '/leaderboard', glyph: '♛' },
+  { label: 'Friends',     to: '/friends',     glyph: '☺' },
   { label: 'Learn',       to: '/learn',       glyph: '✎' },
   { label: 'Activity',    to: '/activity',    glyph: '↻' },
 ]

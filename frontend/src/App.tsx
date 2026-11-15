@@ -10,6 +10,8 @@ import LeaderboardPage from './pages/LeaderboardPage'
 import LearnPage from './pages/LearnPage'
 import ActivityPage from './pages/ActivityPage'
 import LoginPage from './pages/LoginPage'
+import FriendsPage from './pages/FriendsPage'
+import RivalPage from './pages/RivalPage'
 
 // The trading screen pulls in the chart library, so it loads as its own chunk
 const StockPage = lazy(() => import('./pages/StockPage'))
@@ -51,6 +53,8 @@ export default function App() {
               <Route path="leaderboard" element={<LeaderboardPage />} />
               <Route path="learn" element={<LearnPage />} />
               <Route path="activity" element={<ActivityPage />} />
+              <Route path="friends" element={<FriendsPage />} />
+              <Route path="friends/:id" element={<RivalPage />} />
               {/* Demo controls: deliberately not in the nav */}
               <Route path="director" element={<Suspense fallback={null}><DirectorPage /></Suspense>} />
               <Route

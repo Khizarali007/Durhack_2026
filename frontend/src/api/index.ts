@@ -90,3 +90,7 @@ export type { HistoryPoint, HistoryResponse, OfficialEvent, Valuation } from './
 // Season review (insights engine) and Coach Hoops.
 export { getReview, askCoach } from './review'
 export type { SeasonReview, Insight, TimelineItem, ReviewSummary, TradeResult, CoachAnswer, LearnLink } from './review'
+
+// Friends: five simulated practice rivals from the real market.
+export { getRivals, getRival, compareRival } from './rivals'
+export type { RivalProfile, RivalRow, RivalDetail, RivalComparison, CompositionOut } from './rivals'

@@ -62,7 +62,7 @@ export function CompositionPanel() {
             text="How evenly your money is spread across players and teams. One player or one team carrying most of it means one storm can hit everything at once."
           />
         </h2>
-        {c && c.grade && <span className={styles.sub}>{c.holdings} players · {c.teams} teams</span>}
+        {c && c.grade && <span className={styles.sub}>{c.holdings} {c.holdings === 1 ? 'player' : 'players'} · {c.teams} {c.teams === 1 ? 'team' : 'teams'}</span>}
       </div>
 
       {c === null ? (
