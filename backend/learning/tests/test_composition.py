@@ -40,7 +40,7 @@ def test_heavy_top_position_drops_the_grade_and_explains_why():
     c = compose([h("SGA", "OKC", 6000, "Shai"), h("A", "BOS", 1000), h("B", "NYK", 1000), h("C", "LAL", 1000)], 0)
     assert c.top_player_pct == pytest.approx(66.7)
     assert c.grade == "D"
-    assert "67% of your money is on Shai" in c.reason
+    assert "67% of your invested money is on Shai" in c.reason
 
 
 def test_shorts_count_as_exposure():

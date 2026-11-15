@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerIdentity'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
@@ -107,7 +108,7 @@ export default function OpenOrdersTable({ orders, symbol, showSymbol = false, em
                 </td>
                 {showSymbol && (
                   <td className={styles.left}>
-                    <Link to={`/stock/${o.symbol}`} className={styles.link}><span className={styles.whoName}>{o.symbol}</span></Link>
+                    <Link to={`/stock/${o.symbol}`} className={styles.link}><span className={styles.whoName}><PlayerName symbol={o.symbol}/></span></Link>
                   </td>
                 )}
                 <td>{o.filled_qty > 0 ? `${formatQty(o.filled_qty)} / ${formatQty(o.qty)}` : formatQty(o.qty)}</td>

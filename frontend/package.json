@@ -8,8 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test:season": "node --test tests/season.test.cjs",
     "test:learning": "node --test tests/learning.test.cjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:currency": "node --test tests/currency.test.cjs"
   },
   "dependencies": {
     "lightweight-charts": "^5.3.0",

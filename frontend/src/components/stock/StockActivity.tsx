@@ -1,5 +1,6 @@
+import { PlayerName } from '../PlayerIdentity'
 import { useMemo, useState } from 'react'
-import { usePortfolio, useOpenOrders, useTrades } from '../../api'
+import { usePortfolio, useOpenOrders, useTrades, usePlayers } from '../../api'
 import type { PositionOut } from '../../api'
 import OpenOrdersTable from '../orders/OpenOrdersTable'
 import TradesTable from '../orders/TradesTable'
@@ -18,7 +19,7 @@ function PositionPanel({ symbol, position }: { symbol: string; position: Positio
   if (!position || position.qty === 0) {
     return (
       <p className={styles.empty}>
-        You don't hold any {symbol} yet. Use the ticket on the right to buy some: 10 shares is a fine first trade.
+        You don't hold any <PlayerName symbol={symbol}/> shares yet.
       </p>
     )
   }
@@ -66,6 +67,7 @@ function PositionPanel({ symbol, position }: { symbol: string; position: Positio
 
 /** Tab strip under the chart: position, open orders and fills for the stock on screen. */
 export default function StockActivity({ symbol }: StockActivityProps) {
+  const { bySymbol } = usePlayers()
   const [tab, setTab] = useState<Tab>('position')
   const { portfolio } = usePortfolio()
   const orders = useOpenOrders(symbol)
@@ -80,7 +82,7 @@ export default function StockActivity({ symbol }: StockActivityProps) {
   ]
 
   return (
-    <section className={styles.panel} aria-label={`Your activity in ${symbol}`} data-tour="stock-activity">
+    <section className={styles.panel} aria-label={`Your activity in ${bySymbol.get(symbol)?.name ?? symbol}`} data-tour="stock-activity">
       <div className={styles.tabs} role="tablist">
         {tabs.map(t => (
           <button
@@ -102,11 +104,11 @@ export default function StockActivity({ symbol }: StockActivityProps) {
           <OpenOrdersTable
             orders={orders}
             symbol={symbol}
-            empty={<>No open orders on {symbol}. Limit and stop-loss orders from the ticket wait here until their price is reached.</>}
+            empty={<>No open orders on <PlayerName symbol={symbol}/>. Limit and stop-loss orders from the ticket wait here until their price is reached.</>}
           />
         )}
         {tab === 'history' && (
-          <TradesTable trades={trades} empty={<>No trades in {symbol} yet.</>} />
+          <TradesTable trades={trades} empty={<>No trades in <PlayerName symbol={symbol}/> yet.</>} />
         )}
       </div>
     </section>

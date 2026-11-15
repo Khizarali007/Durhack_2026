@@ -1,3 +1,4 @@
+import { useTourState } from '../../../learning/tour/store'
 import type { ReactNode } from 'react'
 import type { Quote } from '../../../api'
 import { formatPrice, formatQty } from '../../../utils/format'
@@ -16,6 +17,7 @@ interface QuoteBoxProps {
 /** Best bid and ask side by side, with the three market makers' own quotes underneath. */
 export default function QuoteBox({ quote, emphasise, bidHelp, askHelp, makersHelp }: QuoteBoxProps) {
   const makers = quote?.makers ?? []
+  const tour = useTourState()
 
   return (
     <div className={styles.box} data-tour="ticket-quote">
@@ -32,7 +34,7 @@ export default function QuoteBox({ quote, emphasise, bidHelp, askHelp, makersHel
         </div>
       </div>
 
-      <table className={styles.makers} data-tour="ticket-makers">
+      <details className="market-depth" open={tour.running||undefined}><summary>Market depth</summary><table className={styles.makers} data-tour="ticket-makers">
         <caption className={styles.caption}>Market makers {makersHelp}</caption>
         <thead>
           <tr>
@@ -58,7 +60,7 @@ export default function QuoteBox({ quote, emphasise, bidHelp, askHelp, makersHel
             )
           })}
         </tbody>
-      </table>
+      </table></details>
     </div>
   )
 }

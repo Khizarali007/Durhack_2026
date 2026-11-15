@@ -1,3 +1,4 @@
+import { useSeason } from '../../api/useSeason'
 import { usePortfolio, useReservedCash } from '../../api'
 import { formatHOOP, formatPct, formatPnl, trendArrow } from '../../utils/format'
 import { CompositionGradeChip } from '../../learning'
@@ -7,6 +8,7 @@ import styles from './AccountStrip.module.css'
 export default function AccountStrip() {
   const { portfolio, loading } = usePortfolio()
   const reserved = useReservedCash()
+  const {score} = useSeason()
 
   if (portfolio === null) {
     return (
@@ -16,15 +18,15 @@ export default function AccountStrip() {
     )
   }
 
-  const pnl = portfolio.total_pnl
+  const pnl = score ? score.score-score.starting_cash : 0
   const trend = pnl > 0 ? 'trend-up' : pnl < 0 ? 'trend-down' : 'trend-flat'
 
   return (
     <dl className={styles.strip}>
       <div className={styles.stat}>
-        <dt>Quoted portfolio value</dt>
-        <dd className={styles.big}>{formatHOOP(portfolio.equity)}</dd>
-        <span className={styles.sub}>cash + quoted holdings + pending rights</span>
+        <dt>Season score</dt>
+        <dd className={styles.big}>{score ? formatHOOP(score.score) : '—'}</dd>
+        <span className={styles.sub}>estimated exit value after costs</span>
       </div>
       <div className={styles.stat}>
         <dt>Cash</dt>
@@ -32,19 +34,19 @@ export default function AccountStrip() {
         <span className={styles.sub}>{formatHOOP(reserved)} tied up in pending orders</span>
       </div>
       <div className={styles.stat}>
-        <dt>Shares worth</dt>
+        <dt>Quoted holdings</dt>
         <dd>{formatHOOP(portfolio.positions_value)}</dd>
         <span className={styles.sub}>{portfolio.positions.length} {portfolio.positions.length === 1 ? 'holding' : 'holdings'}</span>
       </div>
       <div className={styles.stat}>
-        <dt>Profit / loss</dt>
-        <dd className={trend}>{trendArrow(pnl)} {formatPnl(pnl)}</dd>
-        <span className={`${styles.sub} ${trend}`}>{formatPct(portfolio.total_pnl_pct, 2)} since you started with {formatHOOP(portfolio.starting_cash, 0)}</span>
+        <dt>Season return</dt>
+        <dd className={trend}>{score ? `${trendArrow(pnl)} ${formatPnl(pnl)}` : '—'}</dd>
+        <span className={`${styles.sub} ${trend}`}>{score ? formatPct(score.return_pct, 2) : '—'} since you started with {formatHOOP(portfolio.starting_cash, 0)}</span>
       </div>
       <div className={styles.stat}>
-        <dt>Composition</dt>
+        <dt>Diversification</dt>
         <dd><CompositionGradeChip /></dd>
-        <span className={styles.sub}>how spread your money is</span>
+        <span className={styles.sub}>invested holdings only; excludes cash</span>
       </div>
     </dl>
   )

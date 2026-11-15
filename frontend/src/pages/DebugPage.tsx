@@ -1,3 +1,4 @@
+import { formatHOOP, formatPrice } from '../utils/format'
 import { useState } from 'react'
 import { useQuote, useMarketTime, useRadar, useSession, placeOrder } from '../api'
 import type { OrderOut } from '../api'
@@ -11,10 +12,10 @@ function QuoteRow({ symbol }: { symbol: string }) {
   return (
     <tr>
       <td style={{ fontFamily: 'monospace' }}>{symbol}</td>
-      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{quote.last.toFixed(2)}</td>
-      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{quote.fair_value.toFixed(2)}</td>
-      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{quote.bid !== null ? quote.bid.toFixed(2) : '—'}</td>
-      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{quote.ask !== null ? quote.ask.toFixed(2) : '—'}</td>
+      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatPrice(quote.last)}</td>
+      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatPrice(quote.fair_value)}</td>
+      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{quote.bid !== null ? formatPrice(quote.bid) : '—'}</td>
+      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{quote.ask !== null ? formatPrice(quote.ask) : '—'}</td>
       <td>{radar}</td>
     </tr>
   )
@@ -43,7 +44,7 @@ export default function DebugPage() {
 
   return (
     <div style={{ padding: '24px', fontFamily: 'system-ui', maxWidth: '900px' }}>
-      <h1>HoopStreet Debug</h1>
+      <h1>HoopStreet Debug</h1><p>Prices use H$. Raw JSON below uses API accounting units (1,000 = H$1).</p>
 
       <section>
         <h2>Session</h2>
@@ -51,7 +52,7 @@ export default function DebugPage() {
         {session && (
           <p>
             user_id: <code>{session.user_id}</code> &nbsp;|&nbsp;
-            cash: <strong>{session.cash.toFixed(2)} HOOP</strong>
+            cash: <strong>{formatHOOP(session.cash)}</strong>
           </p>
         )}
       </section>

@@ -20,11 +20,10 @@ export default function Watchlist({ selected, onSelect }: WatchlistProps) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return players
-    return players.filter(p =>
+    return players.filter(p => !q ||
       p.name.toLowerCase().includes(q) ||
       p.symbol.toLowerCase().includes(q) ||
-      p.team.toLowerCase().includes(q))
+      p.team.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name))
   }, [players, query])
 
   const selectedIndex = useMemo(() => filtered.findIndex(p => p.symbol === selected), [filtered, selected])

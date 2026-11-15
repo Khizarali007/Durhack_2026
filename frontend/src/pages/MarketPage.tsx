@@ -30,7 +30,7 @@ function sortPlayers(list: Player[], key: SortKey, dir: SortDir, _tick: number):
     let vb: number | string
     switch (key) {
       case 'symbol':
-        va = a.symbol; vb = b.symbol
+        va = a.name; vb = b.name
         break
       case 'price':
         va = getCachedQuote(a.symbol)?.quoted_price ?? 0
@@ -200,7 +200,7 @@ export default function MarketPage() {
           ref={filterRef}
           className={styles.filterInput}
           type="search"
-          placeholder="Filter players, symbols, teams…"
+          placeholder="Search players or teams…"
           data-tour="market-search"
           value={query}
           onChange={e => { setQuery(e.target.value); setHighlightedIdx(-1) }}

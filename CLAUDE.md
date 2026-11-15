@@ -34,7 +34,7 @@ This file covers the **frontend only**. I own it on the `frontend` branch. Perso
 - Out of scope for everyone: Phantom wallets, real money, live 2026-27 data
 
 ## Content and design rules
-- **No NBA logos or headshots.** Use player initials and team colours only
+- **No NBA team logos.** Per the user’s 15 November request, use ESPN player headshots keyed by ESPN athlete ID, with equal dimensions and initials/team-colour fallback.
 - Tone is silly and weather-forecast flavoured (sirens, a shouting trader, "chance of margin calls"), but UI labels must stay clear
 - Every jargon term (bid, ask, spread, slippage, limit, stop-loss, margin, leverage, short, fair value) gets a "?" tooltip. Person 4 supplies the glossary drawer and tooltip content, so use their component once it exists
 - Headlines about real players stay mild. Never show off-court, legal or medical detail
@@ -115,7 +115,7 @@ Define everything as CSS variables in one file so the whole look can be re-theme
 
 ### Rules that don't bend
 
-- No NBA logos or headshots anywhere. Player identity is initials plus team colours only.
+- Player identity uses full names and ESPN headshots (15 November user override); use initials and team colours when unavailable. Do not copy image binaries into the repo.
 - Always visible on screen: current price, cash, and cash tied up in pending orders.
 - Progressive disclosure: the ticket defaults to a simple market order. Limit, stop-loss, short and leverage live behind tabs, never all on screen at once.
 - Every jargon term gets a "?" tooltip.

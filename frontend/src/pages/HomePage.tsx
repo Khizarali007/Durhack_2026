@@ -1,83 +1,26 @@
-import { TourPromptCard } from '../learning/learn/TourPromptCard'
-import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { usePlayers } from '../api'
-import type { Player } from '../api'
-import AccountStrip from '../components/account/AccountStrip'
-import WelcomeCard from '../components/home/WelcomeCard'
-import MoverTile from '../components/home/MoverTile'
-import { changePct } from '../components/home/moverChange'
-import styles from './HomePage.module.css'
+import { usePortfolio } from '../api'
+import { useSeason } from '../api/useSeason'
+import { formatHOOP, formatPct, formatPnl } from '../utils/format'
+import { PlayerAvatar } from '../components/PlayerIdentity'
+import '../components/season.css'
 
-const SHOW = 5
-
-/** `_tick` only exists so the ranking can be redone while the roster is unchanged. */
-interface Mover { p: Player; pct: number }
-
-function rankMovers(players: Player[], _tick: number): { gainers: Mover[]; losers: Mover[] } {
-  void _tick
-  const scored = players
-    .map(p => ({ p, pct: changePct(p) }))
-    .filter((x): x is Mover => x.pct !== null)
-    .sort((a, b) => b.pct - a.pct)
-  return {
-    gainers: scored.slice(0, SHOW),
-    losers: scored.slice(-SHOW).reverse(),
-  }
-}
-
-/** The landing screen: your account, and the ten players moving most right now. */
-export default function HomePage() {
-  const { players, loading } = usePlayers()
-  const [tick, setTick] = useState(0)
-
-  // Re-rank once a second. Prices inside each card still tick twice a second.
-  useEffect(() => {
-    const id = setInterval(() => setTick(n => n + 1), 1000)
-    return () => clearInterval(id)
-  }, [])
-
-  const { gainers, losers } = useMemo(() => rankMovers(players, tick), [players, tick])
-  const waiting = loading || gainers.length === 0
-
-  return (
-    <div className={styles.page}>
-      <header className={styles.hero}>
-        <h1 className={styles.title}>Top movers</h1>
-        <p className={styles.note}>Change since the opening price, re-ranked every second</p>
-        <p className={styles.lede}>
-          HoopStreet is a practice stock market where every NBA player is a share. You start with
-          H$100,000 in virtual cash. Buy future performance, earn game payouts, and grow your portfolio through the 2024–25 season. No real money.
-        </p>
-      </header>
-
-      <WelcomeCard />
-
-      <AccountStrip />
-
-      <div className={styles.columns} data-tour="home-movers">
-        <section className={styles.column} aria-label="Top gainers">
-          <h2 className={styles.colTitle}><span className="trend-up" aria-hidden="true">▲</span> Biggest gainers</h2>
-          {waiting
-            ? Array.from({ length: SHOW }, (_, i) => <div key={i} className={`skeleton ${styles.skeleton}`} />)
-            : gainers.map((m, i) => <MoverTile key={m.p.symbol} player={m.p} pct={m.pct} rank={i + 1} />)}
-        </section>
-        <section className={styles.column} aria-label="Top losers">
-          <h2 className={styles.colTitle}><span className="trend-down" aria-hidden="true">▼</span> Biggest fallers</h2>
-          {waiting
-            ? Array.from({ length: SHOW }, (_, i) => <div key={i} className={`skeleton ${styles.skeleton}`} />)
-            : losers.map((m, i) => <MoverTile key={m.p.symbol} player={m.p} pct={m.pct} rank={i + 1} />)}
-        </section>
-      </div>
-
-      <div className={styles.footer}>
-        <Link to="/market" className={styles.link}>Browse all {players.length} players →</Link>
-
-        {/* Mount point for Person 4's mission prompt card ("Mission 1: Buy low, sell high") */}
-        <section id="mission-card-mount" className={styles.mount} aria-label="Mission">
-          <TourPromptCard />
-        </section>
-      </div>
-    </div>
-  )
+export default function HomePage(){
+ const {score,clock,nextReport}=useSeason()
+ const {portfolio}=usePortfolio()
+ return <div className="overview-page">
+  <header className="overview-heading"><h1>Overview</h1><span className="quiet-label">2024–25 <span className="separator">/</span> Virtual portfolio</span></header>
+  <section className="balance-panel" aria-label="Portfolio summary">
+   <div className="balance-main"><span className="metric-label">{score?.finished?'Final score':'Portfolio value'} <span title="Cash + estimated sale proceeds after costs + pending payments" className="metric-info">ⓘ</span></span><strong className="balance-number">{score?formatHOOP(score.score):'—'}</strong><span className={(score?.return_pct??0)>=0?'trend-up':'trend-down'}>{score?`${formatPnl(score.score-score.starting_cash)} (${formatPct(score.return_pct,2)})`:'—'} <span className="quiet-label">since start</span></span></div>
+   <dl className="balance-stats"><div><dt>Available cash</dt><dd>{portfolio?formatHOOP(portfolio.available_cash??portfolio.cash):'—'}</dd></div><div><dt>Holdings · net sale value</dt><dd>{score?formatHOOP(score.net_sale_proceeds):'—'}</dd></div><div><dt>Payments earned</dt><dd>{score?formatHOOP(score.payouts_received):'—'}</dd></div></dl>
+  </section>
+  <div className="overview-grid">
+   <section className="holdings-panel" aria-label="Your holdings"><div className="panel-heading"><h2>Holdings <span className="count-badge">{portfolio?.positions.length??0}</span></h2><Link className="text-action" to="/market">Add player <span aria-hidden="true">＋</span></Link></div>
+    {portfolio?.positions.length?<div className="holdings-list">{portfolio.positions.map(p=><Link to={`/stock/${p.symbol}`} className="holding-item" key={p.symbol}><PlayerAvatar player={p}/><span className="holding-name"><strong>{p.name??p.symbol}</strong><small>{p.qty} shares · {p.team}</small></span><span className="holding-value"><strong>{formatHOOP(p.market_value)}</strong><small className={p.unrealised_pnl>=0?'trend-up':'trend-down'}>{formatPct(p.unrealised_pnl_pct,2)}</small></span><span className="row-arrow" aria-hidden="true">↗</span></Link>)}</div>:<div className="empty-holdings"><p>No holdings</p><Link className="action-primary" to="/market">Find a player</Link></div>}
+    <div className="panel-foot"><span>Holdings shown at quoted prices</span><Link to="/portfolio">View portfolio →</Link></div>
+   </section>
+   <section className="season-review"><h2>{score?.finished?'Season complete':'Weekly reports'}</h2>{!score?.finished&&nextReport&&<p className="quiet-label">Next report · {new Date(nextReport*1000).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'})}</p>}<Link className="result-action" to="/updates">View updates →</Link></section>
+  </div>
+  <footer className="overview-foot"><span>{clock?.busy?'Updating market…':'Historical NBA data · Simulated market'}</span><Link to="/learn">Learn the basics ↗</Link></footer>
+ </div>
 }

@@ -88,7 +88,7 @@ async function adopt(s: SessionOut): Promise<SessionOut> {
   return s
 }
 
-/** One click into a funded 100,000 HOOP guest account. */
+/** One click into a funded H$100 (100,000 API accounting units) guest account. */
 export async function joinAsGuest(): Promise<SessionOut> {
   return adopt(await guestSession())
 }

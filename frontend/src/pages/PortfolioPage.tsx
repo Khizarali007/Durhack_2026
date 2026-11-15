@@ -1,3 +1,4 @@
+import { formatHOOP } from '../utils/format'
 import PayoutLedger from '../components/PayoutLedger'
 import { CompositionPanel } from '../learning'
 import { Link } from 'react-router-dom'
@@ -14,7 +15,7 @@ export default function PortfolioPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>Portfolio</h1>
-        <p className={styles.lede}>Everything you own, priced live. Click a player to trade them.</p>
+
       </header>
 
       <AccountStrip />
@@ -27,10 +28,10 @@ export default function PortfolioPage() {
           </div>
         ) : portfolio.positions.length === 0 ? (
           <div className={styles.empty}>
-            <span className={styles.emptyIcon} aria-hidden="true">⛅</span>
-            <h3>Nothing here yet: clear skies, zero exposure</h3>
-            <p>You have {portfolio.cash.toLocaleString('en-US', { maximumFractionDigits: 0 })} HOOP to play with. Pick a player who is moving and buy your first 10 shares.</p>
-            <Link to="/" className={styles.cta}>See today's top movers</Link>
+
+            <h3>No holdings</h3>
+            <p>{formatHOOP(portfolio.cash)} available.</p>
+            <Link to="/market" className={styles.cta}>Find a player</Link>
           </div>
         ) : (
           <div className={styles.tableWrap}>
@@ -40,9 +41,9 @@ export default function PortfolioPage() {
       </section>
 
       {/* Person 4's Composition panel (% by team / player, grade A–F) */}
-      <section id="composition-panel-mount" aria-label="Composition">
+      <details id="composition-panel-mount" aria-label="Composition"><summary>Portfolio diversification</summary>
         <CompositionPanel />
-      </section>
+      </details>
 
       <PayoutLedger />
     </div>

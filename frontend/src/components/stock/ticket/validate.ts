@@ -45,7 +45,7 @@ export function checkTicket(t: TicketInput): TicketCheck {
 
   // --- Orders that wait for a price ---
   if (mode === 'limit' || mode === 'stop') {
-    if (price === null) return block('Enter a price above zero, with at most 2 decimal places.')
+    if (price === null) return block('Enter a price above zero, with at most 5 decimal places.')
 
     if (mode === 'stop') {
       if (held === 0) return block(`A stop-loss protects shares you hold, and you don't hold any ${symbol}.`)
@@ -59,7 +59,7 @@ export function checkTicket(t: TicketInput): TicketCheck {
       if (shortQty > 0) return block(`You are short ${symbol}. Cover the short before buying.`)
       const needed = qty * price * (1 + FEE_RATE)
       if (needed > free)
-        return block(`Not enough cash: this order sets aside ${formatHOOP(needed)} HOOP and you have ${formatHOOP(free)} free.`)
+        return block(`Not enough cash: this order sets aside ${formatHOOP(needed)} and you have ${formatHOOP(free)} free.`)
       if (quote !== null && quote.ask !== null && price >= quote.ask)
         return { blocker: null, note: `Your limit is at or above the ask (${formatPrice(quote.ask)}), so this fills straight away.` }
       return { blocker: null, note: null }
@@ -95,7 +95,7 @@ export function checkTicket(t: TicketInput): TicketCheck {
   if (!closing && est.cash_short) {
     return block(est.fillable_qty > 0
       ? `Not enough cash for ${formatQty(qty)} shares. You can afford about ${formatQty(est.fillable_qty)}.`
-      : `Not enough cash: you have ${formatHOOP(free)} HOOP free.`)
+      : `Not enough cash: you have ${formatHOOP(free)} free.`)
   }
   if (est.fillable_qty === 0) {
     return block(mode === 'short' || (mode === 'market' && side === 'sell')

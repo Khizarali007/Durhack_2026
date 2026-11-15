@@ -32,7 +32,8 @@ export const TEAM_COLORS: Record<string, string> = {
 }
 
 export function teamColor(team: string): string {
-  return TEAM_COLORS[team] ?? '#4B5563'
+  const aliases: Record<string, string> = { GS: 'GSW', SA: 'SAS', NO: 'NOP', NY: 'NYK', UTAH: 'UTA', WSH: 'WAS' }
+  return TEAM_COLORS[aliases[team] ?? team] ?? '#4B5563'
 }
 
 const SUFFIXES = new Set(['Jr.', 'Sr.', 'II', 'III', 'IV', 'V'])

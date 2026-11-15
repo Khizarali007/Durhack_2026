@@ -717,6 +717,14 @@ async def portfolio(user: User = Depends(current_user), db: Database = Depends(g
     )
 
 
+@router.get('/season-updates')
+async def season_updates(user: User = Depends(current_user)):
+    reports = getattr(get_market(), 'weekly_reports', None)
+    if reports is None:
+        raise HTTPException(409, 'Historical season challenge required')
+    return reports.for_user(user.user_id)
+
+
 @router.get('/season-score')
 async def season_result(user: User = Depends(current_user), db: Database = Depends(get_db)):
     from .scoring import season_score

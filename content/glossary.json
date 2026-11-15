@@ -7,7 +7,7 @@
     },
     {
       "term": "HOOP",
-      "short": "The game currency, shown as H$. Every account starts with H$100,000; it is play money and cannot be cashed out."
+      "short": "The game currency, shown as H$. Every account starts with H$100; it is play money and cannot be cashed out."
     },
     {
       "term": "Bid",
@@ -95,7 +95,7 @@
     },
     {
       "term": "Performance payout",
-      "short": "H$0.02 per positive Game Score point per share. Hold at the synthetic noon cutoff; actual game performance settles at day close. A missed game pays zero."
+      "short": "H$0.0002 per positive Game Score point per share. Hold at the synthetic noon cutoff; actual game performance settles at day close. A missed game pays zero."
     }
   ]
 }

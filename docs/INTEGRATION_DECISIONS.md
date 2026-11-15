@@ -144,3 +144,54 @@ the decision, the options considered, why, and how to revert. Archive tags
 ## D30. Projector mode and the Director page (Part 5 audit)
 - **Decision:** projector mode (header user menu) now overrides the font-size scale (+25–30%) and raises text-secondary and border contrast in both themes via `[data-projector="true"]` in `tokens.css`. The Director page is rebuilt on the design system and points the demo at Activity and Friends after the storm.
 - **Revert:** delete the projector block at the end of `tokens.css`.
+## 15 November — change-tests gameplay review
+
+- **Default round: one historical week.** Daily controls remain available, but the main action produces a before/after report. Holding is a valid decision. Reconsider the duration after timing a judged demo.
+- **One score: estimated liquidation value.** Retain the accepted formula (cash + net sale proceeds + pending rights); quoted equity is secondary. Paid payouts are never added twice.
+- **Honest attribution.** Per-player outcome includes realised trades, remaining sale proceeds, acquisition cost, fees, paid dividends and pending rights. Sold players remain in results. Forecast/report changes are observations, not asserted causes of price movement.
+- **Opening allocations: approximately 5%, 10%, 25%.** Shares remain whole units and the execution preview is authoritative. No forced diversification, auto-rebalancing, scripted profitable trades or future-season knowledge.
+- **Solana: forward replay is causal; rewind is a reset.** Allow forward replay while existing asynchronous receipt workers continue. Block backward replay when receipt/portfolio writes are enabled. UI does not claim that local completion implies chain confirmation.
+- **Weekly report scope:** captures the account immediately before a round and after the requested target. Trades between rounds affect the live/final score, but precede the next round's baseline. The last report is immutable and stored per browser tab, account and market session, not a multi-device history service.
+
+## 15 November — interface simplification
+
+- Replace promotional copy with functional labels and one Next week action. Keep the accepted liquidation score and market rules unchanged.
+- Put market depth, performance inputs, detailed attribution and replay settings behind disclosure. Active tutorials open the controls they teach.
+- Keep the buy/sell action pinned outside the scrollable order details.
+- Use brief entry/feedback animations, real replay progress and transient payment notifications. No invented chart movement or interpolated account balances; respect reduced-motion settings.
+
+## 15 November — continuous replay and diversified setup
+
+These choices supersede the weekly-stop and single-purchase setup decisions above.
+
+- **Continuous clock:** Start season begins normal playback; Play/Pause remains explicit. Week boundaries generate reports without pausing, navigating or forcing a trade. Advanced date jumps still stop at the requested date.
+- **Server reports:** capture account snapshots every seven days from the season start, plus the final shorter interval. Steps clamp to report boundaries so acceleration cannot skip a report. Reports survive browser refresh/closure, belong to the authenticated account, and clear with the in-memory market on rewind/server restart. No permanent history or cross-server persistence is claimed.
+- **Report accounting:** include purchases and sales within the interval, fees, paid dividends and changes in pending rights. The first baseline is registered while setting up the portfolio; later reports use the previous boundary. Late joiners receive an initial partial week. Reports have no market impact.
+- **Opening tutorial:** require three meaningful player positions (about 5% of initial cash each), at least two teams, and no position above 50% of invested market value. Cash is excluded from concentration. A 2% tolerance on the minimum accounts for whole shares; this is a teaching target, not a risk guarantee or a continuing trading restriction.
+- **Setup cash:** cap previewed acquisition value per player at 25% of initial cash during setup, with 5/10/20% presets. This leaves room to add other players. After setup, normal trading rules apply. This client-side tutorial gate is not an anti-cheat boundary.
+- **Resume:** unfinished setup persists locally per account. Existing accounts with trades are not forced through the new setup. Rewinds create fresh accounts and require setup again. Reconsider server-side onboarding persistence for a multi-device product.
+
+## 15 November — H$100 denomination
+
+- **Uniform unit change:** 1,000 existing API accounting units now represent H$1. Starting funds display H$100; share values, bot wealth, payouts, fees and portfolio scores have the same economic ratios. Quantities, returns and model coefficients are unchanged.
+- **Keep the integer ledger:** do not divide stored cents and round away small dividends/fees, migrate historical data or rewrite signed Solana receipts. Existing receipts retain their original accounting denomination. Current UI and typed-price boundaries perform the conversion; raw API numbers deliberately stay compatible.
+- **Precision:** five decimal places preserve one original ledger cent. Forecast payouts show six decimals; cash and totals show up to five. Limit/stop prices accept five decimals and convert back once before validation/submission. Charts use scaled numeric series as well as scaled labels.
+- **Content:** starting allocations become H$5/H$10/H$20 and the payout coefficient is H$0.00002 per positive Game Score point. Update glossary, challenges and tours together.
+- **Reconsider:** if the team needs an API explicitly denominated in displayed H$, version that contract and its Solana encoding together. Do not silently divide the current API or scale it twice in clients.
+
+
+## 15 November — neutral roster builder and larger shares
+
+- **Selection:** remove featured names and automatic Jokic selection. Browse all 580 players, sorted by current buy price, with name/team/ticker search, team filtering and price/name sorting. No future-season winners or manual player recommendations appear in setup. Six rows per page keep the laptop layout readable.
+- **Fantasy presentation:** show budget and empty roster slots first. Selecting a player opens a compact purchase panel; successful trades return to the roster with confirmation. Existing picks can be sold through the same panel, at actual bids with fees, rather than silently refunded. Prices in the list round to two displayed decimals; the ticket keeps exact executable precision.
+- **Economics:** shares represent 10× the previous payout claim. Multiply the live valuation coefficient by ten so present values, expected dividends and settled dividends stay consistent. Human starting cash remains H$100; quantities are not automatically multiplied or divided. Bot cash, dealer cash, position limits and the price-based attention reference also scale tenfold to keep institutional liquidity comparable. Share supply stays fixed. Keeping dividends unchanged would slash yield and conflict with the existing valuation formula; that alternative was rejected.
+- **Setup:** retain the agreed 3-player / 2-team / 50%-concentration gate and 25% acquisition cap. Allocation presets are H$10/H$15/H$20: the old H$5 button could round below the qualifying minimum with more expensive whole shares.
+- **Session boundary:** use a fresh market for the changed economics, never silently revalue an existing running server or rewrite stored receipts. The API/display denomination still maps 1,000 accounting units to H$1. The old frontend-only mock is a separate development fixture, not this historical live engine.
+- **Reconsider:** a true five-position fantasy lineup would need reliable player-position data and explicit roster limits. Current holdings remain investment positions; no positions or sporting constraints are invented.
+
+
+## 15 November — fairer priors, full names and ESPN portraits
+
+- **Expectations:** replace pooled league priors with the equal-player previous-season mean for shrinkage and historical newcomer mean for no-history players. Recent-season weight rises from 45% to 65%, based on an earlier-season development check. No universal price discount or forced win/loss quota. Evidence and limitations: [opening-value review](OPENING_VALUE_REVIEW.md).
+- **Presentation:** replace bespoke ticker labels with full player names throughout user-facing market and trading views. Retain internal IDs for trade/receipt/link compatibility. Equal row/photo dimensions and a two-line watchlist prevent long names squeezing out prices.
+- **Photos:** the user's explicit request supersedes the earlier initials-only design rule. Use ESPN-hosted portraits by existing ESPN athlete ID, with lazy loading and initials on failure. Keep NBA team logos out, avoid copying portraits into the repo, and acknowledge current uniforms may differ from historical team labels.

@@ -442,3 +442,13 @@
   color: var(--hs-color-text-secondary);
   line-height: var(--hs-line-height-tight);
 }
+
+/* Keep the order action visible while research and depth scroll. */
+.ticket {padding:0;gap:0;overflow:hidden;}
+.ticket>.ticketBody {flex:1;flex-shrink:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:16px;}
+.ticketBody>* {flex-shrink:0;}
+.ticketFooter {padding:12px 16px 16px;border-top:1px solid var(--hs-color-border);background:var(--hs-color-bg-panel);max-height:45%;overflow-y:auto;}
+.ticketFooter .messages {min-height:0;}
+.ticketFooter .messages:empty {display:none;}
+.ticketFooter .messages:not(:empty) {margin-bottom:10px;}
+.tabHint {min-height:0;}

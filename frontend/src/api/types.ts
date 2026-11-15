@@ -1,4 +1,6 @@
-// Mirrors Python backend shapes exactly. Comments indicate the source file.
+// Mirrors Python backend shapes exactly. Monetary numbers are API accounting
+// units: 1,000 = H$1. Convert only for display/input using utils/currency.ts.
+// Do not scale stored values, quantities, ratios, timestamps or return percentages.
 // Anything under a "PLANNED" banner is a guessed shape: see docs/api-assumptions.md.
 
 // --- From router.py (origin/person2branch) ---

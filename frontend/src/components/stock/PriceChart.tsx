@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ColorType, createChart, createSeriesMarkers, LineSeries, LineStyle, PriceScaleMode } from 'lightweight-charts'
+import { createChart, createSeriesMarkers, LineSeries, ColorType, LineStyle } from 'lightweight-charts'
 import type { IChartApi, ISeriesApi, ISeriesMarkersPluginApi, SeriesMarker, Time, UTCTimestamp } from 'lightweight-charts'
 import {
   getHistory,
@@ -11,173 +11,133 @@ import {
   usePlayers,
 } from '../../api'
 import type { HistoryPoint, MarketEvent, OfficialEvent } from '../../api'
-import { useThemeContext } from '../../context/useThemeContext'
 import { readChartColors } from '../../utils/chartTheme'
+import { useThemeContext } from '../../context/useThemeContext'
+import { toDisplayCurrency, DISPLAY_PRICE_DECIMALS, DISPLAY_PRICE_TICK } from '../../utils/currency'
 import styles from './PriceChart.module.css'
 
-const DAY = 86400
-const MAX_COMPARE = 3
-type Range = '1M' | '3M' | 'season'
-const RANGES: { value: Range; label: string; days: number | null }[] = [
-  { value: '1M', label: '1M', days: 30 },
-  { value: '3M', label: '3M', days: 90 },
-  { value: 'season', label: 'Season', days: null },
-]
+// Jonathan's chart design (labels, palette, toolbar, H$ display units) with Person 4's data flow:
+// history loads once per selection and season session, live quotes only move today's point,
+// zoom is kept until "Fit history", and missing compare players are ignored safely.
 
-/**
- * One point per day: every time maps to the end of its day, the same timestamp the
- * day-close history point uses. A live quote during the day just moves today's point.
- */
+const COLORS = ['#45d6a5', '#6ba4ff', '#ffc770', '#d49bff']
+const DAY = 86400
+const PRICE_FORMAT = { type: 'price' as const, precision: DISPLAY_PRICE_DECIMALS, minMove: DISPLAY_PRICE_TICK }
+
+/** One point per day: a time maps to the end of its day, the same stamp the day-close history uses. */
 function dayKey(t: number): UTCTimestamp {
   return (Math.ceil(t / DAY) * DAY) as UTCTimestamp
 }
-
-type Line = ISeriesApi<'Line'>
 
 function toLine(points: HistoryPoint[], pick: (p: HistoryPoint) => number | null) {
   const byDay = new Map<number, number | null>()
   for (const p of points) byDay.set(dayKey(p.t), pick(p))
   return [...byDay.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([time, value]) => (value == null ? { time: time as UTCTimestamp } : { time: time as UTCTimestamp, value }))
+    .map(([time, value]) =>
+      value == null ? { time: time as UTCTimestamp } : { time: time as UTCTimestamp, value: toDisplayCurrency(value) },
+    )
 }
 
-function markerFor(ev: OfficialEvent | MarketEvent, colors: ReturnType<typeof readChartColors>): SeriesMarker<UTCTimestamp> | null {
-  if (ev.kind === 'early_warning') {
-    return { time: dayKey(ev.t), position: 'aboveBar', shape: 'circle', color: colors.warn, text: 'Warning' }
-  }
-  if (ev.kind === 'injury') {
-    return { time: dayKey(ev.t), position: 'aboveBar', shape: 'arrowDown', color: colors.down, text: 'Storm' }
-  }
+function marker(ev: OfficialEvent | MarketEvent): SeriesMarker<Time> | null {
+  const c = readChartColors()
+  if (ev.kind === 'early_warning') return { time: dayKey(ev.t), position: 'aboveBar', shape: 'circle', color: c.warn, text: 'Injury watch' }
+  if (ev.kind === 'injury') return { time: dayKey(ev.t), position: 'aboveBar', shape: 'arrowDown', color: c.down, text: 'Out' }
   return null
 }
 
-/**
- * The stock chart: quoted midpoint as the main line, the analyst estimate dashed, up to three
- * compare players (shown as % change), and early-warning / storm markers. History is loaded once
- * per selection; live quotes only update today's point.
- */
+type Line = ISeriesApi<'Line'>
+
 export default function PriceChart({ symbol }: { symbol: string; events?: MarketEvent[] }) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const { players, bySymbol } = usePlayers()
   const { theme, projector } = useThemeContext()
   const [compare, setCompare] = useState<string[]>([])
-  const [range, setRange] = useState<Range>('season')
   const [load, setLoad] = useState<{ key: string; status: 'ready' | 'empty' | 'error' } | null>(null)
-  const linesRef = useRef<Map<string, Line>>(new Map())
-  const fairRef = useRef<Line | null>(null)
-  const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null)
+  const name = (s: string) => bySymbol.get(s)?.name ?? s
 
+  // Compare players that aren't in the roster (yet) are skipped instead of breaking the chart.
   const selection = useMemo(
-    () => [symbol, ...compare.filter((s) => s !== symbol && bySymbol.has(s))].slice(0, MAX_COMPARE + 1),
+    () => [symbol, ...compare.filter((s) => s !== symbol && bySymbol.has(s))].slice(0, 4),
     [symbol, compare, bySymbol],
   )
   const selectionKey = selection.join(',')
   const status = load !== null && load.key === selectionKey ? load.status : 'loading'
 
-  // The chart object lives as long as the component; only series change with the selection.
   useEffect(() => {
-    const el = containerRef.current
+    const el = ref.current
     if (!el) return
     const c = readChartColors()
     const chart = createChart(el, {
       autoSize: true,
-      layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: c.text,
-        fontFamily: c.fontFamily,
-        fontSize: c.fontSize,
-        attributionLogo: false,
-      },
+      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: c.text },
       grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-      rightPriceScale: { borderColor: c.border },
-      timeScale: { borderColor: c.border, timeVisible: false },
-      crosshair: { vertLine: { color: c.border }, horzLine: { color: c.border } },
+      timeScale: { timeVisible: false },
     })
     chartRef.current = chart
     return () => {
       chartRef.current = null
-      linesRef.current = new Map()
-      fairRef.current = null
-      markersRef.current = null
       chart.remove()
     }
   }, [])
 
-  // Series for the current selection: load history once, then follow live quotes.
   useEffect(() => {
     const current = chartRef.current
     if (!current) return
     const chart: IChartApi = current
     const symbols = selectionKey.split(',')
-    const comparing = symbols.length > 1
-    const c = readChartColors()
     let alive = true
-    let lastHistoryDay = 0
-    let reloadTimer: ReturnType<typeof setTimeout> | null = null
-    let firstLoad = true
+    let lastDay = 0
     let session = ''
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null
 
-    const lines = new Map<string, Line>()
-    symbols.forEach((s, i) => {
-      lines.set(
-        s,
-        chart.addSeries(LineSeries, {
-          color: c.series[i] || c.accent,
-          lineWidth: i === 0 ? 3 : 2,
-          title: s,
-          priceLineVisible: false,
-          lastValueVisible: true,
-        }),
-      )
-    })
+    const lines: Line[] = symbols.map((s, i) =>
+      chart.addSeries(LineSeries, {
+        color: COLORS[i],
+        lineWidth: 2,
+        title: bySymbol.get(s)?.name ?? s,
+        priceLineVisible: false,
+        priceFormat: PRICE_FORMAT,
+      }),
+    )
     const fair = chart.addSeries(LineSeries, {
-      color: c.text,
+      color: '#97a7bb',
       lineStyle: LineStyle.Dashed,
       lineWidth: 1,
       title: 'Analyst estimate',
       priceLineVisible: false,
-      visible: !comparing,
+      priceFormat: PRICE_FORMAT,
     })
-    linesRef.current = lines
-    fairRef.current = fair
-    const main = lines.get(symbols[0])!
-    const markers = createSeriesMarkers(main, [])
-    markersRef.current = markers
-    chart.priceScale('right').applyOptions({ mode: comparing ? PriceScaleMode.Percentage : PriceScaleMode.Normal })
-
-    const officialEvents: (OfficialEvent | MarketEvent)[] = []
-    const drawMarkers = () => {
-      const colors = readChartColors()
-      const list = officialEvents
-        .filter((e) => e.symbol === symbols[0])
-        .map((e) => markerFor(e, colors))
-        .filter((m): m is SeriesMarker<UTCTimestamp> => m !== null)
-        .sort((a, b) => a.time - b.time)
-      markers.setMarkers(list)
-    }
+    const markers: ISeriesMarkersPluginApi<Time> = createSeriesMarkers(lines[0], [])
+    const events: (OfficialEvent | MarketEvent)[] = []
+    const drawMarkers = () =>
+      markers.setMarkers(
+        events
+          .filter((e) => e.symbol === symbols[0])
+          .map(marker)
+          .filter((m): m is SeriesMarker<Time> => m !== null)
+          .sort((a, b) => (a.time as number) - (b.time as number)),
+      )
 
     async function loadHistory() {
       try {
         const data = await getHistory(symbols)
         if (!alive) return
         let points = 0
-        for (const s of symbols) {
-          const history = data.history[s] ?? []
-          const line = toLine(history, (p) => p.mid)
-          lines.get(s)?.setData(line)
+        symbols.forEach((s, i) => {
+          const line = toLine(data.history[s] ?? [], (p) => p.mid)
+          lines[i].setData(line)
           points = Math.max(points, line.filter((p) => 'value' in p).length)
-          if (s === symbols[0]) {
-            fair.setData(toLine(history, (p) => p.fair))
-            lastHistoryDay = line.length ? line[line.length - 1].time : 0
+          if (i === 0) {
+            fair.setData(toLine(data.history[s] ?? [], (p) => p.fair))
+            lastDay = line.length ? line[line.length - 1].time : 0
           }
-        }
+        })
         drawMarkers()
         setLoad({ key: selectionKey, status: points < 2 ? 'empty' : 'ready' })
-        if (firstLoad || data.session_id !== session) {
+        if (data.session_id !== session) {
           chart.timeScale().fitContent()
-          firstLoad = false
           session = data.session_id
         }
       } catch {
@@ -195,39 +155,39 @@ export default function PriceChart({ symbol }: { symbol: string; events?: Market
 
     void loadHistory()
     getOfficialEvents()
-      .then((evs) => {
+      .then((list) => {
         if (!alive) return
-        officialEvents.push(...evs)
+        events.push(...list)
         drawMarkers()
       })
       .catch(() => {
-        // Markers are a bonus; the chart works without them.
+        /* Markers are optional. */
       })
 
-    const unsubs = symbols.map((s) =>
+    const unsubs = symbols.map((s, i) =>
       subscribeSymbol(s, (q) => {
         const key = dayKey(getLatestT())
-        if (key < lastHistoryDay) return
-        // A jump of several days: fetch the real closes instead of drawing one stretched line.
-        if (lastHistoryDay && key > lastHistoryDay + 2 * DAY) {
+        if (key < lastDay) return
+        // The season plays continuously; after a jump of several days fetch the real closes.
+        if (lastDay && key > lastDay + 2 * DAY) {
           scheduleReload()
           return
         }
-        const value = q.quoted_price ?? null
-        lines.get(s)?.update(value == null ? { time: key } : { time: key, value })
-        if (s === symbols[0]) {
-          fair.update({ time: key, value: q.fair_value })
-          lastHistoryDay = Math.max(lastHistoryDay, key)
+        const mid = q.quoted_price ?? null
+        lines[i].update(mid == null ? { time: key } : { time: key, value: toDisplayCurrency(mid) })
+        if (i === 0) {
+          fair.update({ time: key, value: toDisplayCurrency(q.fair_value) })
+          lastDay = Math.max(lastDay, key)
         }
       }),
     )
     unsubs.push(
       subscribeEvents((ev) => {
-        officialEvents.push(ev)
+        events.push(ev)
         drawMarkers()
       }),
     )
-    unsubs.push(subscribeMarketReset(() => scheduleReload()))
+    unsubs.push(subscribeMarketReset(scheduleReload))
 
     return () => {
       alive = false
@@ -235,130 +195,67 @@ export default function PriceChart({ symbol }: { symbol: string; events?: Market
       unsubs.forEach((u) => u())
       if (chartRef.current === chart) {
         markers.detach()
-        for (const line of lines.values()) chart.removeSeries(line)
+        lines.forEach((l) => chart.removeSeries(l))
         chart.removeSeries(fair)
       }
     }
+    // Names only label series; a roster refresh must not rebuild them (that would reset zoom).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionKey])
 
-  // Theme or projector mode: re-colour in place, never rebuild the chart.
+  // Theme/projector: recolour in place, keep zoom.
   useEffect(() => {
-    const chart = chartRef.current
-    if (!chart) return
     const c = readChartColors()
-    chart.applyOptions({
-      layout: { textColor: c.text, fontFamily: c.fontFamily, fontSize: c.fontSize },
+    chartRef.current?.applyOptions({
+      layout: { textColor: c.text },
       grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-      rightPriceScale: { borderColor: c.border },
-      timeScale: { borderColor: c.border },
-      crosshair: { vertLine: { color: c.border }, horzLine: { color: c.border } },
     })
-    selection.forEach((s, i) => linesRef.current.get(s)?.applyOptions({ color: c.series[i] || c.accent }))
-    fairRef.current?.applyOptions({ color: c.text })
-  }, [theme, projector, selection])
-
-  function applyRange(next: Range) {
-    setRange(next)
-    const chart = chartRef.current
-    if (!chart) return
-    const days = RANGES.find((r) => r.value === next)?.days ?? null
-    if (days === null) {
-      chart.timeScale().fitContent()
-      return
-    }
-    const to = dayKey(getLatestT())
-    chart.timeScale().setVisibleRange({ from: (to - days * DAY) as UTCTimestamp, to })
-  }
-
-  const colors = readChartColors()
-  const options = players.filter((p) => p.symbol !== symbol && !compare.includes(p.symbol))
+  }, [theme, projector])
 
   return (
-    <section className={styles.panel} aria-label={`${symbol} price chart`} data-tour="stock-chart">
+    <section className={styles.panel} aria-label={`${name(symbol)} price chart`} data-tour="stock-chart">
       <div className={styles.toolbar}>
-        <div className={styles.timeframes} role="group" aria-label="Chart range">
-          {RANGES.map((r) => (
-            <button
-              key={r.value}
-              type="button"
-              className={`${styles.tf} ${range === r.value ? styles.tfActive : ''}`}
-              aria-pressed={range === r.value}
-              onClick={() => applyRange(r.value)}
-            >
-              {r.label}
-            </button>
-          ))}
-          <button type="button" className={styles.tf} onClick={() => applyRange('season')} title="Show the whole season so far">
-            Fit
-          </button>
-        </div>
-
-        <ul className={styles.legendList} aria-label="Legend">
-          {selection.map((s, i) => (
-            <li key={s} className={styles.legendItem}>
-              <span className={styles.swatch} style={{ background: colors.series[i] || colors.accent }} aria-hidden="true" />
-              <span>{bySymbol.get(s)?.name ?? s}</span>
-              {i > 0 && (
-                <button
-                  type="button"
-                  className={styles.remove}
-                  aria-label={`Stop comparing ${bySymbol.get(s)?.name ?? s}`}
-                  onClick={() => setCompare((old) => old.filter((x) => x !== s))}
-                >
-                  ×
-                </button>
-              )}
-            </li>
-          ))}
-          {selection.length === 1 && (
-            <li className={styles.legendItem}>
-              <span className={`${styles.swatch} ${styles.dashed}`} aria-hidden="true" />
-              <span>Analyst estimate</span>
-            </li>
-          )}
-        </ul>
-
-        {compare.length < MAX_COMPARE && (
-          <select
-            className={styles.compare}
-            aria-label="Compare another player"
-            value=""
-            onChange={(e) => {
-              const pick = e.target.value
-              if (pick) setCompare((old) => [...old.filter((x) => x !== pick), pick].slice(-MAX_COMPARE))
-            }}
-          >
-            <option value="">Compare player…</option>
-            {options.map((p) => (
+        <span>Price · H$ · 1D</span>
+        <button onClick={() => chartRef.current?.timeScale().fitContent()}>Fit history</button>
+        <select
+          aria-label="Compare another player"
+          value=""
+          onChange={(e) => {
+            const pick = e.target.value
+            if (pick) setCompare((old) => [...old.filter((x) => x !== pick), pick].slice(-3))
+          }}
+        >
+          <option value="">Compare player…</option>
+          {players
+            .filter((p) => p.symbol !== symbol && !compare.includes(p.symbol))
+            .map((p) => (
               <option key={p.symbol} value={p.symbol}>
                 {p.name}
               </option>
             ))}
-          </select>
-        )}
+        </select>
+        {compare.map((s) => (
+          <button key={s} onClick={() => setCompare((old) => old.filter((x) => x !== s))}>
+            {name(s)} ×
+          </button>
+        ))}
       </div>
-
-      <div className={styles.chartArea}>
-        <div ref={containerRef} className={styles.chart} />
+      <div className={styles.chartBox}>
+        <div ref={ref} className={styles.chart} />
         {status !== 'ready' && (
-          <div className={styles.overlay} role="status">
-            {status === 'loading' && 'Loading the season so far…'}
-            {status === 'empty' && 'The season has just started: the line fills in as days are played. Press Next day.'}
-            {status === 'error' && 'Price history is unavailable right now. Retrying when the market reconnects.'}
-          </div>
+          <p className={styles.status} role="status">
+            {status === 'loading' && 'Loading prices…'}
+            {status === 'empty' && 'Prices appear here once the season is underway.'}
+            {status === 'error' && 'Price history is unavailable. Reconnecting…'}
+          </p>
         )}
       </div>
-
-      <p className={styles.footnote}>
-        {selection.length > 1
-          ? 'Comparing: lines show % change from the first visible day.'
-          : 'Bid/ask midpoint, not an executable price. Gaps mean no two-sided quote.'}{' '}
-        <span className={styles.markerKey}>● Warning = listed questionable/doubtful · ▼ Storm = ruled out.</span> Scroll to
-        zoom, drag to pan.{' '}
-        <a className={styles.credit} href="https://www.tradingview.com/lightweight-charts/" target="_blank" rel="noreferrer">
-          Charts: TradingView Lightweight Charts™
-        </a>
-      </p>
+      <small title="Indicative bid/ask midpoint. Gaps indicate no two-sided quote. Scroll to zoom; drag to pan.">
+        Midpoint price · Dashed line: analyst estimate
+      </small>
+      <a className={styles.credit} href="https://www.tradingview.com/lightweight-charts/" target="_blank" rel="noreferrer">
+        Charts: TradingView Lightweight Charts™
+      </a>
     </section>
   )
 }

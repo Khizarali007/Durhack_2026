@@ -14,16 +14,16 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
-from market.valuation import (CONFIG, OPENING_T, YEAR_SECONDS, day_end, dividend_value, expected_fixture_payout, update_expectations, projected_score, payout_per_share, payout_cents)
+from market.valuation import (CONFIG, SHARE_VALUE_MULTIPLIER, OPENING_T, YEAR_SECONDS, day_end, dividend_value, expected_fixture_payout, update_expectations, projected_score, payout_per_share, payout_cents)
 
 
-START_CASH_CENTS = 10_000_000  # 100,000 HOOP per network bot
-MAKER_CASH_CENTS = 100_000_000  # 1,000,000 HOOP per maker per player
+START_CASH_CENTS = 10_000_000 * SHARE_VALUE_MULTIPLIER  # institutional funding tracks share value
+MAKER_CASH_CENTS = 100_000_000 * SHARE_VALUE_MULTIPLIER
 MAKER_STARTING_SHARES = 1_500
 BOT_COUNT = 30
 INITIAL_BOT_SHARES = 20  # institutional-style inventory for news selling
 BOT_MAX_ORDERS_PER_DAY = 45
-BOT_MAX_POSITION_CENTS = 500_000  # at most 5,000 HOOP in one player
+BOT_MAX_POSITION_CENTS = 500_000 * SHARE_VALUE_MULTIPLIER
 MIN_PRICE_CENTS = 1  # minimum executable tick; economic PV is not floored at $10
 
 
@@ -172,7 +172,7 @@ class Market:
             # Limited attention creates more activity around games and new
             # reports, without making every bot trade every player daily.
             attention = 0.055 + (0.12 if has_game else 0) + (0.45 if abs(signal) >= 0.01 else 0)
-            attention *= max(0.5, min(1.6, (self.fair_cents / 10_000) ** 0.5))
+            attention *= max(0.5, min(1.6, (self.fair_cents / (10_000 * SHARE_VALUE_MULTIPLIER)) ** 0.5))
             if self.rng.random() > min(1.0, attention):
                 continue
             bid = self.best_quote("sell")

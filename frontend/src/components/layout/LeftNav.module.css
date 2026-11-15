@@ -14,8 +14,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: var(--hs-space-2) var(--hs-space-1);
+  gap: 7px;
+  padding: 16px var(--hs-space-1);
   color: var(--hs-color-text-secondary);
   text-decoration: none;
   border-left: 3px solid transparent;

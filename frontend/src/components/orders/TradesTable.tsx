@@ -1,3 +1,4 @@
+import { PlayerName } from '../PlayerIdentity'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import type { OrderSide, FillReason, Trade } from '../../api'
@@ -54,7 +55,7 @@ export default function TradesTable({ trades, showSymbol = false, empty }: Trade
               </td>
               {showSymbol && (
                 <td className={styles.left}>
-                  <Link to={`/stock/${t.symbol}`} className={styles.link}><span className={styles.whoName}>{t.symbol}</span></Link>
+                  <Link to={`/stock/${t.symbol}`} className={styles.link}><span className={styles.whoName}><PlayerName symbol={t.symbol}/></span></Link>
                 </td>
               )}
               <td>{formatQty(t.qty)}</td>

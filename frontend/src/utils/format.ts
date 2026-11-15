@@ -1,16 +1,19 @@
+import { toDisplayCurrency } from './currency'
 // One place for how money, percentages and times look, so every screen agrees.
 
 const DASH = '—'
 
-/** HOOP, the game's virtual currency, shown as H$1,234.56 (never real money). */
-export function formatHOOP(value: number, decimals = 2): string {
-  const n = Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+/** API accounting units -> H$; keep sub-cent fees and dividends visible. */
+export function formatHOOP(value: number, decimals?: number): string {
+  const amount = Math.abs(toDisplayCurrency(value))
+  const digits = decimals === undefined ? 5 : amount > 0 && amount < .01 ? Math.max(5, decimals) : decimals
+  const n = amount.toLocaleString('en-US', { minimumFractionDigits: decimals === undefined ? 2 : digits, maximumFractionDigits: digits })
   return `${value < 0 ? '-' : ''}H$${n}`
 }
 
-/** A price to 2 dp, or a dash when there is no price (a maker with nothing to quote). Never 0. */
+/** Five decimals preserve the original price tick in the smaller denomination. */
 export function formatPrice(value: number | null | undefined): string {
-  return value === null || value === undefined || !Number.isFinite(value) ? DASH : formatHOOP(value)
+  return value === null || value === undefined || !Number.isFinite(value) ? DASH : formatHOOP(value, 5)
 }
 
 /** Whole shares with thousands separators. */

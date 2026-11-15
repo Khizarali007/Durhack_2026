@@ -1,3 +1,4 @@
+import { usePlayers } from '../../../api'
 import type { OrderSide } from '../../../api'
 import { formatHOOP, formatPrice, formatQty } from '../../../utils/format'
 import type { TicketResult } from './types'
@@ -16,6 +17,8 @@ interface OrderResultProps {
 
 /** The outcome of the last order: what filled, at what price, or why it did not. */
 export default function OrderResult({ result, onDismiss }: OrderResultProps) {
+  const { bySymbol } = usePlayers()
+  const name = (symbol: string) => bySymbol.get(symbol)?.name ?? symbol
   if (result.kind === 'error') {
     return (
       <div className={`${styles.result} ${styles.error}`} role="alert" data-tour="ticket-result">
@@ -42,7 +45,7 @@ export default function OrderResult({ result, onDismiss }: OrderResultProps) {
           <button type="button" className={styles.dismiss} onClick={onDismiss} aria-label="Dismiss">×</button>
         </div>
         <p className={styles.message}>
-          {o.side === 'buy' ? 'Buy' : 'Sell'} {formatQty(o.qty)} {o.symbol}{' '}
+          {o.side === 'buy' ? 'Buy' : 'Sell'} {formatQty(o.qty)} shares of {name(o.symbol)}{' '}
           {o.type === 'limit' ? 'at' : 'if the bid falls to'} {formatPrice(o.price)}.
           {!done && ' It waits in Open orders until the price gets there.'}
         </p>
@@ -66,8 +69,8 @@ export default function OrderResult({ result, onDismiss }: OrderResultProps) {
         <span className={styles.title}>
           <span aria-hidden="true">{partial ? '◐' : '✓'}</span>{' '}
           {partial
-            ? `Partly filled: ${formatQty(out.filled_qty)} of ${formatQty(out.requested_qty)} ${out.symbol}`
-            : `${VERB[out.side]} ${formatQty(out.filled_qty)} ${out.symbol}`}
+            ? `Partly filled: ${formatQty(out.filled_qty)} of ${formatQty(out.requested_qty)} shares of ${name(out.symbol)}`
+            : `${VERB[out.side]} ${formatQty(out.filled_qty)} shares of ${name(out.symbol)}`}
         </span>
         <button type="button" className={styles.dismiss} onClick={onDismiss} aria-label="Dismiss">×</button>
       </div>
