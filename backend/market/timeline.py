@@ -97,3 +97,15 @@ async def history(symbols: str):
             points.append(current)
         histories[symbol] = points
     return {'session_id': m.session_id, 'history': histories}
+
+
+@router.get('/sparklines')
+async def sparklines(days: int = 30):
+    """Every player's last `days` daily midpoints (oldest first) for the market-list sparklines.
+    Small enough to load once per market day; live quotes add today's point in the browser."""
+    m = get_market()
+    days = max(2, min(days, 200))
+    out = {}
+    for symbol, points in getattr(m, 'timeline_history', {}).items():
+        out[symbol] = [p['mid'] if p['mid'] is not None else p['last'] for p in points[-days:]]
+    return {'session_id': getattr(m, 'session_id', None), 't': m.market_time(), 'days': days, 'prices': out}

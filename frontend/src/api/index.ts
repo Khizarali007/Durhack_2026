@@ -82,3 +82,7 @@ export { jumpToWembyStorm, WEMBY_STORM_EVE_T } from './director'
 // Season replay controls, score and payout ledger.
 export { getTimeline, changeTimeline, getSeasonScore, getPayouts } from './season'
 export type { Timeline, TimelineChange, SeasonScore, Payout } from './season'
+
+// Price history for charts (loaded once) and official injury-report events.
+export { getHistory, getOfficialEvents, getValuation } from './history'
+export type { HistoryPoint, HistoryResponse, OfficialEvent, Valuation } from './history'

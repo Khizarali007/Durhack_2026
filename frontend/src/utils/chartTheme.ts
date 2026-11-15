@@ -9,6 +9,8 @@ function cssVar(name: string): string {
 export interface ChartColors {
   text: string; textStrong: string; grid: string; border: string
   up: string; down: string; accent: string; accentMuted: string; warn: string
+  /** Distinct series colours: [0] is the main price, the rest are compares. */
+  series: string[]
   fontFamily: string; fontSize: number
 }
 
@@ -23,6 +25,7 @@ export function readChartColors(): ChartColors {
     accent: cssVar('--hs-color-accent'),
     accentMuted: cssVar('--hs-color-accent-muted'),
     warn: cssVar('--hs-color-warn'),
+    series: [1, 2, 3, 4].map((i) => cssVar(`--hs-color-chart-${i}`)),
     fontFamily: cssVar('--hs-font-family') || 'system-ui, sans-serif',
     fontSize: parseInt(cssVar('--hs-font-size-sm'), 10) || 12,
   }

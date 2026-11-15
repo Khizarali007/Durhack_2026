@@ -51,6 +51,12 @@
   --hs-color-overlay: rgba(1, 4, 9, 0.6);
   --hs-shadow-pop:    0 8px 24px rgba(1, 4, 9, 0.55);
 
+  /* --- Chart series (main price is accent; compares use these, never green/red) --- */
+  --hs-color-chart-1: #2F81F7;
+  --hs-color-chart-2: #D29922;
+  --hs-color-chart-3: #A371F7;
+  --hs-color-chart-4: #39C5CF;
+
   /* --- Spacing --- */
   --hs-space-1:  4px;
   --hs-space-2:  8px;
@@ -160,4 +166,10 @@
   /* --- Overlays --- */
   --hs-color-overlay: rgba(31, 35, 40, 0.35);
   --hs-shadow-pop:    0 8px 24px rgba(31, 35, 40, 0.18);
+
+  /* --- Chart series --- */
+  --hs-color-chart-1: #0969DA;
+  --hs-color-chart-2: #9A6700;
+  --hs-color-chart-3: #8250DF;
+  --hs-color-chart-4: #1B7C83;
 }
