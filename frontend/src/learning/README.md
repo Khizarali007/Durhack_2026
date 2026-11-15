@@ -45,4 +45,4 @@ panels without backend adapters and updated mock-specific copy.
 
 From frontend/: npm run test:learning, npm run build, npm run lint.
 Browser checks cover real order progression, saved completion, quiz grading,
-and payout progression. Latest verification is recorded in STATUS.md.
+and payout progression. Latest verification is recorded in docs/INTEGRATION_REPORT.md.
