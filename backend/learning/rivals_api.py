@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from trading.accounts import User
 from trading.db import Database
 from trading.deps import current_user, get_db
+from trading.db import STARTING_CASH_CENTS
 from trading.equity import equity_history
 from trading.market_provider import get_market
 from trading.money import to_hoop
@@ -58,7 +59,7 @@ def rival_season(rival) -> SeasonData:
         if start_qty > 0 and first:
             opening[s] = (float(start_qty), first[0][1])
     return SeasonData(
-        name=rival.name, starting_cash=rival.opening_equity, cash=rival.bot.cash / 100, now=view.now(),
+        name=rival.name, subject=rival.name, starting_cash=rival.opening_equity, cash=rival.bot.cash / 100, now=view.now(),
         fills=[Fill(f.order_id, f.symbol, f.side, float(f.qty), f.price, 0.0, f.t) for f in rival.fills],
         payments=[Payment(p.symbol, float(p.qty_held), p.amount, p.t) for p in rival.payments],
         equity=list(rival.equity), alerts=view.alerts(), names=view.names, teams=view.teams,
@@ -66,9 +67,26 @@ def rival_season(rival) -> SeasonData:
         holdings_qty={s: float(q) for s, q in holdings.items()}, opening=opening)
 
 
+def scale_of(rival) -> float:
+    """Rivals start with a player's cash plus opening shares (about 7x a player's H$100 with the
+    tenfold share values). Their money is shown scaled to a H$100 start so it compares with yours;
+    returns and share prices are unchanged by scaling."""
+    return STARTING_CASH_CENTS / 100 / rival.opening_equity if rival.opening_equity else 1.0
+
+
+def _scale_summary(summary: dict, k: float) -> dict:
+    out = {**summary, "equity": round(summary["equity"] * k, 2), "payouts": round(summary["payouts"] * k, 2),
+           "fees": round(summary["fees"] * k, 2)}
+    for key in ("best_trade", "worst_trade"):
+        if out.get(key):
+            out[key] = {**out[key], "pnl": round(out[key]["pnl"] * k, 2)}
+    return out
+
+
 def _profile(rival) -> dict:
     return {"id": rival.id, "name": rival.name, "persona": rival.persona, "strategy": rival.strategy,
-            "style": rival.style, "simulated": True, "label": "Simulated trader"}
+            "style": rival.style, "simulated": True, "label": "Simulated trader",
+            "scale_note": "Amounts scaled to a H$100 start so they compare with yours"}
 
 
 def _row(profile: dict, summary: dict, mine: dict | None) -> dict:
@@ -92,7 +110,8 @@ async def rivals(user: User = Depends(current_user), db: Database = Depends(get_
     mine = my_review(db, user)["summary"]
     you = {"id": "you", "name": "You", "persona": "That's you", "strategy": "", "style": "you", "simulated": False,
            "label": "You", **{k: mine[k] for k in ("return_pct", "equity", "payouts", "grade", "trades")}}
-    rows = [_row(_profile(r), review(rival_season(r)).to_dict()["summary"], mine) for r in _tracker().rivals.values()]
+    rows = [_row(_profile(r), _scale_summary(review(rival_season(r)).to_dict()["summary"], scale_of(r)), mine)
+            for r in _tracker().rivals.values()]
     ranked = sorted(rows + [you], key=lambda r: r["return_pct"], reverse=True)
     for i, r in enumerate(ranked, 1):
         r["rank"] = i
@@ -104,20 +123,24 @@ async def rival_detail(rid: str, user: User = Depends(current_user), db: Databas
     rival = _rival(rid)
     data = rival_season(rival)
     theirs = review(data).to_dict()
+    k = scale_of(rival)
+    theirs["summary"] = _scale_summary(theirs["summary"], k)
     mine = my_review(db, user)
     yours_curve = _daily([(p.t, to_hoop(p.equity_cents)) for p in equity_history(db, user.user_id)])
     held = sorted(((s, q, q * data.prices.get(s, 0.0)) for s, q in (data.holdings_qty or {}).items()),
                   key=lambda x: x[2], reverse=True)
+    total_held = sum(v for _, _, v in held)
     rival_comp = compose([Holding(s, data.names.get(s, s), data.teams.get(s, "?"), v) for s, _, v in held],
                          data.cash).to_dict()
     return {
         "rival": _profile(rival),
         "review": theirs,
         "your_summary": mine["summary"],
-        "equity": _daily(rival.equity),
+        "equity": _daily([(t, e * k) for t, e in rival.equity]),
         "your_equity": yours_curve,
         "composition": rival_comp,
-        "top_holdings": [{"symbol": s, "name": data.names.get(s, s), "qty": q, "value": round(v, 2)} for s, q, v in held[:8]],
+        "top_holdings": [{"symbol": s, "name": data.names.get(s, s), "qty": q, "value": round(v * k, 2),
+                          "weight_pct": round(100 * v / total_held, 1) if total_held else 0.0} for s, q, v in held[:8]],
     }
 
 
@@ -126,6 +149,7 @@ def compare_with(db: Database, user: User, rid: str) -> dict:
     rival = _rival(rid)
     data = rival_season(rival)
     theirs = review(data).to_dict()
+    theirs["summary"] = _scale_summary(theirs["summary"], scale_of(rival))
     mine = my_review(db, user)
     t, m, name = theirs["summary"], mine["summary"], rival.name
     their_holdings = len(data.holdings_qty or {})
@@ -135,7 +159,8 @@ def compare_with(db: Database, user: User, rid: str) -> dict:
     my_grade = m["grade"] or "no grade yet"
     diffs.append(f"{name} owns {their_holdings} players across {their_teams} teams (diversification grade "
                  f"{t['grade'] or '–'}). Yours: {my_grade}.")
-    diffs.append(f"{name} has been paid {hoop(t['payouts'])} from games so far; you have been paid {hoop(m['payouts'])}.")
+    diffs.append(f"Scaled to the same H$100 start, {name} has been paid {hoop(t['payouts'])} from games so far; "
+                 f"you have been paid {hoop(m['payouts'])}.")
     diffs.append(f"Season so far: {name} {t['return_pct']:+.2f}%, you {m['return_pct']:+.2f}%.")
     praise = [i for i in theirs["insights"] if i["tone"] == "praise" and i["id"] != "diversified"]
     if praise:

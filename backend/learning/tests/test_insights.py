@@ -129,3 +129,16 @@ def test_timeline_gives_plain_english_context_and_summary_adds_up():
 def test_an_empty_season_says_what_to_do():
     r = review(season([]))
     assert r.insights == [] and r.summary.grade is None and "first players" in r.summary.biggest_lesson
+
+
+def test_a_rivals_review_talks_about_the_rival_not_you():
+    data = season([fill("b", "SGA", "buy", 10, 100, T0)], {"SGA": [(T0 + 3 * DAY, 112)]}, prices={"SGA": 112},
+                  payments=[Payment("SGA", 10, 3.0, T0 + DAY)])
+    data.subject = "Maya"
+    r = review(data)
+    texts = [i.text for i in r.timeline]
+    assert "Maya bought 10 shares of Shai Gilgeous-Alexander at H$0.10000." in texts
+    assert any(t.startswith("Shai Gilgeous-Alexander earned Maya H$0.003") for t in texts)
+    hot = next(i for i in r.insights if i.id == "hot_stretch_buy")
+    assert hot.what.startswith("Maya bought 10 shares of Shai Gilgeous-Alexander")
+    assert not any("You " in t or " you" in t for t in texts)

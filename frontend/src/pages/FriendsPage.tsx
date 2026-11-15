@@ -90,7 +90,7 @@ export default function FriendsPage() {
           )
         })}
         <div className="panel-foot">
-          <span>Return is measured from each trader's starting value.</span>
+          <span>Return is measured from each trader's start. Rivals' money is scaled to a H$100 start, like yours.</span>
           <Link to="/leaderboard">Leaderboard →</Link>
         </div>
       </section>

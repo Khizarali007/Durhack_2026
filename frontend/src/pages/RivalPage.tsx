@@ -57,7 +57,10 @@ export default function RivalPage() {
           <Link className="text-action" to="/friends">All rivals</Link>
         </span>
       </header>
-      <p className="quiet-label">{rival.strategy} A computer trader from the market with a made-up name; every number is real.</p>
+      <p className="quiet-label">
+        {rival.strategy} A computer trader from the market with a made-up name; every number is real. Money amounts are
+        scaled to a H$100 start, like yours.
+      </p>
 
       <section className="balance-panel" aria-label={`${rival.name}'s season`}>
         <div className="balance-main">
@@ -118,7 +121,7 @@ export default function RivalPage() {
                   <PlayerAvatar player={{ symbol: h.symbol, name: h.name }} />
                   <span className="holding-name">
                     <strong>{h.name}</strong>
-                    <small>{formatQty(h.qty)} shares</small>
+                    <small>{h.weight_pct.toFixed(1)}% of holdings</small>
                   </span>
                   <span className="holding-value">
                     <strong>{formatHOOP(h.value)}</strong>

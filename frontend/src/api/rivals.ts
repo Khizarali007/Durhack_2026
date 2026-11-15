@@ -10,6 +10,8 @@ export interface RivalProfile {
   style: string
   simulated: boolean
   label: string
+  /** Rivals' money is scaled to a H$100 start so it compares with yours. */
+  scale_note?: string
 }
 
 /** A row on the Friends list (and mixed into the leaderboard). `id === 'you'` is the player. */
@@ -54,7 +56,8 @@ export interface RivalDetail {
   equity: EquityPoint[]
   your_equity: EquityPoint[]
   composition: CompositionOut
-  top_holdings: { symbol: string; name: string; qty: number; value: number }[]
+  /** Values are scaled to a H$100 start; weight_pct is the share of the rival's holdings. */
+  top_holdings: { symbol: string; name: string; qty: number; value: number; weight_pct: number }[]
 }
 
 export interface RivalComparison {

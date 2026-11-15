@@ -94,6 +94,8 @@ class SeasonData:
     holdings_qty: dict[str, float] | None = None
     # Shares held before the first fill, with their opening price (rivals start with shares).
     opening: dict[str, tuple[float, float]] = field(default_factory=dict)
+    # Who the sentences are about: "You" for the player, a rival's name otherwise.
+    subject: str = "You"
 
 
 # ---- outputs ------------------------------------------------------------------------------
@@ -239,6 +241,13 @@ def money(units: float) -> str:
 def surname(name: str) -> str:
     parts = [p for p in name.split() if p.rstrip(".").upper() not in {"JR", "SR", "II", "III", "IV"}]
     return parts[-1] if parts else name
+
+
+def who(data: SeasonData) -> tuple[str, str, str]:
+    """(Subject, object, possessive): ("You", "you", "your") or ("Maya", "Maya", "Maya's")."""
+    if data.subject == "You":
+        return "You", "you", "your"
+    return data.subject, data.subject, f"{data.subject}'s"
 
 
 def full_name(data: SeasonData, symbol: str) -> str:
@@ -450,7 +459,8 @@ def _praise(data: SeasonData, orders: list[Order], holdings: list[Holding]) -> l
             player = full_name(data, o.symbol)
             out.append(Insight(
                 "hot_stretch_buy", "praise", f"Bought {player} before a rise",
-                f"You bought {o.qty:g} shares at {price(o.avg_price)} on {nice_day(o.t)}; within 10 days the price reached {price(max(later))}.",
+                f"{who(data)[0]} bought {o.qty:g} shares of {player} at {price(o.avg_price)} on {nice_day(o.t)}; "
+                f"within 10 days the price reached {price(max(later))}.",
                 f"Those shares gained up to {money(gain)} in value.",
                 "Note what you noticed (form, upcoming games, a price below the estimate) so you can spot it again.",
                 round(gain, 2), learn_term("Hot streak"), o.symbol, o.t))
@@ -471,7 +481,8 @@ def _praise(data: SeasonData, orders: list[Order], holdings: list[Holding]) -> l
             player = full_name(data, s)
             out.append(Insight(
                 "held_through_noise", "praise", f"Stayed calm with {player}",
-                f"The price fell to {price(min(held))}, below the {price(cost)} you paid, and you kept your shares.",
+                f"The price of {player} fell to {price(min(held))}, below the {price(cost)} {who(data)[1]} paid, "
+                f"and {who(data)[1]} kept the shares.",
                 f"It came back to {price(end_price)}.",
                 "A price dip with no news is not a reason to sell.",
                 round((end_price - min(held)) * sum(o.qty for o in buys), 2), learn_term("Volatility"), s, first))
@@ -487,8 +498,9 @@ def _praise(data: SeasonData, orders: list[Order], holdings: list[Holding]) -> l
             player = full_name(data, o.symbol)
             out.append(Insight(
                 "sold_on_warning", "praise", f"Sold {player} on the injury warning",
-                f"{surname(player)} was {alert_status(warned[-1])}; you sold {o.qty:g} shares at {price(o.avg_price)} on {nice_day(o.t)}.",
-                f"The price then fell to {price(min(later))}, so you avoided losing {money(saved)}.",
+                f"{surname(player)} was {alert_status(warned[-1])}; {who(data)[1]} sold {o.qty:g} shares of {player} "
+                f"at {price(o.avg_price)} on {nice_day(o.t)}.",
+                f"The price then fell to {price(min(later))}, so {who(data)[1]} avoided losing {money(saved)}.",
                 "An injury warning is the cheapest time to act.", round(saved, 2),
                 learn_tutorial("survive-the-storm", "Survive the storm"), o.symbol, o.t))
     return out
@@ -529,7 +541,7 @@ def _timeline(data: SeasonData, orders: list[Order]) -> list[TimelineItem]:
     for o in orders:
         player = full_name(data, o.symbol)
         verb = "bought" if o.side == "buy" else "sold"
-        text = f"You {verb} {o.qty:g} shares of {player} at {price(o.avg_price)}"
+        text = f"{who(data)[0]} {verb} {o.qty:g} shares of {player} at {price(o.avg_price)}"
         upcoming = [a for a in data.alerts if a.symbol == o.symbol and 0 <= report_day(a) - o.t // DAY * DAY <= 3 * DAY]
         recent = [a for a in data.alerts if a.symbol == o.symbol and 0 < o.t - report_day(a) <= 3 * DAY]
         if upcoming:
@@ -548,7 +560,7 @@ def _timeline(data: SeasonData, orders: list[Order]) -> list[TimelineItem]:
         by_day[(iso_day(p.t - 1), p.symbol)] += p.amount
     for (day, symbol), amount in by_day.items():
         t = datetime.fromisoformat(day).replace(tzinfo=timezone.utc).timestamp() + DAY
-        items.append(TimelineItem(t, "payout", f"{full_name(data, symbol)} earned you {money(amount)} for the {nice_day(t - DAY)} game.",
+        items.append(TimelineItem(t, "payout", f"{full_name(data, symbol)} earned {who(data)[1]} {money(amount)} for the {nice_day(t - DAY)} game.",
                                    symbol, round(amount, 2)))
 
     held_symbols = {o.symbol for o in orders}
@@ -556,7 +568,8 @@ def _timeline(data: SeasonData, orders: list[Order]) -> list[TimelineItem]:
         if a.symbol not in held_symbols or positions_at(orders, a.t).get(a.symbol, 0) <= 0:
             continue
         word = "Out" if a.kind == "injury" else "Injury warning"
-        items.append(TimelineItem(a.t, "alert", f"{word} for a player you owned: {a.headline.split(': ', 1)[-1]}", a.symbol))
+        owner = "you" if data.subject == "You" else data.subject
+        items.append(TimelineItem(a.t, "alert", f"{word} for a player {owner} owned: {a.headline.split(': ', 1)[-1]}", a.symbol))
 
     # Diversification grade after each order (valued at each order's own price for simplicity).
     last_price: dict[str, float] = {}
@@ -567,7 +580,8 @@ def _timeline(data: SeasonData, orders: list[Order]) -> list[TimelineItem]:
         holdings = [Holding(s, s, data.teams.get(s, "?"), q * last_price.get(s, 0)) for s, q in held.items()]
         grade = compose(holdings, 0.0).grade
         if grade != previous and grade is not None:
-            items.append(TimelineItem(o.t + 0.001, "grade", f"Your diversification grade became {grade}."))
+            owner = "Your" if data.subject == "You" else who(data)[2]
+            items.append(TimelineItem(o.t + 0.001, "grade", f"{owner} diversification grade became {grade}."))
         previous = grade
 
     items.sort(key=lambda i: i.t, reverse=True)

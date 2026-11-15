@@ -87,6 +87,10 @@ def test_rivals_endpoints_rank_you_among_simulated_traders_and_explain_the_diffe
     # The H$ in the sentence is the UI's formatting of the raw number the list API returns.
     maya = next(r for r in rows if r["id"] == "maya")
     assert any(f"Maya has been paid {hoop(maya['payouts'])} from games" in d for d in cmp["differences"])
+    # Rival money is scaled to a H$100 start: their list equity is H$100 x (1 + return).
+    assert maya["equity"] == pytest.approx(100_000 * (1 + maya["return_pct"] / 100), rel=1e-3)
+    assert detail["equity"][0]["equity"] == pytest.approx(100_000, rel=1e-3)
+    assert all(0 < h["weight_pct"] <= 100 for h in detail["top_holdings"])
     assert cmp["try"]["kind"] in ("tutorial", "glossary")
 
     coach = c.post("/learning/coach", headers=auth, json={"rival_id": "maya"}).json()
