@@ -56,10 +56,10 @@ export function CompositionPanel() {
     <div className={styles.panel} id="composition" data-tour="composition">
       <div className={styles.head}>
         <h2 className={styles.title}>
-          Composition
+          Invested-holdings diversification
           <HelpTip
             label="Composition grade"
-            text="How evenly your money is spread across players and teams. One player or one team carrying most of it means one storm can hit everything at once."
+            text="How evenly your invested holdings are spread across players and teams. Cash is excluded. This is not a performance or overall risk grade."
           />
         </h2>
         {c && c.grade && <span className={styles.sub}>{c.holdings} players · {c.teams} teams</span>}

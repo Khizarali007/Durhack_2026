@@ -456,3 +456,56 @@ def test_paused_history_reflects_trade_without_duplicate_timestamp(engine):
         assert engine.timeline_history['WEMBY'][-1] == old_point
     finally:
         use_market(None)
+
+
+def test_season_report_reconciles_sold_positions_payouts_and_pending_rights(engine, account):
+    from trading.scoring import season_score
+    db, uid, day = prepare_payout(engine, account)
+    place_market_order(db, engine, uid, 'WEMBY', 'sell', 4)
+    def check():
+        s = season_score(db, engine, uid)
+        assert sum(p['contribution'] for p in s['contributors']) == pytest.approx(s['score']-s['starting_cash'])
+        assert s['contributors'][0]['investment_gain'] + s['payouts_received'] + s['pending_payouts'] == pytest.approx(s['score']-s['starting_cash'])
+        return s
+    pending = check()
+    assert pending['contributors'][0]['pending'] == 3.6
+    engine._pay_day(day)
+    paid = check()
+    assert paid['contributors'][0]['payouts'] == 8.0
+    place_market_order(db, engine, uid, 'WEMBY', 'sell', 6)
+    sold = check()
+    assert sold['net_sale_proceeds'] == 0
+    assert sold['contributors'][0]['symbol'] == 'WEMBY'
+    assert sold['fees_paid'] > 0
+    other = create_guest_user(db).user_id
+    assert season_score(db, engine, other)['contributors'] == []
+
+
+def test_forward_replay_with_receipts_preserves_account_and_blocks_rewind(engine, monkeypatch):
+    import time
+    from main import app
+    monkeypatch.setenv('SOLANA_RECEIPTS','off')
+    engine.paused = True
+    use_market(engine)
+    try:
+        with TestClient(app) as client:
+            user = client.post('/trading/guest').json()
+            headers = {'Authorization':'Bearer '+user['token']}
+            client.post('/trading/orders',headers=headers,json={'symbol':'WEMBY','side':'buy','qty':10})
+            # Gate test: no external transaction, real replay/settlement path.
+            app.state.receipts = object()
+            try:
+                result = client.post('/market/timeline',json={'target_t':engine.start_t+86400})
+                assert result.status_code == 200
+                for _ in range(300):
+                    status = client.get('/market/timeline').json()
+                    if not status['busy']: break
+                    time.sleep(.01)
+                assert not status['busy'] and status['error'] is None
+                assert status['session_id'] == engine.session_id
+                assert client.get('/trading/portfolio',headers=headers).json()['payouts_received'] == 8
+                assert client.post('/market/timeline',json={'target_t':engine.start_t}).status_code == 409
+            finally:
+                app.state.receipts = None
+    finally:
+        use_market(None)

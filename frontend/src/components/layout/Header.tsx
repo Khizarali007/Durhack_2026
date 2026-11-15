@@ -1,3 +1,4 @@
+import { useSeason } from '../../api/useSeason'
 import { useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -8,6 +9,7 @@ import styles from './Header.module.css'
 
 export default function Header() {
   const t = useMarketTime()
+  const {score}=useSeason()
   const { connected } = useMarketStream()
   const { theme, toggleTheme } = useThemeContext()
   const { portfolio } = usePortfolio()
@@ -60,9 +62,9 @@ export default function Header() {
         </div>
 
         <div className={styles.statBlock} data-tour="header-equity">
-          <span className={styles.statLabel}>Equity</span>
+          <span className={styles.statLabel}>Season score</span>
           <span className={styles.statValue}>
-            {portfolio != null ? formatHOOP(portfolio.equity) : '—'}
+            {score ? formatHOOP(score.score) : '—'}
           </span>
         </div>
 

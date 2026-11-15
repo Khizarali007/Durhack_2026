@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "test:season": "node --test tests/season.test.cjs",
     "test:learning": "node --test tests/learning.test.cjs",
     "test:e2e": "playwright test"
   },

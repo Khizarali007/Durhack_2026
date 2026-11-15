@@ -9,3 +9,43 @@
 .season-onboarding select {display:block;width:100%;margin:16px 0;}
 .season-payouts {padding:16px 24px;max-height:280px;overflow:auto;border:1px solid #52617b;border-radius:10px;}
 .season-payouts table {width:100%;text-align:left;border-spacing:8px;}
+
+.season-main {justify-content:space-between;gap:16px;}
+.season-main>div:first-child>div {color:var(--hs-color-text-secondary);margin-top:4px;}
+.season-score {display:flex;flex-direction:column;gap:4px;}
+.season-score>strong {font-size:22px;font-variant-numeric:tabular-nums;}
+.season-score small {font-size:14px;}
+.season-controls .season-primary {background:var(--hs-color-accent);color:var(--hs-color-bg-page,#0d1117);border:0;font-weight:700;padding:12px 18px;}
+.season-details summary, .season-review summary {cursor:pointer;color:var(--hs-color-text-secondary);padding:4px 0;}
+.season-details {max-height:240px;overflow:auto;}
+.season-details p {margin:10px 0;}
+.season-review {background:var(--hs-color-bg-panel);border:1px solid var(--hs-color-border);border-radius:14px;padding:24px;line-height:1.6;}
+.season-review h2 {margin:0;font-size:24px;}
+.season-review h3 {margin:18px 0 8px;}
+.season-review p {margin:12px 0;}
+.season-review a {color:var(--hs-color-accent);}
+.round-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:20px 0;}
+.round-metrics dt {font-size:13px;color:var(--hs-color-text-secondary);}
+.round-metrics dd {font-size:24px;font-weight:650;margin:4px 0;font-variant-numeric:tabular-nums;}
+.season-hint {font-size:12px;color:var(--hs-color-text-secondary);max-width:950px;}
+.round-table {max-height:250px;overflow:auto;}
+.round-table table {width:100%;border-collapse:collapse;text-align:left;}
+.round-table td,.round-table th {padding:8px;border-bottom:1px solid var(--hs-color-border);}
+.round-table td:not(:first-child),.round-table th:not(:first-child) {text-align:right;font-variant-numeric:tabular-nums;}
+.season-onboarding {margin:24px auto;padding:28px 36px;}
+.season-onboarding input {padding:8px;border:1px solid var(--hs-color-border);border-radius:6px;background:var(--hs-color-bg-panel);color:var(--hs-color-text-primary);}
+.season-onboarding .season-row button {padding:8px 12px;background:transparent;border:1px solid var(--hs-color-border);color:var(--hs-color-text-primary);}
+.season-onboarding .season-row button[aria-pressed=true] {border-color:var(--hs-color-accent);background:var(--hs-color-bg-panel);}
+.season-onboarding details {margin-top:16px;}
+.season-steps {padding-left:22px;}
+
+.season-onboarding {max-width:1120px;display:grid;grid-template-columns:340px minmax(0,1fr);gap:40px;line-height:1.5;}
+.season-onboarding h1 {font-size:32px;margin:0 0 20px;}
+.season-onboarding h2 {margin:0 0 12px;}
+.season-onboarding p {margin:12px 0;}
+.season-intro {border-right:1px solid var(--hs-color-border);padding-right:32px;}
+.season-intro li {margin:12px 0;}
+.season-intro small {color:var(--hs-color-text-secondary);}
+.player-presets {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.season-onboarding .player-presets button {font-size:12px;line-height:1.5;padding:8px;}
+@media(max-width:900px){.season-onboarding{grid-template-columns:1fr;margin:16px;}.season-intro{border-right:0;padding-right:0;}}

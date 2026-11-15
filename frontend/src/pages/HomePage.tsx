@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePlayers } from '../api'
 import type { Player } from '../api'
-import AccountStrip from '../components/account/AccountStrip'
+import SeasonReview from '../components/SeasonReview'
 import MoverTile from '../components/home/MoverTile'
 import { changePct } from '../components/home/moverChange'
 import styles from './HomePage.module.css'
@@ -42,15 +42,17 @@ export default function HomePage() {
   return (
     <div className={styles.page}>
       <header className={styles.hero}>
-        <h1 className={styles.title}>Top movers</h1>
-        <p className={styles.note}>Change since the opening price, re-ranked every second</p>
+        <h1 className={styles.title}>Spot tomorrow’s stars.</h1>
+        <p className={styles.note}>Research → invest → play a week → review → decide</p>
         <p className={styles.lede}>
           HoopStreet is a practice stock market where every NBA player is a share. You start with
           H$100,000 in virtual cash. Buy future performance, earn game payouts, and grow your portfolio through the 2024–25 season. No real money.
         </p>
       </header>
 
-      <AccountStrip />
+      <SeasonReview />
+
+      <details><summary>Explore market movers · change since season opening</summary>
 
       <div className={styles.columns} data-tour="home-movers">
         <section className={styles.column} aria-label="Top gainers">
@@ -67,6 +69,7 @@ export default function HomePage() {
         </section>
       </div>
 
+      </details>
       <div className={styles.footer}>
         <Link to="/market" className={styles.link}>Browse all {players.length} players →</Link>
 

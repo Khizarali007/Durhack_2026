@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { PortfolioOut, OpenOrder, Trade, EquityPoint, LeaderboardRow } from './types'
+import { ApiError } from './types'
 import { USE_MOCKS } from './config'
 import { getPortfolio, getOpenOrders, getTrades, getEquityHistory, getLeaderboard } from './rest'
 import { onAccountChanged } from './accountSignal'
@@ -45,8 +46,9 @@ async function loadPortfolio(): Promise<void> {
   try {
     const portfolio = await getPortfolio()
     if (gen === generation) set({ ...snap, portfolio, loading: false })
-  } catch {
-    // Keep the last value: stale numbers beat a blank header
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409) return // Forward replay: preserve the last snapshot.
+    // Clear unavailable accounts; replay itself keeps the last snapshot.
     if (gen === generation) set({ ...snap, portfolio:null, loading:false })
   }
 }
@@ -58,7 +60,7 @@ export async function refreshAccount(): Promise<void> {
   const [p, o, t] = await Promise.allSettled([getPortfolio(), getOpenOrders(), getTrades()])
   if (gen !== generation) return
   set({
-    portfolio: p.status === 'fulfilled' ? p.value : null,
+    portfolio: p.status === 'fulfilled' ? p.value : p.reason instanceof ApiError && p.reason.status === 409 ? snap.portfolio : null,
     openOrders: o.status === 'fulfilled' ? o.value : snap.openOrders,
     trades: t.status === 'fulfilled' ? t.value : snap.trades,
     loading: false,

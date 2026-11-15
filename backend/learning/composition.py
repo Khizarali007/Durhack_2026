@@ -109,9 +109,9 @@ def compose(holdings: list[Holding], cash: float) -> Composition:
 
 def _reason(grade: str, top, top_w: float, team: str, team_w: float, n: int, n_teams: int) -> str:
     if n == 1:
-        return f"Everything rides on {top.name}: one injury report and the whole basket gets wet."
+        return f"All your invested money is in {top.name}. This grade measures diversification of holdings, not cash reserves or investment performance."
     if top_w > 0.5:
-        return f"{round(top_w * 100)}% of your money is on {top.name}. Spread it so one bad night can't sink you."
+        return f"{round(top_w * 100)}% of your invested money is on {top.name}. Cash reserves are excluded from this grade."
     if team_w > 0.4 and n_teams > 1:
         return f"{round(team_w * 100)}% sits on {team}. Players on one team share the same schedule and storms."
     if team_w > 0.4:

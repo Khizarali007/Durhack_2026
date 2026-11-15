@@ -66,8 +66,8 @@ async def control(body: TimelineControl, request: Request):
     target = body.target_t
     if target is not None and (not math.isfinite(target) or not m.start_t <= target <= m.end.timestamp()):
         raise HTTPException(422, 'Choose a time inside the replay season')
-    if target is not None and (getattr(request.app.state, 'receipts', None) or getattr(request.app.state, 'portfolios', None)):
-        raise HTTPException(409, 'Disable Solana writes before moving the demo timeline')
+    if target is not None and target < m.market_time() and (getattr(request.app.state, 'receipts', None) or getattr(request.app.state, 'portfolios', None)):
+        raise HTTPException(409, 'Disable Solana writes before rewinding; existing on-chain receipts cannot be reset')
     if body.rate is not None:
         m.playback_rate = body.rate
     if body.paused is not None:

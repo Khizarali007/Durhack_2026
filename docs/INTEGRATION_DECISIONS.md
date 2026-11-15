@@ -104,3 +104,12 @@ the decision, the options considered, why, and how to revert. Archive tags
 
 ## D22. Currency unit labels
 - Price blocks show `H$111.11 HOOP` (an `H$` number plus a small HOOP unit label). Slightly redundant, kept because the unit label is part of Person 3's layout; drop the `unit` spans to tidy it.
+
+## 15 November — change-tests gameplay review
+
+- **Default round: one historical week.** Daily controls remain available, but the main action produces a before/after report. Holding is a valid decision. Reconsider the duration after timing a judged demo.
+- **One score: estimated liquidation value.** Retain the accepted formula (cash + net sale proceeds + pending rights); quoted equity is secondary. Paid payouts are never added twice.
+- **Honest attribution.** Per-player outcome includes realised trades, remaining sale proceeds, acquisition cost, fees, paid dividends and pending rights. Sold players remain in results. Forecast/report changes are observations, not asserted causes of price movement.
+- **Opening allocations: approximately 5%, 10%, 25%.** Shares remain whole units and the execution preview is authoritative. No forced diversification, auto-rebalancing, scripted profitable trades or future-season knowledge.
+- **Solana: forward replay is causal; rewind is a reset.** Allow forward replay while existing asynchronous receipt workers continue. Block backward replay when receipt/portfolio writes are enabled. UI does not claim that local completion implies chain confirmation.
+- **Weekly report scope:** captures the account immediately before a round and after the requested target. Trades between rounds affect the live/final score, but precede the next round's baseline. The last report is immutable and stored per browser tab, account and market session, not a multi-device history service.
