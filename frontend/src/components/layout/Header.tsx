@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMarketTime, useMarketStream, usePortfolio } from '../../api'
 import { useThemeContext } from '../../context/useThemeContext'
 import { formatGameClock, formatHOOP } from '../../utils/format'
+import UserMenu from './UserMenu'
 import styles from './Header.module.css'
 
 export default function Header() {
@@ -82,6 +83,8 @@ export default function Header() {
           role="status"
           aria-label={connected ? 'Market connected' : 'Market reconnecting'}
         />
+
+        <UserMenu />
       </div>
     </header>
   )

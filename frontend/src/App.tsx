@@ -9,6 +9,7 @@ import PortfolioPage from './pages/PortfolioPage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import LearnPage from './pages/LearnPage'
 import ActivityPage from './pages/ActivityPage'
+import LoginPage from './pages/LoginPage'
 
 // The trading screen pulls in the chart library, so it loads as its own chunk
 const StockPage = lazy(() => import('./pages/StockPage'))
@@ -39,6 +40,8 @@ export default function App() {
                 </Suspense>
               }
             />
+
+            <Route path="/login" element={<LoginPage />} />
 
             {/* Shell routes */}
             <Route element={<AppShell />}>

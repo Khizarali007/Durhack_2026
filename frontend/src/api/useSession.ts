@@ -2,14 +2,22 @@ import { useEffect, useSyncExternalStore } from 'react'
 import type { SessionOut, MeOut } from './types'
 import { ApiError } from './types'
 import { getStoredToken, clearStoredToken } from './config'
-import { getMe, guestSession, login, signup, logout } from './rest'
+import { getMe, guestSession, login, signup, logout, upgradeAccount, dismissSeasonReset } from './rest'
 import { signalAccountChanged } from './accountSignal'
 
 // One session for the whole app, kept outside React so every hook instance agrees.
+// There is no silent guest any more: without a session the shell shows /login.
 
-interface SessionSnapshot { session: SessionOut | null; me: MeOut | null; loading: boolean }
+export interface SessionSnapshot {
+  session: SessionOut | null
+  me: MeOut | null
+  /** True until the stored token has been checked once. */
+  loading: boolean
+  /** The backend can't be reached right now; the stored token is kept and retried. */
+  offline: boolean
+}
 
-let snap: SessionSnapshot = { session: null, me: null, loading: true }
+let snap: SessionSnapshot = { session: null, me: null, loading: true, offline: false }
 const listeners = new Set<() => void>()
 
 function set(next: SessionSnapshot): void {
@@ -25,99 +33,125 @@ function subscribe(fn: () => void): () => void {
 export function getSessionSnapshot(): SessionSnapshot { return snap }
 export function subscribeSession(fn: () => void): () => void { return subscribe(fn) }
 
+const RETRY_MS = 2000
 let bootPromise: Promise<void> | null = null
+let retryTimer: ReturnType<typeof setTimeout> | null = null
 
-/** Restores a stored session if its token still works. Never creates one. */
+function scheduleRetry(): void {
+  if (retryTimer !== null) return
+  retryTimer = setTimeout(() => {
+    retryTimer = null
+    bootPromise = null
+    void bootstrap()
+  }, RETRY_MS)
+}
+
+/**
+ * Restores the stored session. A rejected token (401/403) is dropped and the app shows
+ * /login; a backend that is down or restarting keeps the token and quietly retries.
+ */
 function bootstrap(): Promise<void> {
   if (bootPromise) return bootPromise
   bootPromise = (async () => {
     const token = getStoredToken()
-    if (token) {
-      try {
-        const me = await getMe()
-        set({ session: { token, user_id: me.user_id, cash: me.cash }, me, loading: false })
-        signalAccountChanged()
-        return
-      } catch (err) {
-        // Only a rejected token is thrown away. A backend that is down keeps it for the next visit.
-        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) clearStoredToken()
+    if (!token) {
+      set({ session: null, me: null, loading: false, offline: false })
+      return
+    }
+    try {
+      const me = await getMe()
+      set({ session: { token, user_id: me.user_id, cash: me.cash }, me, loading: false, offline: false })
+      signalAccountChanged()
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        clearStoredToken()
+        set({ session: null, me: null, loading: false, offline: false })
+      } else {
+        set({ ...snap, loading: false, offline: true })
+        scheduleRetry()
       }
     }
-    set({ session: null, me: null, loading: false })
   })()
   return bootPromise
 }
 
 async function adopt(s: SessionOut): Promise<SessionOut> {
   let me: MeOut
-  try { me = await getMe() }
-  catch { me = { user_id: s.user_id, username: null, is_guest: true, cash: s.cash } }
-  set({ session: s, me, loading: false })
+  try {
+    me = await getMe()
+  } catch {
+    me = { user_id: s.user_id, username: s.username ?? null, is_guest: s.is_guest ?? true, cash: s.cash }
+  }
+  bootPromise = Promise.resolve()
+  set({ session: s, me, loading: false, offline: false })
   signalAccountChanged()
   return s
 }
 
 /** One click into a funded 100,000 HOOP guest account. */
-export async function joinAsGuest(): Promise<SessionOut> { return adopt(await guestSession()) }
+export async function joinAsGuest(): Promise<SessionOut> {
+  return adopt(await guestSession())
+}
+
 export async function loginUser(username: string, password: string): Promise<SessionOut> {
   return adopt(await login(username, password))
 }
+
 export async function signupUser(username: string, password: string): Promise<SessionOut> {
   return adopt(await signup(username, password))
 }
+
 export async function logoutUser(): Promise<void> {
   await logout()
-  set({ session: null, me: null, loading: false })
+  set({ session: null, me: null, loading: false, offline: false })
   signalAccountChanged()
 }
 
-let guestPromise: Promise<void> | null = null
-let retryTimer: ReturnType<typeof setTimeout> | null = null
-const RETRY_MS = 2000
-let guestFailed = false
-
-/** The backend may be restarting: keep trying quietly instead of asking for a page reload. */
-function scheduleGuestRetry(): void {
-  if (retryTimer !== null) return
-  retryTimer = setTimeout(() => { retryTimer = null; ensureGuest() }, RETRY_MS)
+/** Turn the current guest into a named account; the portfolio stays. */
+export async function saveProgress(username: string, password: string): Promise<MeOut> {
+  const me = await upgradeAccount(username, password)
+  set({ ...snap, me })
+  return me
 }
 
-function ensureGuest(): void {
-  if (snap.session !== null || guestPromise) return
-  // Show the skeleton on the first try only; retries keep the calm "connecting" message.
-  if (!guestFailed) set({ ...snap, loading: true })
-  guestPromise = joinAsGuest()
-    .then(() => { guestFailed = false })
-    .catch(() => { guestFailed = true; set({ session: null, me: null, loading: false }); scheduleGuestRetry() })
-    .finally(() => { guestPromise = null })
+/** Hide the season-reset notice. */
+export async function acknowledgeSeasonReset(): Promise<void> {
+  if (snap.me) set({ ...snap, me: { ...snap.me, season_reset: false } })
+  try {
+    await dismissSeasonReset()
+  } catch {
+    // The notice is only cosmetic; hiding it locally is enough.
+  }
 }
 
-/** Try to get a session now (the shell's Reconnect button). */
+/** Check the stored token again now (the "Try now" button while offline). */
 export function reconnectSession(): void {
-  if (retryTimer !== null) { clearTimeout(retryTimer); retryTimer = null }
-  ensureGuest()
+  if (retryTimer !== null) {
+    clearTimeout(retryTimer)
+    retryTimer = null
+  }
+  bootPromise = null
+  void bootstrap()
 }
 
+/** Kept for older callers; there is no auto-guest any more, so options are ignored. */
 export interface UseSessionOptions {
-  /** Create a guest account when nothing is stored. The app shell turns this off and sends people to /join. */
   autoGuest?: boolean
 }
 
-export function useSession(options: UseSessionOptions = {}): SessionSnapshot {
-  const autoGuest = options.autoGuest ?? true
+export function useSession(_options: UseSessionOptions = {}): SessionSnapshot {
+  void _options
   const current = useSyncExternalStore(subscribe, getSessionSnapshot)
-
   useEffect(() => {
-    void bootstrap().then(() => { if (autoGuest) ensureGuest() })
-  }, [autoGuest])
-
+    void bootstrap()
+  }, [])
   return current
 }
 
+// A token the backend no longer accepts: back to /login (never a silent new guest).
 window.addEventListener('session-expired', () => {
   clearStoredToken()
   bootPromise = null
-  set({session:null,me:null,loading:false})
+  set({ session: null, me: null, loading: false, offline: false })
   signalAccountChanged()
-  setTimeout(()=>ensureGuest(), 1200)
 })

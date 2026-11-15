@@ -54,3 +54,22 @@
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.35; }
 }
+
+.offline {
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+}
+
+.offlineTitle {
+  margin: 0;
+  font-size: var(--hs-font-size-lg);
+  color: var(--hs-color-text-primary);
+}
+
+.offlineText {
+  margin: 0;
+  color: var(--hs-color-text-secondary);
+  font-size: var(--hs-font-size-sm);
+}

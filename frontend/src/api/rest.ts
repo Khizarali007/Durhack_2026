@@ -167,6 +167,21 @@ export async function logout(): Promise<void> {
   clearStoredToken()
 }
 
+/** "Save your progress": give the current guest account a username and password. */
+export async function upgradeAccount(username: string, password: string): Promise<MeOut> {
+  if (USE_MOCKS) return { ...mockRest.getMe(), username, is_guest: false }
+  return apiFetch<MeOut>('/upgrade', { method: 'POST', body: JSON.stringify({ username, password }) })
+}
+
+/** Hide the "the season was reset" notice for this account. */
+export async function dismissSeasonReset(): Promise<void> {
+  if (USE_MOCKS) return
+  await fetch('/trading/me/season-reset/dismiss', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${getStoredToken() ?? ''}` },
+  })
+}
+
 // PLANNED: shape guessed, confirm with Person 2
 export async function getLeaderboard(): Promise<LeaderboardRow[]> {
   if (USE_MOCKS) return mockRest.getLeaderboard()

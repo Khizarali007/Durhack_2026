@@ -6,8 +6,15 @@
 export type OrderSide = 'buy' | 'sell' | 'short' | 'cover'
 export type FillReason = 'market' | 'limit' | 'stop' | 'liquidation'
 
-export interface SessionOut { token: string; user_id: string; cash: number }
-export interface MeOut { user_id: string; username: string | null; is_guest: boolean; cash: number }
+export interface SessionOut { token: string; user_id: string; cash: number; username?: string | null; is_guest?: boolean }
+export interface MeOut {
+  user_id: string
+  username: string | null
+  is_guest: boolean
+  cash: number
+  /** The season restarted since the last visit: the account is safe, the portfolio began again. */
+  season_reset?: boolean
+}
 export interface OrderIn { symbol: string; side: 'buy' | 'sell'; qty: number }
 export interface FillOut {
   trade_id: string; qty: number; price: number; fee: number

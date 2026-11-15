@@ -6,11 +6,14 @@ export interface InputProps {
   label: string
   value: string | number
   onChange: ChangeEventHandler<HTMLInputElement>
-  type?: 'text' | 'number'
+  type?: 'text' | 'number' | 'password'
   unit?: string
   error?: string
   placeholder?: string
   disabled?: boolean
+  /** Browser autofill hint, e.g. "username", "current-password", "new-password". */
+  autoComplete?: string
+  name?: string
 }
 
 export function Input({
@@ -22,6 +25,8 @@ export function Input({
   error,
   placeholder,
   disabled = false,
+  autoComplete,
+  name,
 }: InputProps) {
   const id = useId()
 
@@ -39,6 +44,9 @@ export function Input({
           onChange={onChange}
           placeholder={placeholder}
           disabled={disabled}
+          autoComplete={autoComplete}
+          name={name}
+          aria-invalid={error ? true : undefined}
         />
         {unit && <span className={styles.unit}>{unit}</span>}
       </div>

@@ -1,19 +1,18 @@
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { reconnectSession, useSession } from '../../api'
 import { TourOverlay } from '../../learning/tour/TourOverlay'
-import { Outlet } from 'react-router-dom'
-import { useState } from 'react'
-import { useSession, usePortfolio, useTrades, reconnectSession } from '../../api'
-import Header from './Header'
-import SeasonControls from '../SeasonControls'
-import Onboarding from '../Onboarding'
+import { Button, Card } from '../ui'
 import PaymentNotice from '../PaymentNotice'
+import SeasonControls from '../SeasonControls'
+import SeasonResetNotice from '../notices/SeasonResetNotice'
+import Header from './Header'
 import LeftNav from './LeftNav'
 import styles from './AppShell.module.css'
 
+/** Header, season bar, nav and the page. Without a session it sends you to /login. */
 export default function AppShell() {
-  const { loading, session } = useSession()
-  const {portfolio}=usePortfolio()
-  const trades=useTrades()
-  const [entered,setEntered]=useState<string|null>(null)
+  const { loading, session, offline } = useSession()
+  const location = useLocation()
 
   if (loading) {
     return (
@@ -26,14 +25,28 @@ export default function AppShell() {
     )
   }
 
-  if (!session) return <div className={styles.shell}><p>Connecting to the market… This retries by itself every couple of seconds.</p><button onClick={reconnectSession}>Try now</button></div>
-  if(portfolio && !trades.length && !portfolio.positions.length && entered!==session.user_id) return <Onboarding done={()=>setEntered(session.user_id)}/>
+  if (!session && offline) {
+    return (
+      <div className={styles.skeleton}>
+        <Card raised padding="lg" className={styles.offline}>
+          <h1 className={styles.offlineTitle}>Connecting to the market…</h1>
+          <p className={styles.offlineText}>
+            The server isn't answering yet. Your login is kept and this retries by itself every couple of seconds.
+          </p>
+          <Button variant="ghost" onClick={reconnectSession}>Try now</Button>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />
 
   return (
     <div className={styles.shell}>
       <TourOverlay />
       <Header />
       <SeasonControls />
+      <SeasonResetNotice />
       <PaymentNotice />
       <div className={styles.below}>
         <LeftNav />

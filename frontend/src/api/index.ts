@@ -31,7 +31,8 @@ export { useOrderQuote } from './useOrderQuote'
 export type { OrderEstimate } from './useOrderQuote'
 
 // --- Session and account ---
-export { useSession, joinAsGuest, loginUser, signupUser, logoutUser, reconnectSession } from './useSession'
+export { useSession, joinAsGuest, loginUser, signupUser, logoutUser, reconnectSession, saveProgress, acknowledgeSeasonReset } from './useSession'
+export type { SessionSnapshot } from './useSession'
 export {
   usePortfolio, useOpenOrders, useTrades, useReservedCash, useEquityHistory, useLeaderboard, refreshAccount,
 } from './accountStore'
@@ -77,3 +78,7 @@ export type { Composition, CompositionSlice, CompositionGrade } from './useCompo
 
 // Demo shortcut: the Wembanyama storm (19-20 Feb 2025) on the real season replay.
 export { jumpToWembyStorm, WEMBY_STORM_EVE_T } from './director'
+
+// Season replay controls, score and payout ledger.
+export { getTimeline, changeTimeline, getSeasonScore, getPayouts } from './season'
+export type { Timeline, TimelineChange, SeasonScore, Payout } from './season'
