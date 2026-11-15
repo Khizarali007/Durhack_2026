@@ -6,6 +6,7 @@ import {
 } from '../../api'
 import type { Player } from '../../api'
 import { Button, SegmentedControl } from '../ui'
+import { priceInputText } from '../../utils/currency'
 import { formatHOOP, formatPrice, formatQty } from '../../utils/format'
 import QuoteBox from './ticket/QuoteBox'
 import QtyInput from './ticket/QtyInput'
@@ -127,10 +128,10 @@ export default function OrderTicket({ player }: OrderTicketProps) {
     if (next === 'stop') {
       setSide('sell')
       // A stop 5% under the bid is a sensible starting point
-      setPriceText(quote?.bid != null ? round2(quote.bid * 0.95).toFixed(2) : '')
+      setPriceText(quote?.bid != null ? priceInputText(round2(quote.bid * 0.95)) : '')
     } else if (next === 'limit') {
       const ref = side === 'buy' ? quote?.ask : quote?.bid
-      setPriceText(ref != null ? ref.toFixed(2) : '')
+      setPriceText(ref != null ? priceInputText(ref) : '')
     }
   }
 
@@ -248,21 +249,21 @@ export default function OrderTicket({ player }: OrderTicketProps) {
               className={styles.priceInput}
               inputMode="decimal"
               autoComplete="off"
-              placeholder="0.00"
+              placeholder="0.00000"
               value={priceText}
-              onChange={e => setPriceText(e.target.value.replace(/[^\d.]/g, '').slice(0, 9))}
+              onChange={e => setPriceText(e.target.value.replace(/[^\d.]/g, '').slice(0, 12))}
               onKeyDown={onEnter}
               aria-invalid={price === null || undefined}
             />
             {mode === 'limit' ? (
               <>
-                <button type="button" className={styles.priceFill} onClick={() => quote?.bid != null && setPriceText(quote.bid.toFixed(2))}>Bid</button>
-                <button type="button" className={styles.priceFill} onClick={() => quote?.ask != null && setPriceText(quote.ask.toFixed(2))}>Ask</button>
+                <button type="button" className={styles.priceFill} onClick={() => quote?.bid != null && setPriceText(priceInputText(quote.bid))}>Bid</button>
+                <button type="button" className={styles.priceFill} onClick={() => quote?.ask != null && setPriceText(priceInputText(quote.ask))}>Ask</button>
               </>
             ) : (
               <>
-                <button type="button" className={styles.priceFill} onClick={() => quote?.bid != null && setPriceText(round2(quote.bid * 0.97).toFixed(2))}>−3%</button>
-                <button type="button" className={styles.priceFill} onClick={() => quote?.bid != null && setPriceText(round2(quote.bid * 0.9).toFixed(2))}>−10%</button>
+                <button type="button" className={styles.priceFill} onClick={() => quote?.bid != null && setPriceText(priceInputText(round2(quote.bid * 0.97)))}>−3%</button>
+                <button type="button" className={styles.priceFill} onClick={() => quote?.bid != null && setPriceText(priceInputText(round2(quote.bid * 0.9)))}>−10%</button>
               </>
             )}
 

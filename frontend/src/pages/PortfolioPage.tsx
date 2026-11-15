@@ -1,3 +1,4 @@
+import { formatHOOP } from '../utils/format'
 import PayoutLedger from '../components/PayoutLedger'
 import { CompositionPanel } from '../learning'
 import { Link } from 'react-router-dom'
@@ -29,7 +30,7 @@ export default function PortfolioPage() {
           <div className={styles.empty}>
 
             <h3>No holdings</h3>
-            <p>H${portfolio.cash.toLocaleString('en-US', { maximumFractionDigits: 0 })} available.</p>
+            <p>{formatHOOP(portfolio.cash)} available.</p>
             <Link to="/market" className={styles.cta}>Find a player</Link>
           </div>
         ) : (

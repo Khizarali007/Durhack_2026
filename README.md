@@ -17,8 +17,9 @@ scripts/setup     # venv, backend deps, frontend deps, data check (one time)
 scripts/demo      # builds the frontend; ONE process on http://127.0.0.1:8000
 ```
 
-Open http://127.0.0.1:8000, buy your first shares, then press **Next day** or
-**Play** to replay the season. Stop with Ctrl+C.
+Open http://127.0.0.1:8000 with **H$100**, build a diversified starter portfolio,
+then press **Start season**. The market runs continuously and weekly reports
+appear in **Updates**. Stop the server with Ctrl+C.
 
 For development with hot reload (backend :8000 + Vite :5173, proxied):
 
@@ -32,12 +33,21 @@ Settings live in `.env` (copy `.env.example`; never commit `.env`). The game dat
 the replay needs is committed in `data/runtime/` (about 5 MB), so nothing is
 downloaded at the venue. `scripts/setup_data --rebuild` regenerates it from source.
 
+## Currency units
+
+Displayed amounts are scaled down 1,000×: a former 150-unit share is H$0.15.
+Cash, prices, dividends, fees and reports use the same denomination; quantities
+and percentage returns do not change. The API, integer ledger and signed receipts
+retain their existing accounting units (1,000 API units = H$1). Display and price
+input conversion lives in `frontend/src/utils/currency.ts`; do not rescale API
+responses a second time. One ledger cent represents H$0.00001.
+
 ## Tests
 
 ```sh
 cd backend && ../.venv/bin/python -m pytest -q        # market, trading, learning
 PYTHONPATH=backend:scripts .venv/bin/python -m pytest -q tests
-cd frontend && npm run build && npm run lint && npm run test:learning
+cd frontend && npm run build && npm run lint && npm run test:learning && npm run test:currency
 cd frontend && npm run test:e2e                       # Playwright smoke (needs scripts/demo running)
 ```
 

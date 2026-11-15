@@ -1,10 +1,10 @@
 [
   {
     "id": "execution",
-    "question": "A player is quoted at a H$50 midpoint, with a H$49 bid and H$51 ask. What does a small market buy use before fees?",
+    "question": "A player is quoted at a H$0.05 midpoint, with a H$0.049 bid and H$0.051 ask. What does a small market buy use before fees?",
     "options": [
-      "The H$50 midpoint",
-      "The available H$51 ask",
+      "The H$0.05 midpoint",
+      "The available H$0.051 ask",
       "The analyst estimate"
     ],
     "answer": 1,
@@ -14,12 +14,12 @@
     "id": "payout",
     "question": "You hold 10 shares at the game cutoff and the player records Game Score 20. What is the performance payment?",
     "options": [
-      "H$4",
-      " H$20",
-      "H$40"
+      "H$0.004",
+      " H$0.02",
+      "H$0.04"
     ],
     "answer": 0,
-    "explanation": "10 shares \u00d7 H$0.02 \u00d7 20 = H$4. The payment is virtual cash, separate from the stock price."
+    "explanation": "10 shares \u00d7 H$0.00002 \u00d7 20 = H$0.004. The payment is virtual cash, separate from the stock price."
   },
   {
     "id": "cutoff",
@@ -34,21 +34,21 @@
   },
   {
     "id": "score",
-    "question": "Your cash is H$90,000, including H$100 of paid dividends. Net sale proceeds are H$10,200 and pending rights are H$5. What is your season score?",
+    "question": "Your cash is H$90 including H$0.1 of paid dividends. Net sale proceeds are H$10.2 and pending rights are H$0.005. What is your season score?",
     "options": [
-      "H$100,305",
-      "H$100,205",
-      "H$100,200"
+      "H$100.305",
+      "H$100.205",
+      "H$100.2"
     ],
     "answer": 1,
-    "explanation": "H$90,000 + H$10,200 + H$5 = H$100,205. Adding the H$100 again would count the paid dividends twice."
+    "explanation": "H$90 + H$10.2 + H$0.005 = H$100.205. Adding the H$0.1 again would count the paid dividends twice."
   },
   {
     "id": "risk",
-    "question": "A stop trigger is H$50, but the next available bid after a gap is H$45. Which statement is correct?",
+    "question": "A stop trigger is H$0.05 but the next available bid after a gap is H$0.045. Which statement is correct?",
     "options": [
-      "The stop guarantees a H$50 sale",
-      "It tries to sell at available bids and can fill below H$50",
+      "The stop guarantees a H$0.05 sale",
+      "It tries to sell at available bids and can fill below H$0.05",
       "The market refunds the gap"
     ],
     "answer": 1,

@@ -2,6 +2,15 @@
 
 Read from `origin/person-1-tasks`, `origin/person2branch`, `origin/person4-learning`. `main` and `backend` are empty. To check anything against the source, run `git fetch origin` then `git show origin/<branch>:<path>`. Never merge or check out those branches, and never edit their files.
 
+## Currency update — 15 November 2026
+
+The current interface starts at **H$100**. Wire/storage monetary numbers retain
+the legacy accounting denomination: **1,000 API units = H$1**; one stored cent
+is H$0.00001. All formulas, bots, price ticks and signed receipt payloads remain
+unchanged. The frontend converts values for display and converts typed prices
+back before submitting orders. The historical HOOP references below describe
+API accounting units, not the current displayed H$ denomination.
+
 ## Conventions the whole team agreed
 - Market time `t` = epoch seconds (float). The market runs 12x real time (1 market minute = 5 real seconds).
 - Money crosses the API as floats in HOOP (2 dp). The backend stores integer cents internally.

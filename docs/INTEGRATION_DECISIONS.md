@@ -131,3 +131,11 @@ These choices supersede the weekly-stop and single-purchase setup decisions abov
 - **Opening tutorial:** require three meaningful player positions (about 5% of initial cash each), at least two teams, and no position above 50% of invested market value. Cash is excluded from concentration. A 2% tolerance on the minimum accounts for whole shares; this is a teaching target, not a risk guarantee or a continuing trading restriction.
 - **Setup cash:** cap previewed acquisition value per player at 25% of initial cash during setup, with 5/10/20% presets. This leaves room to add other players. After setup, normal trading rules apply. This client-side tutorial gate is not an anti-cheat boundary.
 - **Resume:** unfinished setup persists locally per account. Existing accounts with trades are not forced through the new setup. Rewinds create fresh accounts and require setup again. Reconsider server-side onboarding persistence for a multi-device product.
+
+## 15 November — H$100 denomination
+
+- **Uniform unit change:** 1,000 existing API accounting units now represent H$1. Starting funds display H$100; share values, bot wealth, payouts, fees and portfolio scores have the same economic ratios. Quantities, returns and model coefficients are unchanged.
+- **Keep the integer ledger:** do not divide stored cents and round away small dividends/fees, migrate historical data or rewrite signed Solana receipts. Existing receipts retain their original accounting denomination. Current UI and typed-price boundaries perform the conversion; raw API numbers deliberately stay compatible.
+- **Precision:** five decimal places preserve one original ledger cent. Forecast payouts show six decimals; cash and totals show up to five. Limit/stop prices accept five decimals and convert back once before validation/submission. Charts use scaled numeric series as well as scaled labels.
+- **Content:** starting allocations become H$5/H$10/H$20 and the payout coefficient is H$0.00002 per positive Game Score point. Update glossary, challenges and tours together.
+- **Reconsider:** if the team needs an API explicitly denominated in displayed H$, version that contract and its Solana encoding together. Do not silently divide the current API or scale it twice in clients.

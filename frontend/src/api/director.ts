@@ -25,7 +25,7 @@ export async function resumeMarket(): Promise<DirectorResult> {
   return USE_MOCKS ? mockDirector.resume() : NOT_AVAILABLE
 }
 
-/** Rewinds the market to the season start. `account: true` also gives the signed-in user a fresh 100,000 HOOP. */
+/** Rewinds the market to the season start. `account: true` also gives the signed-in user a fresh H$100 (100,000 API accounting units). */
 export async function resetMarket(options: { account?: boolean } = {}): Promise<DirectorResult> {
   if (!USE_MOCKS) return NOT_AVAILABLE
   const result = mockDirector.reset(options.account === true)

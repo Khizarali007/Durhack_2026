@@ -5,7 +5,7 @@ export const welcome: Tutorial = {
  teaches:['HOOP','Cash','Quoted portfolio value','Season score','Player share'],
  recap:['Located cash and quoted equity','Distinguished the exit score from quoted equity','Explored replay controls and the player screen'],
  steps:[
-  {route:'/',title:'Welcome to HoopStreet',body:'Start with H$100,000 virtual cash. Invest in NBA performance through the 2024–25 regular season. Player shares pay game dividends; they are not ownership of the player.',complete:{type:'next'}},
+  {route:'/',title:'Welcome to HoopStreet',body:'Start with H$100 virtual cash. Invest in NBA performance through the 2024–25 regular season. Player shares pay game dividends; they are not ownership of the player.',complete:{type:'next'}},
   {route:'/',title:'Spread your risk',body:'Your starter portfolio holds at least three players across two teams, with no player above half of the invested value. This reduces reliance on one player; it does not guarantee a profit. You can rebalance freely after setup.',complete:{type:'next'}},
   {route:'/',target:'header-cash',title:'Your cash',body:'Buying spends cash. Sales and performance payments add cash. Open buy orders reserve part of the balance, so check Spendable before buying.',complete:{type:'next'}},
   {route:'/',target:'header-equity',title:'One season score',body:'This is your estimated exit value after selling costs, including cash and pending payment rights. Quoted equity remains available under Replay settings.',complete:{type:'next'}},

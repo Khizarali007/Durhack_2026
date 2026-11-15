@@ -1,3 +1,4 @@
+import { formatHOOP, formatPrice } from '../utils/format'
 import type {
   OrderOut, FillOut, PortfolioOut, MeOut, SessionOut, PositionOut, OrderSide, FillReason,
   MarginOrderIn, OrderQuote, OpenOrderIn, OpenOrder, Trade, MarginStatus, EquityPoint, Quote,
@@ -642,13 +643,13 @@ export const mockSession = {
       const needed = input.qty * price * 1.001
       const free = (s.cash_cents - reservedCents(s)) / 100
       if (needed > free)
-        mockError(400, `not enough cash: this order needs ${needed.toFixed(2)} HOOP set aside and you have ${free.toFixed(2)} free`)
+        mockError(400, `not enough cash: this order needs ${formatHOOP(needed)} set aside and you have ${formatHOOP(free)} free`)
     } else {
       const held = Math.max(0, s.positions[input.symbol]?.qty ?? 0)
       if (input.qty > held)
         mockError(400, `you hold ${held} ${input.symbol}, cannot sell ${input.qty}`)
       if (input.type === 'stop' && q.bid !== null && price >= q.bid)
-        mockError(422, `stop price must be below the current bid (${q.bid.toFixed(2)}), or it would sell straight away`)
+        mockError(422, `stop price must be below the current bid (${formatPrice(q.bid)}), or it would sell straight away`)
     }
 
     const t = mockMarket.getMarketTime()

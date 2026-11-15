@@ -6,6 +6,7 @@ import type { MarketEvent } from '../../api'
 import { apiFetch } from '../../api/rest'
 import { readChartColors } from '../../utils/chartTheme'
 import { useThemeContext } from '../../context/useThemeContext'
+import { toDisplayCurrency, DISPLAY_PRICE_DECIMALS, DISPLAY_PRICE_TICK } from '../../utils/currency'
 import styles from './PriceChart.module.css'
 
 type Point = {t:number;mid:number|null;fair:number}
@@ -25,8 +26,8 @@ export default function PriceChart({symbol}: {symbol:string;events?:MarketEvent[
     const chart=createChart(el,{autoSize:true,layout:{background:{type:ColorType.Solid,color:'transparent'},textColor:c.text},grid:{vertLines:{color:c.grid},horzLines:{color:c.grid}},timeScale:{timeVisible:false}})
     fit.current = () => chart.timeScale().fitContent()
     const symbols=selection.split(',')
-    const series=symbols.map((s,i)=>chart.addSeries(LineSeries,{color:COLORS[i],lineWidth:2,title:s,priceLineVisible:false}))
-    const fair=chart.addSeries(LineSeries,{color:'#97a7bb',lineStyle:LineStyle.Dashed,lineWidth:1,title:'Analyst estimate',priceLineVisible:false})
+    const series=symbols.map((s,i)=>chart.addSeries(LineSeries,{color:COLORS[i],lineWidth:2,title:s,priceLineVisible:false,priceFormat:{type:'price',precision:DISPLAY_PRICE_DECIMALS,minMove:DISPLAY_PRICE_TICK}}))
+    const fair=chart.addSeries(LineSeries,{color:'#97a7bb',lineStyle:LineStyle.Dashed,lineWidth:1,title:'Analyst estimate',priceLineVisible:false,priceFormat:{type:'price',precision:DISPLAY_PRICE_DECIMALS,minMove:DISPLAY_PRICE_TICK}})
     let alive=true, first=true, loading=false, session=''
     async function load(){
       if(loading)return
@@ -35,8 +36,8 @@ export default function PriceChart({symbol}: {symbol:string;events?:MarketEvent[
         const data=await apiFetch<{session_id:string;history:Record<string,Point[]>}>(`/market/history?symbols=${selection}`)
         if(!alive)return
         if(data.session_id!==session){first=true;session=data.session_id}
-        symbols.forEach((s,i)=>series[i].setData(data.history[s].map(p=>p.mid==null?{time:p.t as UTCTimestamp}:{time:p.t as UTCTimestamp,value:p.mid})))
-        fair.setData(data.history[symbol].map(p=>({time:p.t as UTCTimestamp,value:p.fair})))
+        symbols.forEach((s,i)=>series[i].setData(data.history[s].map(p=>p.mid==null?{time:p.t as UTCTimestamp}:{time:p.t as UTCTimestamp,value:toDisplayCurrency(p.mid)})))
+        fair.setData(data.history[symbol].map(p=>({time:p.t as UTCTimestamp,value:toDisplayCurrency(p.fair)})))
         if(first){chart.timeScale().fitContent();first=false}
         setError('')
       }catch{if(alive)setError('History unavailable. Reconnecting…')}
@@ -48,7 +49,7 @@ export default function PriceChart({symbol}: {symbol:string;events?:MarketEvent[
   },[selection,symbol,theme,projector])
   return <section className={styles.panel} aria-label={`${symbol} price chart`} data-tour="stock-chart">
     <div className={styles.toolbar}>
-      <span>Price · 1D</span>
+      <span>Price · H$ · 1D</span>
       <button onClick={()=>fit.current?.()}>Fit history</button>
       <select aria-label="Compare another player" value="" onChange={e=>{if(e.target.value)setCompare(old=>[...old.filter(x=>x!==e.target.value),e.target.value].slice(-3))}}>
         <option value="">Compare player…</option>
