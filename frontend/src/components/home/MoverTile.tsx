@@ -1,11 +1,11 @@
+import { PlayerAvatar } from '../PlayerIdentity'
 import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuote } from '../../api'
 import type { Player } from '../../api'
-import { Badge, Pill } from '../ui'
+import { Pill } from '../ui'
 import RadarBadge from '../market/RadarBadge'
 import { formatPct, formatPrice, trendArrow } from '../../utils/format'
-import { teamColor, playerInitials } from '../../utils/teamColors'
 import { usePriceFlash, flashClass } from '../../hooks/usePriceFlash'
 import styles from './MoverTile.module.css'
 
@@ -18,10 +18,10 @@ const MoverTile = memo(function MoverTile({ player, rank, pct }: { player: Playe
   return (
     <Link to={`/stock/${player.symbol}`} className={styles.tile} aria-label={`${player.name}, open chart`}>
       <span className={styles.rank}>{rank}</span>
-      <Badge initials={playerInitials(player.name)} color={teamColor(player.team)} size="lg" />
+      <PlayerAvatar player={player} size="lg" />
       <span className={styles.who}>
         <span className={styles.name}>{player.name}</span>
-        <span className={styles.team}>{player.team} · {player.symbol} <RadarBadge symbol={player.symbol} /></span>
+        <span className={styles.team}>{player.team} <RadarBadge symbol={player.symbol} /></span>
       </span>
       <span className={styles.numbers}>
         <span className={`${styles.price} ${flashClass(flash)}`}>{formatPrice(quote?.quoted_price)}</span>

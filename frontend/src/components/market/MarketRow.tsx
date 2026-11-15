@@ -1,9 +1,9 @@
+import { PlayerAvatar } from '../PlayerIdentity'
 import { memo } from 'react'
-import { Badge, Pill } from '../ui'
+import { Pill } from '../ui'
 import { useQuote, useSparkline, getInitPrice } from '../../api'
 import type { Player } from '../../api'
 import { formatHOOP, formatPct, formatPrice, trendArrow } from '../../utils/format'
-import { teamColor, playerInitials } from '../../utils/teamColors'
 import { usePriceFlash, flashClass } from '../../hooks/usePriceFlash'
 import SparklineCell from './SparklineCell'
 import RadarBadge from './RadarBadge'
@@ -37,12 +37,12 @@ const FullRow = memo(function FullRow({ player, isHighlighted }: MarketRowProps)
   return (
     <div className={rowClass} role="row">
       <div className={styles.colAvatar}>
-        <Badge initials={playerInitials(player.name)} color={teamColor(player.team)} size="sm" />
+        <PlayerAvatar player={player} size="sm" />
       </div>
 
       <div className={styles.colName}>
-        <span className={styles.symbol}>{player.symbol}</span>
-        <span className={styles.playerName}>{player.name}</span>
+        <span className={styles.symbol}>{player.name}</span>
+
       </div>
 
       <div className={styles.colTeam}>{player.team}</div>
@@ -85,10 +85,10 @@ const CompactRow = memo(function CompactRow({ player, isHighlighted, isSelected 
 
   return (
     <div className={rowClass} aria-current={isSelected ? 'true' : undefined}>
-      <Badge initials={playerInitials(player.name)} color={teamColor(player.team)} size="md" />
+      <PlayerAvatar player={player} size="md" />
       <div className={styles.colName}>
         <span className={styles.compactName}>{player.name}</span>
-        <span className={styles.playerName}>{player.team} · {player.symbol}</span>
+        <span className={styles.playerName}>{player.team}</span>
       </div>
       <div className={`${styles.compactPrice} ${flashClass(flash)}`}>{formatPrice(quote?.quoted_price)}</div>
       <div className={styles.compactChange}>

@@ -20,7 +20,8 @@ from import_player_box import game_score
 
 SOURCE_ROOT = "https://github.com/sportsdataverse/sportsdataverse-data/releases/download"
 SEASONS = (2020, 2021, 2022, 2023, 2024)
-SEASON_WEIGHTS = {2024: .45, 2023: .25, 2022: .15, 2021: .10, 2020: .05}
+SEASON_WEIGHTS = {2024: .65, 2023: .20, 2022: .08, 2021: .05, 2020: .02}
+LEGACY_WEIGHTS = {2024: .45, 2023: .25, 2022: .15, 2021: .10, 2020: .05}
 OPENING_DAY = date(2024, 10, 22)
 SHRINK_GAMES = 10
 
@@ -93,12 +94,31 @@ def newcomer_prior(scores):
     return statistics.mean(means), len(means)
 
 
+def equal_player_prior(scores, season):
+    """Do not let players with more appearances dominate the shrinkage target."""
+    means = [statistics.mean(seasons[season]) for seasons in scores.values() if seasons.get(season)]
+    if not means:
+        raise ValueError("No prior-season player observations available")
+    return statistics.mean(means)
+
+
+def opening_expectation(seasons, weights, shrink_target, no_history_target):
+    """Only the explicitly supplied prior seasons can affect an opening estimate."""
+    available = [year for year in weights if seasons.get(year)]
+    if not available:
+        return no_history_target
+    return sum(weights[y] * (sum(seasons[y]) + SHRINK_GAMES * shrink_target) /
+               (len(seasons[y]) + SHRINK_GAMES) for y in available) / sum(weights[y] for y in available)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-dir", type=Path, default=Path("data/source"))
     parser.add_argument("--database", type=Path, default=Path("data/player_games_2024_25.sqlite"))
     parser.add_argument("--output", type=Path, default=Path("data/starting_values_2024_25.csv"))
-    parser.add_argument("--newcomer-prior", choices=("league", "conservative"), default="league",
+    parser.add_argument("--model", choices=("balanced", "legacy"), default="balanced",
+                        help="Balanced uses equal-player shrinkage and stronger recent-season weight")
+    parser.add_argument("--newcomer-prior", choices=("league", "conservative"), default=None,
                         help="Opening prior for players with no NBA history; conservative uses historical newcomers")
     args = parser.parse_args()
     args.source_dir.mkdir(parents=True, exist_ok=True)
@@ -136,6 +156,10 @@ def main() -> None:
     league_mean = sum(all_scores) / len(all_scores)
     rookie_mean, rookie_count = newcomer_prior(scores)
     birthdates = load_birthdates(args.source_dir, set(players))
+    weights = SEASON_WEIGHTS if args.model == "balanced" else LEGACY_WEIGHTS
+    shrink_target = equal_player_prior(scores, max(SEASONS)) if args.model == "balanced" else league_mean
+    newcomer_policy = args.newcomer_prior or ("conservative" if args.model == "balanced" else "league")
+    no_history_target = rookie_mean if newcomer_policy == "conservative" else league_mean
 
     values = []
     for player_id, player in players.items():
@@ -145,19 +169,9 @@ def main() -> None:
             games = scores[player_id][season]
             season_games[season] = len(games)
             season_means[season] = sum(games) / len(games) if games else None
-        # Each observed season is shrunk toward the league mean when the sample
-        # is small. Missing seasons receive no weight; available weights renormalize.
+        # Historical performance and priors only: never read replay outcomes here.
         available = [season for season in SEASONS if season_games[season]]
-        if available:
-            weight_total = sum(SEASON_WEIGHTS[season] for season in available)
-            expected_score = sum(
-                SEASON_WEIGHTS[season] *
-                ((sum(scores[player_id][season]) + SHRINK_GAMES * league_mean) /
-                 (season_games[season] + SHRINK_GAMES))
-                for season in available
-            ) / weight_total
-        else:
-            expected_score = rookie_mean if args.newcomer_prior == "conservative" else league_mean
+        expected_score = opening_expectation(scores[player_id], weights, shrink_target, no_history_target)
         birthdate = birthdates.get(player_id)
         age = player_age(birthdate) if birthdate else None
         # A small, capped age adjustment avoids making age dominate observed quality.
@@ -184,10 +198,10 @@ def main() -> None:
     fields += ["expected_game_score", "age_factor", "starting_price", "confidence"]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", newline="", encoding="utf-8") as file:
-        writer = csv.DictWriter(file, fieldnames=fields)
+        writer = csv.DictWriter(file, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         writer.writerows(values)
-    print(f"No-history policy: {args.newcomer_prior}; newcomer prior {rookie_mean:.3f} from {rookie_count} prior players")
+    print(f"Model: {args.model}; shrink target {shrink_target:.3f}; no-history policy: {newcomer_policy}; newcomer prior {rookie_mean:.3f} from {rookie_count} prior players")
     print(f"Saved {len(values)} starting values to {args.output}; league prior-season Game Score {league_mean:.2f}; ages known for {sum(bool(v['age']) for v in values)}")
 
 

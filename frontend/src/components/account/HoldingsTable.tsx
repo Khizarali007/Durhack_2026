@@ -2,9 +2,8 @@ import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuote } from '../../api'
 import type { PositionOut } from '../../api'
-import { Badge } from '../ui'
+import { PlayerAvatar } from '../PlayerIdentity'
 import { formatHOOP, formatPct, formatPnl, formatPrice, formatQty, trendArrow } from '../../utils/format'
-import { teamColor, playerInitials } from '../../utils/teamColors'
 import { usePriceFlash, flashClass } from '../../hooks/usePriceFlash'
 import styles from '../orders/tables.module.css'
 
@@ -28,10 +27,10 @@ const HoldingRow = memo(function HoldingRow({ position, equity }: { position: Po
     <tr>
       <td className={styles.left}>
         <Link to={`/stock/${position.symbol}`} className={`${styles.link} ${styles.who}`}>
-          <Badge initials={playerInitials(name)} color={teamColor(position.team ?? '')} size="md" />
+          <PlayerAvatar player={position}/>
           <span className={styles.whoText}>
             <span className={styles.whoName}>{name}</span>
-            <span className={styles.whoSub}>{position.team ?? '—'} · {position.symbol}{short ? ' · short' : ''}</span>
+            <span className={styles.whoSub}>{position.team ?? '—'}{short ? ' · short' : ''}</span>
           </span>
         </Link>
       </td>

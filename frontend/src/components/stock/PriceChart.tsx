@@ -26,7 +26,7 @@ export default function PriceChart({symbol}: {symbol:string;events?:MarketEvent[
     const chart=createChart(el,{autoSize:true,layout:{background:{type:ColorType.Solid,color:'transparent'},textColor:c.text},grid:{vertLines:{color:c.grid},horzLines:{color:c.grid}},timeScale:{timeVisible:false}})
     fit.current = () => chart.timeScale().fitContent()
     const symbols=selection.split(',')
-    const series=symbols.map((s,i)=>chart.addSeries(LineSeries,{color:COLORS[i],lineWidth:2,title:s,priceLineVisible:false,priceFormat:{type:'price',precision:DISPLAY_PRICE_DECIMALS,minMove:DISPLAY_PRICE_TICK}}))
+    const series=symbols.map((s,i)=>chart.addSeries(LineSeries,{color:COLORS[i],lineWidth:2,title:players.find(p=>p.symbol===s)?.name??s,priceLineVisible:false,priceFormat:{type:'price',precision:DISPLAY_PRICE_DECIMALS,minMove:DISPLAY_PRICE_TICK}}))
     const fair=chart.addSeries(LineSeries,{color:'#97a7bb',lineStyle:LineStyle.Dashed,lineWidth:1,title:'Analyst estimate',priceLineVisible:false,priceFormat:{type:'price',precision:DISPLAY_PRICE_DECIMALS,minMove:DISPLAY_PRICE_TICK}})
     let alive=true, first=true, loading=false, session=''
     async function load(){
@@ -46,8 +46,8 @@ export default function PriceChart({symbol}: {symbol:string;events?:MarketEvent[
     void load()
     const timer=setInterval(()=>void load(),1000)
     return()=>{alive=false;clearInterval(timer);fit.current=null;chart.remove()}
-  },[selection,symbol,theme,projector])
-  return <section className={styles.panel} aria-label={`${symbol} price chart`} data-tour="stock-chart">
+  },[selection,symbol,theme,projector,players])
+  return <section className={styles.panel} aria-label={`${players.find(p=>p.symbol===symbol)?.name??symbol} price chart`} data-tour="stock-chart">
     <div className={styles.toolbar}>
       <span>Price · H$ · 1D</span>
       <button onClick={()=>fit.current?.()}>Fit history</button>

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { usePortfolio } from '../api'
 import { useSeason } from '../api/useSeason'
 import { formatHOOP, formatPct, formatPnl } from '../utils/format'
-import { playerInitials } from '../utils/teamColors'
+import { PlayerAvatar } from '../components/PlayerIdentity'
 import '../components/season.css'
 
 export default function HomePage(){
@@ -16,7 +16,7 @@ export default function HomePage(){
   </section>
   <div className="overview-grid">
    <section className="holdings-panel" aria-label="Your holdings"><div className="panel-heading"><h2>Holdings <span className="count-badge">{portfolio?.positions.length??0}</span></h2><Link className="text-action" to="/market">Add player <span aria-hidden="true">＋</span></Link></div>
-    {portfolio?.positions.length?<div className="holdings-list">{portfolio.positions.map(p=><Link to={`/stock/${p.symbol}`} className="holding-item" key={p.symbol}><span className="player-monogram">{playerInitials(p.name??p.symbol)}</span><span className="holding-name"><strong>{p.name??p.symbol}</strong><small>{p.qty} shares · {p.team}</small></span><span className="holding-value"><strong>{formatHOOP(p.market_value)}</strong><small className={p.unrealised_pnl>=0?'trend-up':'trend-down'}>{formatPct(p.unrealised_pnl_pct,2)}</small></span><span className="row-arrow" aria-hidden="true">↗</span></Link>)}</div>:<div className="empty-holdings"><p>No holdings</p><Link className="action-primary" to="/market">Find a player</Link></div>}
+    {portfolio?.positions.length?<div className="holdings-list">{portfolio.positions.map(p=><Link to={`/stock/${p.symbol}`} className="holding-item" key={p.symbol}><PlayerAvatar player={p}/><span className="holding-name"><strong>{p.name??p.symbol}</strong><small>{p.qty} shares · {p.team}</small></span><span className="holding-value"><strong>{formatHOOP(p.market_value)}</strong><small className={p.unrealised_pnl>=0?'trend-up':'trend-down'}>{formatPct(p.unrealised_pnl_pct,2)}</small></span><span className="row-arrow" aria-hidden="true">↗</span></Link>)}</div>:<div className="empty-holdings"><p>No holdings</p><Link className="action-primary" to="/market">Find a player</Link></div>}
     <div className="panel-foot"><span>Holdings shown at quoted prices</span><Link to="/portfolio">View portfolio →</Link></div>
    </section>
    <section className="season-review"><h2>{score?.finished?'Season complete':'Weekly reports'}</h2>{!score?.finished&&nextReport&&<p className="quiet-label">Next report · {new Date(nextReport*1000).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'})}</p>}<Link className="result-action" to="/updates">View updates →</Link></section>

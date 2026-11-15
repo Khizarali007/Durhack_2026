@@ -34,6 +34,14 @@ Settings live in `.env` (copy `.env.example`; never commit `.env`). The game dat
 the replay needs is committed in `data/runtime/` (about 5 MB), so nothing is
 downloaded at the venue. `scripts/setup_data --rebuild` regenerates it from source.
 
+## Player presentation and opening values
+
+Player screens use full names and ESPN portraits, with initials when an image is
+unavailable. Photos can show current uniforms; historical team labels stay unchanged.
+Starting expectations use prior NBA seasons only, with 65% weight on the latest
+season and a separate historical newcomer baseline. See
+[the model review](docs/OPENING_VALUE_REVIEW.md) for measured results and limitations.
+
 ## Currency units
 
 Displayed amounts are scaled down 1,000×: a former 150-unit share is H$0.15.

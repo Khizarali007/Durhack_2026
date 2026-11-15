@@ -3,7 +3,7 @@ import { usePlayers, useQuote, placeOrder, errorDetail, useOrderQuote, usePortfo
 import { useSeason, changeTimeline } from '../api/useSeason'
 import { starterProgress } from '../utils/starterPortfolio'
 import { formatHOOP } from '../utils/format'
-import { playerInitials, teamColor } from '../utils/teamColors'
+import { PlayerAvatar } from './PlayerIdentity'
 import PlayerForecast from './stock/PlayerForecast'
 import './season.css'
 import './Onboarding.css'
@@ -80,7 +80,7 @@ export default function Onboarding({ done, storageKey }: { done: () => void; sto
             const owned = positions.find(h => h.symbol === p.symbol)
             const live = getCachedQuote(p.symbol)
             return <button key={p.symbol} className="draft-player" aria-pressed={symbol === p.symbol} onClick={() => selectPlayer(p.symbol)} disabled={busy}>
-              <span className="draft-avatar" style={{ borderColor: teamColor(p.team), background: `${teamColor(p.team)}28` }}>{playerInitials(p.name)}</span>
+              <PlayerAvatar player={p}/>
               <span className="draft-player-name"><strong>{p.name}</strong><small>{p.team}{owned ? ` · ${owned.qty} shares owned` : ''}</small></span>
               <span className="draft-player-price">{live?.ask === null ? 'Unavailable' : formatHOOP(price(p), 2)}{!live && <small>Opening value</small>}</span><span className="draft-select" aria-hidden="true">{symbol === p.symbol ? '✓' : '+'}</span>
             </button>
@@ -92,12 +92,12 @@ export default function Onboarding({ done, storageKey }: { done: () => void; sto
       <aside className="draft-sidebar">
         {!selected && <section className="draft-roster">
           <div className="panel-heading"><h2>Your roster</h2><span className="quiet-label">{positions.length} {positions.length === 1 ? 'player' : 'players'}</span></div>
-          <div className="draft-slots">{positions.map(p => <button key={p.symbol} onClick={() => selectPlayer(p.symbol)} disabled={busy} aria-label={`Manage ${p.name ?? p.symbol}`}><span className="draft-avatar" style={{ borderColor: teamColor(p.team ?? '') }}>{playerInitials(p.name ?? p.symbol)}</span><span><strong>{p.name ?? p.symbol}</strong><small>{p.qty} shares · {p.team}</small></span><b>{formatHOOP(p.market_value, 2)}</b></button>)}{Array.from({ length: Math.max(0, 3 - positions.length) }, (_, i) => <div key={i} className="draft-slot-empty"><span>+</span><span>Choose a player</span></div>)}</div>
+          <div className="draft-slots">{positions.map(p => <button key={p.symbol} onClick={() => selectPlayer(p.symbol)} disabled={busy} aria-label={`Manage ${p.name ?? p.symbol}`}><PlayerAvatar player={p} size="sm"/><span><strong>{p.name ?? p.symbol}</strong><small>{p.qty} shares · {p.team}</small></span><b>{formatHOOP(p.market_value, 2)}</b></button>)}{Array.from({ length: Math.max(0, 3 - positions.length) }, (_, i) => <div key={i} className="draft-slot-empty"><span>+</span><span>Choose a player</span></div>)}</div>
           <div className="draft-checks"><span className={progress.playerCount >= 3 ? 'complete' : ''}>{progress.playerCount >= 3 ? '✓' : '○'} 3 players · min. {formatHOOP(startingCash * .05, 0)} each</span><span className={progress.teamCount >= 2 ? 'complete' : ''}>{progress.teamCount >= 2 ? '✓' : '○'} 2 NBA teams</span><span className={progress.balanced ? 'complete' : ''}>{progress.balanced ? '✓' : '○'} No player over 50% of roster value</span></div>
           <button className="action-primary opening-buy" disabled={!progress.ready || busy || working || !clock || clock.busy} onClick={() => void start()}>{working ? 'Starting…' : 'Start season'} <span aria-hidden="true">→</span></button>
         </section>}
         {selected && <section className="draft-ticket" aria-label="Player order" key={symbol}>
-          <div className="panel-heading"><h2>{selected.name}</h2><button className="draft-close" aria-label="Close player order" disabled={busy} onClick={() => setSymbol('')}>×</button></div>
+          <div className="panel-heading"><div className="draft-selected-player"><PlayerAvatar player={selected}/><h2>{selected.name}</h2></div><button className="draft-close" aria-label="Close player order" disabled={busy} onClick={() => setSymbol('')}>×</button></div>
           {held && <div className="draft-side">{(['buy', 'sell'] as const).map(s => <button key={s} disabled={busy} aria-pressed={side === s} onClick={() => { setSide(s); setManualQty(null); setError('') }}>{s === 'buy' ? 'Buy' : 'Sell'}</button>)}</div>}
           <div className="opening-quote"><div><span>{side === 'buy' ? 'Buy' : 'Sell'} price / share</span><strong>{quote?.[side === 'buy' ? 'ask' : 'bid'] ? formatHOOP(quote[side === 'buy' ? 'ask' : 'bid']!) : '—'}</strong></div></div>
           <PlayerForecast symbol={symbol} compact/>
@@ -113,6 +113,6 @@ export default function Onboarding({ done, storageKey }: { done: () => void; sto
         {(error || estimate.error || clockError) && <p className="draft-error" role="alert">{error || estimate.error || clockError}</p>}
       </aside>
     </div>
-    <footer className="draft-footer"><details><summary>Game rules</summary><p>Invest in players, collect performance payments and grow your portfolio through the season. Your final score is cash plus estimated sale proceeds after costs, plus pending payments. Each eligible share pays H$0.0002 per positive Game Score point.</p><p>Start with at least 3 players worth H$5 each across 2 NBA teams. Keep any one player at or below half your invested roster value. You can sell and change your picks before starting; trades include fees and the bid–ask spread.</p></details><span>Virtual currency · Historical season</span></footer>
+    <footer className="draft-footer"><details><summary>Game rules</summary><p>Invest in players, collect performance payments and grow your portfolio through the season. Your final score is cash plus estimated sale proceeds after costs, plus pending payments. Each eligible share pays H$0.0002 per positive Game Score point.</p><p>Player photos: <a href="https://www.espn.com/nba/players" target="_blank" rel="noreferrer">ESPN</a>, matched using SportsDataverse athlete IDs. Photos may show current uniforms.</p><p>Start with at least 3 players worth H$5 each across 2 NBA teams. Keep any one player at or below half your invested roster value. You can sell and change your picks before starting; trades include fees and the bid–ask spread.</p></details><span>Virtual currency · Historical season</span></footer>
   </div>
 }

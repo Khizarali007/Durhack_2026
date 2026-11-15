@@ -189,7 +189,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
   const confirmLabel = submitting
     ? 'Sending…'
     : mode === 'market'
-      ? `${buying ? 'Buy' : 'Sell'} ${qty !== null ? formatQty(qty) : ''} ${symbol}`
+      ? `${buying ? 'Buy' : 'Sell'} ${qty !== null ? formatQty(qty) : ''} shares`
       : mode === 'limit'
         ? `Place limit ${buying ? 'buy' : 'sell'}`
         : 'Place stop-loss'
@@ -198,7 +198,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
     <aside className={styles.ticket} aria-label={`Order ticket for ${player.name}`} data-tour="ticket">
       <div className={styles.ticketBody}>
       <div className={styles.head}>
-        <span className={styles.title}>Trade {symbol}</span>
+        <span className={styles.title}>Trade {player.name}</span>
         <span className={styles.keys} title="Keyboard: B for buy, S for sell, Enter in the quantity box to confirm">
           <kbd>B</kbd> <kbd>S</kbd> <kbd>Enter</kbd>
         </span>
@@ -295,7 +295,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         </div>
         <div>
           <dt>You hold</dt>
-          <dd>{portfolio === null ? '—' : `${formatQty(held)} ${symbol}`}</dd>
+          <dd>{portfolio === null ? '—' : `${formatQty(held)} shares`}</dd>
         </div>
       </dl>
 

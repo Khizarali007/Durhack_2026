@@ -149,3 +149,10 @@ These choices supersede the weekly-stop and single-purchase setup decisions abov
 - **Setup:** retain the agreed 3-player / 2-team / 50%-concentration gate and 25% acquisition cap. Allocation presets are H$10/H$15/H$20: the old H$5 button could round below the qualifying minimum with more expensive whole shares.
 - **Session boundary:** use a fresh market for the changed economics, never silently revalue an existing running server or rewrite stored receipts. The API/display denomination still maps 1,000 accounting units to H$1. The old frontend-only mock is a separate development fixture, not this historical live engine.
 - **Reconsider:** a true five-position fantasy lineup would need reliable player-position data and explicit roster limits. Current holdings remain investment positions; no positions or sporting constraints are invented.
+
+
+## 15 November — fairer priors, full names and ESPN portraits
+
+- **Expectations:** replace pooled league priors with the equal-player previous-season mean for shrinkage and historical newcomer mean for no-history players. Recent-season weight rises from 45% to 65%, based on an earlier-season development check. No universal price discount or forced win/loss quota. Evidence and limitations: [opening-value review](OPENING_VALUE_REVIEW.md).
+- **Presentation:** replace bespoke ticker labels with full player names throughout user-facing market and trading views. Retain internal IDs for trade/receipt/link compatibility. Equal row/photo dimensions and a two-line watchlist prevent long names squeezing out prices.
+- **Photos:** the user's explicit request supersedes the earlier initials-only design rule. Use ESPN-hosted portraits by existing ESPN athlete ID, with lazy loading and initials on failure. Keep NBA team logos out, avoid copying portraits into the repo, and acknowledge current uniforms may differ from historical team labels.

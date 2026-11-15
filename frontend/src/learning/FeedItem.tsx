@@ -1,3 +1,4 @@
+import { PlayerName } from '../components/PlayerIdentity'
 import type { MissionMessage } from '../api'
 import { formatCountdown } from './format'
 import { ALERTS, FALLBACK_ALERT } from './missionCopy'
@@ -29,7 +30,7 @@ export function FeedItem({ msg }: FeedItemProps) {
       <li className={`${tokens.tokens} ${styles.alert} ${styles[alert.tone]}`}>
         <div className={styles.alertHead}>
           <span className={styles.alertLabel}>Breaking · {alert.label}</span>
-          {msg.symbol && <span className={styles.symbol}>{msg.symbol}</span>}
+          {msg.symbol && <span className={styles.symbol}><PlayerName symbol={msg.symbol}/></span>}
           {time}
         </div>
         <p className={styles.headline}>{msg.text}</p>

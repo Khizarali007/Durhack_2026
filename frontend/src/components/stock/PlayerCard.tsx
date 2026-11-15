@@ -1,10 +1,10 @@
+import { PlayerAvatar } from '../PlayerIdentity'
 import { useTourState } from '../../learning/tour/store'
 import { useQuote, useMoveReason, useMarketTime } from '../../api'
 import type { Player, MarketEventKind } from '../../api'
-import { Badge, Pill } from '../ui'
+import { Pill } from '../ui'
 
 import { formatPct, formatPrice, trendArrow } from '../../utils/format'
-import { teamColor, playerInitials } from '../../utils/teamColors'
 import { usePriceFlash, flashClass } from '../../hooks/usePriceFlash'
 import styles from './PlayerCard.module.css'
 import RadarBadge from '../market/RadarBadge'
@@ -51,13 +51,13 @@ export default function PlayerCard({ player }: PlayerCardProps) {
   return (
     <section className={styles.card} aria-label={`${player.name} summary`}>
       <div className={styles.identity} data-tour="stock-identity">
-        <Badge initials={playerInitials(player.name)} color={teamColor(player.team)} size="lg" />
+        <PlayerAvatar player={player} size="lg" />
         <div className={styles.names}>
           <h1 className={styles.name}>{player.name}</h1>
           <div className={styles.meta}>
             <span>{player.team}</span>
             {player.position && <span>· {player.position}</span>}
-            <span>· {player.symbol}</span>
+
 
           </div>
         </div>
