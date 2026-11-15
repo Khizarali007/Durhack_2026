@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { usePlayers } from '../api'
 import type { Player } from '../api'
 import AccountStrip from '../components/account/AccountStrip'
+import WelcomeCard from '../components/home/WelcomeCard'
 import MoverTile from '../components/home/MoverTile'
 import { changePct } from '../components/home/moverChange'
 import styles from './HomePage.module.css'
@@ -49,6 +50,8 @@ export default function HomePage() {
           H$100,000 in virtual cash. Buy future performance, earn game payouts, and grow your portfolio through the 2024–25 season. No real money.
         </p>
       </header>
+
+      <WelcomeCard />
 
       <AccountStrip />
 

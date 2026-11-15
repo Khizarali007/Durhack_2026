@@ -1,0 +1,131 @@
+/* Season bar and payout ledger. Tokens only. */
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-2);
+  padding: var(--hs-space-3) var(--hs-space-5);
+  border-bottom: 1px solid var(--hs-color-border);
+  background: var(--hs-color-bg-panel);
+  font-size: var(--hs-font-size-sm);
+  color: var(--hs-color-text-secondary);
+  flex-shrink: 0;
+}
+
+.controls strong,
+.controls b {
+  color: var(--hs-color-text-primary);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hs-space-3);
+}
+
+.date {
+  font-size: var(--hs-font-size-md);
+}
+
+.select {
+  height: 32px;
+  padding: 0 var(--hs-space-2);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-md);
+  background: var(--hs-color-bg-page);
+  color: var(--hs-color-text-primary);
+  font-family: inherit;
+  font-size: var(--hs-font-size-sm);
+  color-scheme: light dark;
+}
+
+.select:focus-visible,
+.range:focus-visible {
+  outline: 2px solid var(--hs-color-accent);
+  outline-offset: 2px;
+}
+
+.select:disabled {
+  opacity: 0.5;
+}
+
+.jump {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hs-space-2);
+}
+
+.range {
+  width: 100%;
+  accent-color: var(--hs-color-accent);
+}
+
+.muted {
+  color: var(--hs-color-text-secondary);
+  font-size: var(--hs-font-size-xs);
+}
+
+.status {
+  color: var(--hs-color-accent);
+}
+
+.alert {
+  color: var(--hs-color-warn);
+}
+
+/* ---- Payout ledger ---- */
+.ledger {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-2);
+  padding: var(--hs-space-4);
+  background: var(--hs-color-bg-panel);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-lg);
+}
+
+.ledgerTitle {
+  margin: 0;
+  font-size: var(--hs-font-size-lg);
+  color: var(--hs-color-text-primary);
+}
+
+.ledger p {
+  margin: 0;
+}
+
+.tableWrap {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--hs-font-size-sm);
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  background: var(--hs-color-bg-panel);
+  text-align: left;
+  font-size: var(--hs-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--hs-letter-spacing-label);
+  color: var(--hs-color-text-secondary);
+  font-weight: var(--hs-font-weight-medium);
+  padding: var(--hs-space-2);
+  border-bottom: 1px solid var(--hs-color-border);
+}
+
+.table td {
+  padding: var(--hs-space-2);
+  border-bottom: 1px solid var(--hs-color-border);
+  color: var(--hs-color-text-primary);
+}
+
+.right {
+  text-align: right;
+}
