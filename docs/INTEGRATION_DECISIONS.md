@@ -120,3 +120,14 @@ the decision, the options considered, why, and how to revert. Archive tags
 - Put market depth, performance inputs, detailed attribution and replay settings behind disclosure. Active tutorials open the controls they teach.
 - Keep the buy/sell action pinned outside the scrollable order details.
 - Use brief entry/feedback animations, real replay progress and transient payment notifications. No invented chart movement or interpolated account balances; respect reduced-motion settings.
+
+## 15 November — continuous replay and diversified setup
+
+These choices supersede the weekly-stop and single-purchase setup decisions above.
+
+- **Continuous clock:** Start season begins normal playback; Play/Pause remains explicit. Week boundaries generate reports without pausing, navigating or forcing a trade. Advanced date jumps still stop at the requested date.
+- **Server reports:** capture account snapshots every seven days from the season start, plus the final shorter interval. Steps clamp to report boundaries so acceleration cannot skip a report. Reports survive browser refresh/closure, belong to the authenticated account, and clear with the in-memory market on rewind/server restart. No permanent history or cross-server persistence is claimed.
+- **Report accounting:** include purchases and sales within the interval, fees, paid dividends and changes in pending rights. The first baseline is registered while setting up the portfolio; later reports use the previous boundary. Late joiners receive an initial partial week. Reports have no market impact.
+- **Opening tutorial:** require three meaningful player positions (about 5% of initial cash each), at least two teams, and no position above 50% of invested market value. Cash is excluded from concentration. A 2% tolerance on the minimum accounts for whole shares; this is a teaching target, not a risk guarantee or a continuing trading restriction.
+- **Setup cash:** cap previewed acquisition value per player at 25% of initial cash during setup, with 5/10/20% presets. This leaves room to add other players. After setup, normal trading rules apply. This client-side tutorial gate is not an anti-cheat boundary.
+- **Resume:** unfinished setup persists locally per account. Existing accounts with trades are not forced through the new setup. Rewinds create fresh accounts and require setup again. Reconsider server-side onboarding persistence for a multi-device product.

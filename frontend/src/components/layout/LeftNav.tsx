@@ -12,6 +12,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Overview',        to: '/',            glyph: '⌂' },
   { label: 'Market',      to: '/market',      glyph: '⇅', also: ['/stock'] },
+  { label: 'Updates', to: '/updates', glyph: '↻' },
   { label: 'Portfolio',   to: '/portfolio',   glyph: '◔' },
   { label: 'Leaders',     to: '/leaderboard', glyph: '♛' },
   { label: 'Learn',       to: '/learn',       glyph: '✎' },
@@ -19,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 const ICONS: Record<string,string> = {
+ Updates:'M5 3h14v18H5zM8 7h8M8 11h8M8 15h5',
  Overview:'M3 10 12 3l9 7M5 9v11h5v-6h4v6h5V9',
  Market:'M4 17 9 12l4 3 7-10M15 5h5v5',
  Portfolio:'M4 7h16v13H4zM9 7V4h6v3M4 12h16M10 12v3h4v-3',

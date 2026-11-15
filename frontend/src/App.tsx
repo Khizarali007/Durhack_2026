@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext'
 import { SessionProvider } from './context/SessionContext'
 import AppShell from './components/layout/AppShell'
 import HomePage from './pages/HomePage'
+import UpdatesPage from './pages/UpdatesPage'
 import MarketPage from './pages/MarketPage'
 import PortfolioPage from './pages/PortfolioPage'
 import LeaderboardPage from './pages/LeaderboardPage'
@@ -43,6 +44,7 @@ export default function App() {
             {/* Shell routes */}
             <Route element={<AppShell />}>
               <Route index element={<HomePage />} />
+              <Route path="updates" element={<UpdatesPage />} />
               <Route path="market" element={<MarketPage />} />
               <Route path="portfolio" element={<PortfolioPage />} />
               <Route path="leaderboard" element={<LeaderboardPage />} />

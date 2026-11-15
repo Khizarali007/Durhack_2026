@@ -1,21 +1,22 @@
 import { Link } from 'react-router-dom'
-import { useSeason } from '../api/useSeason'
+import { useSeason, type Round } from '../api/useSeason'
 import { formatHOOP, formatPnl } from '../utils/format'
 import './season.css'
 const date=(t:number)=>new Date(t*1000).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'})
-export default function SeasonReview(){
- const {score,round}=useSeason()
+export default function SeasonReview({report}:{report?:Round}){
+ const {score}=useSeason()
+ const round=report
  if(!score)return null
- const final=score.finished
- if(!final&&!round)return <section className="season-review waiting-review"><span className="section-kicker">Next up</span><h2>Your first week</h2><p>Advance the season to collect payments and see how your portfolio performs.</p><div className="round-steps"><span className="done-step">1 <b>Invest</b></span><span>2 <b>Next week</b></span><span>3 <b>Review</b></span></div></section>
+ const final=!report&&score.finished
+ if(!final&&!round)return <section className="season-review waiting-review"><h2>No reports yet</h2><p>Reports arrive automatically while the season plays.</p></section>
  const end=final?score:round!.after, start=final?null:round!.before
  const gain=end.score-(start?.score??end.starting_cash)
  const paid=end.payouts_received-(start?.payouts_received??0)
  const pending=end.pending_payouts-(start?.pending_payouts??0)
  const rows=end.contributors.map(p=>{const prev=start?.contributors.find(x=>x.symbol===p.symbol);return {...p,change:p.contribution-(prev?.contribution??0),paid:p.payouts-(prev?.payouts??0),old:prev}}).sort((a,b)=>b.change-a.change)
  const news=rows.filter(p=>p.old&&(p.injury_status!==p.old.injury_status||Math.abs(p.analyst_estimate-p.old.analyst_estimate)>=.01))
- return <section key={end.t} className="season-review" aria-label={final?'Season results':'Round results'}>
-  <div className="panel-heading"><h2>{final?'Season result':'Week completed'}</h2><span className="quiet-label">{final?'2024–25':`${date(start!.t)} – ${date(end.t)}`}</span></div>
+ return <section key={end.t} className="season-review" aria-label={final?'Season results':'Weekly report'}>
+  <div className="panel-heading"><h2>{final?'Season result':'Weekly report'}</h2><span className="quiet-label">{final?'2024–25':`${date(start!.t)} – ${date(end.t)}`}</span></div>
   <strong className={`round-gain ${gain>=0?'trend-up':'trend-down'}`}>{formatPnl(gain)}</strong><span className="quiet-label">{final?'Total return':'Change this week'}</span>
   <dl className="result-breakdown"><div><dt>Payments</dt><dd>{formatPnl(paid)}</dd></div><div><dt>Investment gain <small>after costs</small></dt><dd>{formatPnl(gain-paid-pending)}</dd></div>{pending!==0&&<div><dt>Pending payments</dt><dd>{formatPnl(pending)}</dd></div>}</dl>
   {Object.keys(end.unsold_shares).length>0&&<p className="liquidity-notice">Some shares have no buyer and count as H$0 sale proceeds.</p>}

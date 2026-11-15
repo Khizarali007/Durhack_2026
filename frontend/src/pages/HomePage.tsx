@@ -1,13 +1,12 @@
 import { Link } from 'react-router-dom'
 import { usePortfolio } from '../api'
 import { useSeason } from '../api/useSeason'
-import SeasonReview from '../components/SeasonReview'
 import { formatHOOP, formatPct, formatPnl } from '../utils/format'
 import { playerInitials } from '../utils/teamColors'
 import '../components/season.css'
 
 export default function HomePage(){
- const {score,clock}=useSeason()
+ const {score,clock,nextReport}=useSeason()
  const {portfolio}=usePortfolio()
  return <div className="overview-page">
   <header className="overview-heading"><h1>Overview</h1><span className="quiet-label">2024–25 <span className="separator">/</span> Virtual portfolio</span></header>
@@ -20,7 +19,7 @@ export default function HomePage(){
     {portfolio?.positions.length?<div className="holdings-list">{portfolio.positions.map(p=><Link to={`/stock/${p.symbol}`} className="holding-item" key={p.symbol}><span className="player-monogram">{playerInitials(p.name??p.symbol)}</span><span className="holding-name"><strong>{p.name??p.symbol}</strong><small>{p.qty} shares · {p.team}</small></span><span className="holding-value"><strong>{formatHOOP(p.market_value)}</strong><small className={p.unrealised_pnl>=0?'trend-up':'trend-down'}>{formatPct(p.unrealised_pnl_pct,2)}</small></span><span className="row-arrow" aria-hidden="true">↗</span></Link>)}</div>:<div className="empty-holdings"><p>No holdings</p><Link className="action-primary" to="/market">Find a player</Link></div>}
     <div className="panel-foot"><span>Holdings shown at quoted prices</span><Link to="/portfolio">View portfolio →</Link></div>
    </section>
-   <SeasonReview />
+   <section className="season-review"><h2>{score?.finished?'Season complete':'Weekly reports'}</h2>{!score?.finished&&nextReport&&<p className="quiet-label">Next report · {new Date(nextReport*1000).toLocaleDateString('en-GB',{day:'numeric',month:'short',timeZone:'UTC'})}</p>}<Link className="result-action" to="/updates">View updates →</Link></section>
   </div>
   <footer className="overview-foot"><span>{clock?.busy?'Updating market…':'Historical NBA data · Simulated market'}</span><Link to="/learn">Learn the basics ↗</Link></footer>
  </div>

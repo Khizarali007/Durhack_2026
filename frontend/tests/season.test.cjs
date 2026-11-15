@@ -4,47 +4,53 @@ const fs=require('node:fs')
 const vm=require('node:vm')
 const ts=require('typescript')
 const flush=async()=>{for(let i=0;i<8;i++)await new Promise(resolve=>setImmediate(resolve))}
-function harness(storage=new Map()){
- let user='a', tick, unsub
- let clock={t:0,start_t:0,end_t:100,paused:true,busy:false,rate:1,session_id:'s',error:null}
- let score={score:99990,starting_cash:100000,t:0,session_id:'s',contributors:[]}
- const calls=[]
+function harness(){
+ let user='a',tick,unsub
+ let clock={t:0,start_t:0,end_t:2000000,paused:true,busy:false,rate:1,session_id:'s',error:null}
+ let score={score:100000,starting_cash:100000,t:0,session_id:'s',contributors:[]}
+ const archive=new Map(),calls=[]
  const apiFetch=async(path,opts)=>{
-  if(opts){const b=JSON.parse(opts.body);calls.push(b);clock={...clock,...('paused' in b?{paused:b.paused}:{}),...('target_t' in b?{busy:true}:{})};return {...clock}}
+  if(opts){const b=JSON.parse(opts.body);calls.push(b);clock={...clock,...b};return {...clock}}
+  if(path==='/season-updates')return {session_id:clock.session_id,reports:archive.get(`${clock.session_id}:${user}`)??[],next_t:604800}
   return {...(path==='/market/timeline'?clock:score)}
  }
- const deps={react:{useSyncExternalStore:(sub,get)=>{unsub??=sub(()=>{});return get()}},'./rest':{apiFetch,errorDetail:String},'./useSession':{getSessionSnapshot:()=>({session:{user_id:user}})},'./accountStore':{refreshAccount:async()=>{}}}
+ const deps={react:{useSyncExternalStore:(sub,get)=>{unsub??=sub(()=>{});return get()}},'./rest':{apiFetch,errorDetail:String},'./useSession':{getSessionSnapshot:()=>({session:{user_id:user}})}}
  const module={exports:{}}
  const code=ts.transpileModule(fs.readFileSync('src/api/useSeason.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
- vm.runInNewContext(code,{module,exports:module.exports,require:id=>deps[id],setInterval:fn=>{tick=fn;return 1},clearInterval:()=>{},sessionStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)}})
- return {api:module.exports,calls,storage,read:()=>module.exports.useSeason(),poll:async()=>{await flush();tick();await flush()},finish(t,value=100050){clock={...clock,t,busy:false};score={...score,t,score:value}},user(id){user=id},reset(){clock={...clock,session_id:'new',t:0};score={...score,session_id:'new',t:0}},stop(){unsub?.()}}
+ vm.runInNewContext(code,{module,exports:module.exports,require:id=>deps[id],setInterval:fn=>{tick=fn;return 1},clearInterval:()=>{}})
+ return {api:module.exports,calls,read:()=>module.exports.useSeason(),poll:async()=>{await flush();tick();await flush()},advance(t,value=100050){clock={...clock,t};score={...score,t,score:value}},publish(reports){archive.set(`${clock.session_id}:${user}`,reports)},user(id){user=id},reset(){clock={...clock,session_id:'new',t:0};score={...score,session_id:'new',t:0}},stop(){unsub?.()}}
 }
-test('weekly report freezes before/after values and pauses before requesting replay',async()=>{
+test('continuous play sends no seek or automatic pause when a weekly report arrives',async()=>{
  const h=harness();h.read();await flush()
- assert.equal(await h.api.changeTimeline({target_t:7},true),true)
- assert.equal(h.calls[0].paused,true)
- assert.equal(h.calls[1].target_t,7)
- assert.equal(h.read().round,null)
- h.finish(7);await h.poll()
- assert.equal(h.read().round.before.score,99990)
- assert.equal(h.read().round.after.score,100050)
- h.finish(8,100100);await h.poll()
- assert.equal(h.read().score.score,100100)
- assert.equal(h.read().round.after.score,100050)
+ assert.equal(await h.api.changeTimeline({paused:false}),true)
+ h.publish([{before:{t:0,score:100000},after:{t:604800,score:100050}}]);h.advance(604800);await h.poll()
+ assert.equal(h.read().reports.length,1)
+ assert.equal(h.read().clock.paused,false)
+ assert.equal(h.calls.length,1)
+ assert.equal(h.calls[0].paused,false)
+ h.advance(700000,100200);await h.poll()
+ assert.equal(h.read().reports[0].after.score,100050)
+ assert.equal(h.read().score.score,100200)
  h.stop()
 })
-test('reports survive reload but never cross accounts or replay sessions',async()=>{
- const h=harness();h.read();await flush();await h.api.changeTimeline({target_t:7},true);h.finish(7);await h.poll();h.stop()
- const restored=harness(h.storage);restored.finish(7);restored.read();await flush()
- assert.equal(restored.read().round.after.score,100050)
- restored.user('b');await restored.poll();assert.equal(restored.read().round,null)
- restored.user('a');restored.reset();await restored.poll();assert.equal(restored.read().round,null)
- restored.stop()
+test('server report history loads without browser storage and stays isolated by account/session',async()=>{
+ const h=harness();h.publish([{before:{t:0},after:{t:604800}},{before:{t:604800},after:{t:1209600}}]);h.read();await flush()
+ assert.equal(h.read().reports.length,2)
+ h.user('b');await h.poll();assert.equal(h.read().reports.length,0)
+ h.user('a');await h.poll();assert.equal(h.read().reports.length,2)
+ h.reset();await h.poll();assert.equal(h.read().reports.length,0)
+ h.stop()
 })
-test('pending week survives refresh and completes only when its target is reached',async()=>{
- const h=harness();h.read();await flush();await h.api.changeTimeline({target_t:7},true);h.stop()
- const restored=harness(h.storage);restored.finish(3);restored.read();await flush()
- assert.equal(restored.read().round,null)
- restored.finish(7);await restored.poll();assert.equal(restored.read().round.after.t,7)
- restored.stop()
+const moduleUnderTest={exports:{}}
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/utils/starterPortfolio.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{module:moduleUnderTest,exports:moduleUnderTest.exports})
+const progress=moduleUnderTest.exports.starterProgress
+const portfolio=(entries,cash=70000)=>({starting_cash:100000,cash,positions:entries.map(([symbol,team,value,cost=value])=>({symbol,team,qty:100,avg_cost:cost/100,market_value:value}))})
+test('tutorial requires meaningful diversified holdings, not three dust purchases',()=>{
+ assert.equal(progress(null).ready,false)
+ assert.equal(progress(portfolio([['A','ATL',10000]])).ready,false)
+ assert.equal(progress(portfolio([['A','ATL',10000],['B','ATL',10000],['C','ATL',10000]])).ready,false)
+ assert.equal(progress(portfolio([['A','ATL',20000],['B','BOS',100],['C','DEN',100]])).ready,false)
+ assert.equal(progress(portfolio([['A','ATL',20000],['B','BOS',5000],['C','DEN',5000]])).ready,false)
+ assert.equal(progress(portfolio([['A','ATL',10000],['B','BOS',10000],['C','DEN',10000]])).ready,true)
+ assert.equal(progress(portfolio([['A','ATL',9800],['B','BOS',4900],['C','DEN',4900]])).ready,true)
 })

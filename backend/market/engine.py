@@ -89,6 +89,7 @@ class LiveMarket:
         self._initial_cash = self._market_cash()
         self.session_id = uuid.uuid4().hex
         self.settlement = None
+        self.weekly_reports = None
         self._snapshots = {}
         self._settled_days = set()
         self.institutional_dividends = 0
@@ -113,6 +114,8 @@ class LiveMarket:
 
     def bind_settlement(self, db, notify_user=None, notify_public=None):
         self.settlement = DividendSettlement(db, notify_user, notify_public)
+        from trading.weekly_reports import WeeklyReports
+        self.weekly_reports = WeeklyReports(db, self)
 
     def mark_price(self, symbol):
         q = self.quote(symbol)
@@ -362,6 +365,9 @@ class LiveMarket:
     def step(self, target_t=None):
         if self.finished:
             return
+        if self.weekly_reports:
+            self.weekly_reports.before_step()
+            target_t = min(target_t if target_t is not None else float('inf'), self.weekly_reports.next_t)
         self._t = min(self.end.timestamp(), self._t + 86400 * self.tick_seconds / self.day_seconds, target_t if target_t is not None else float("inf"))
         if int(self._t // 60) * 60 != self._bundle_minute:
             self._flush_bots()
@@ -380,6 +386,8 @@ class LiveMarket:
         # Repeating the complete 580-player audit every tick dominated fast replay.
         if self.finished or self._tick_count % 120 == 0:
             self.check_ledger()
+        if self.weekly_reports:
+            self.weekly_reports.after_step()
         self._publish(MarketTick(self._t, {p.symbol: self.quote(p.symbol) for p in self._players}))
 
     async def run(self):

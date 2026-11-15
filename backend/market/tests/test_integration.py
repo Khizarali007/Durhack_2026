@@ -333,6 +333,8 @@ def test_timeline_forward_settles_and_rewind_resets_accounts(engine, monkeypatch
             start = engine.start_t
             user = client.post('/trading/guest').json()
             headers = {'Authorization': 'Bearer ' + user['token']}
+            assert client.get('/trading/season-updates').status_code == 401
+            assert client.get('/trading/season-updates', headers=headers).json()['reports'] == []
             assert client.post('/trading/orders', headers=headers, json={'symbol':'WEMBY','side':'buy','qty':10}).status_code == 200
             session = engine.session_id
             assert client.post('/market/timeline', json={'target_t':start+86400}).status_code == 200
@@ -352,6 +354,12 @@ def test_timeline_forward_settles_and_rewind_resets_accounts(engine, monkeypatch
             client.post('/market/timeline', json={'target_t':engine.end.timestamp()})
             assert wait_seek()['t'] == engine.end.timestamp()
             assert engine.finished
+            updates = client.get('/trading/season-updates', headers=headers).json()
+            assert len(updates['reports']) == 1
+            assert updates['reports'][0]['before']['score'] == 100000
+            assert updates['reports'][0]['after']['finished']
+            assert updates['next_t'] is None
+            assert client.get('/trading/season-updates', headers=headers).json() == updates
             assert client.get('/trading/portfolio', headers=headers).json()['positions'][0]['qty'] == 8
             client.post('/market/timeline', json={'target_t':start})
             status = wait_seek()
@@ -359,6 +367,8 @@ def test_timeline_forward_settles_and_rewind_resets_accounts(engine, monkeypatch
             assert client.get('/trading/portfolio', headers=headers).status_code == 401
             fresh = client.post('/trading/guest').json()
             assert fresh['cash'] == 100000
+            fresh_headers = {'Authorization': 'Bearer ' + fresh['token']}
+            assert client.get('/trading/season-updates', headers=fresh_headers).json()['reports'] == []
             assert client.post('/market/timeline', json={'rate':20,'paused':False}).json()['rate'] == 20
             for _ in range(100):
                 if client.get('/market/timeline').json()['t'] > start:
@@ -509,3 +519,53 @@ def test_forward_replay_with_receipts_preserves_account_and_blocks_rewind(engine
                 app.state.receipts = None
     finally:
         use_market(None)
+
+
+def test_continuous_weekly_reports_capture_every_boundary_without_pausing(engine, account):
+    from datetime import timedelta
+    import copy
+    db, uid = account
+    engine.end = engine.day + timedelta(days=16)
+    engine.day_seconds = .5  # one simulated day per step
+    engine.bind_settlement(db)
+    reports = engine.weekly_reports
+    assert reports.for_user(uid)['reports'] == []
+    place_market_order(db, engine, uid, 'WEMBY', 'buy', 10)
+    for _ in range(7):
+        engine.step()
+    first = copy.deepcopy(reports.for_user(uid)['reports'][0])
+    assert first['before']['score'] == 100000
+    assert first['after']['t'] == engine.start_t + 7*86400
+    assert first['after']['payouts_received'] == 8
+    assert not engine.paused and not engine.finished
+    other = create_guest_user(db).user_id
+    place_market_order(db, engine, uid, 'WEMBY', 'sell', 3)
+    for _ in range(9):
+        engine.step()
+    archive = reports.for_user(uid)['reports']
+    assert len(archive) == 3
+    assert archive[0] == first
+    assert archive[1]['before'] == first['after']
+    assert archive[-1]['after']['finished']
+    assert archive[-1]['after']['t'] == engine.end.timestamp()
+    assert reports.for_user(uid)['next_t'] is None
+    assert len(reports.for_user(other)['reports']) == 2
+    assert reports.for_user(other)['reports'][-1]['after']['contributors'] == []
+    total = sum(r['after']['score']-r['before']['score'] for r in archive)
+    assert total == pytest.approx(archive[-1]['after']['score']-100000)
+    assert archive[1]['after']['fees_paid'] > first['after']['fees_paid']
+    engine.step()  # Re-reading/completed ticks cannot duplicate final reports.
+    assert len(reports.for_user(uid)['reports']) == 3
+    engine.check_ledger()
+
+
+def test_large_steps_cannot_skip_weekly_boundaries(engine, account):
+    from datetime import timedelta
+    db, uid = account
+    engine.end = engine.day + timedelta(days=16)
+    engine.day_seconds = .01  # a single unconstrained step would skip weeks
+    engine.bind_settlement(db)
+    while not engine.finished:
+        engine.step()
+    archive = engine.weekly_reports.for_user(uid)['reports']
+    assert [r['after']['t']-engine.start_t for r in archive] == [7*86400,14*86400,16*86400]

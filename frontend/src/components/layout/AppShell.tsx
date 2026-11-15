@@ -27,7 +27,11 @@ export default function AppShell() {
   }
 
   if (!session) return <div className={styles.shell}><p>Connecting to the market… This retries by itself every couple of seconds.</p><button onClick={reconnectSession}>Try now</button></div>
-  if(portfolio && !trades.length && !portfolio.positions.length && entered!==session.user_id) return <Onboarding done={()=>setEntered(session.user_id)}/>
+  const setupKey=`starter-portfolio:${session.user_id}`
+  let setup:string|null=null
+  try{setup=localStorage.getItem(setupKey)}catch{/* Optional persistence. */}
+  const needsSetup=setup==='active'||(setup!=='complete'&&portfolio&&!trades.length&&!portfolio.positions.length)
+  if(needsSetup&&entered!==session.user_id) return <Onboarding storageKey={setupKey} done={()=>{try{localStorage.setItem(setupKey,'complete')}catch{/* Optional persistence. */}setEntered(session.user_id)}}/>
 
   return (
     <div className={styles.shell}>
