@@ -3,8 +3,9 @@ import { defineConfig, loadEnv } from 'vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const tradingTarget = env['VITE_API_TARGET'] ?? 'http://localhost:8000'
-  const learningTarget = env['VITE_LEARNING_TARGET'] ?? 'http://localhost:8001'
+  // One backend serves /market, /trading and /learning (backend/main.py, port 8000).
+  const tradingTarget = env['VITE_API_TARGET'] ?? 'http://127.0.0.1:8000'
+  const learningTarget = env['VITE_LEARNING_TARGET'] ?? tradingTarget
   return {
     plugins: [react()],
     server: {

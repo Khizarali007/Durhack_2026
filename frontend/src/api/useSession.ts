@@ -72,13 +72,30 @@ export async function logoutUser(): Promise<void> {
 }
 
 let guestPromise: Promise<void> | null = null
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+const RETRY_MS = 2000
+let guestFailed = false
+
+/** The backend may be restarting: keep trying quietly instead of asking for a page reload. */
+function scheduleGuestRetry(): void {
+  if (retryTimer !== null) return
+  retryTimer = setTimeout(() => { retryTimer = null; ensureGuest() }, RETRY_MS)
+}
+
 function ensureGuest(): void {
   if (snap.session !== null || guestPromise) return
-  set({ ...snap, loading: true })
+  // Show the skeleton on the first try only; retries keep the calm "connecting" message.
+  if (!guestFailed) set({ ...snap, loading: true })
   guestPromise = joinAsGuest()
-    .then(() => undefined)
-    .catch(() => { set({ session: null, me: null, loading: false }) })
+    .then(() => { guestFailed = false })
+    .catch(() => { guestFailed = true; set({ session: null, me: null, loading: false }); scheduleGuestRetry() })
     .finally(() => { guestPromise = null })
+}
+
+/** Try to get a session now (the shell's Reconnect button). */
+export function reconnectSession(): void {
+  if (retryTimer !== null) { clearTimeout(retryTimer); retryTimer = null }
+  ensureGuest()
 }
 
 export interface UseSessionOptions {

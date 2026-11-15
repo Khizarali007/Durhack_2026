@@ -31,7 +31,7 @@ export { useOrderQuote } from './useOrderQuote'
 export type { OrderEstimate } from './useOrderQuote'
 
 // --- Session and account ---
-export { useSession, joinAsGuest, loginUser, signupUser, logoutUser } from './useSession'
+export { useSession, joinAsGuest, loginUser, signupUser, logoutUser, reconnectSession } from './useSession'
 export {
   usePortfolio, useOpenOrders, useTrades, useReservedCash, useEquityHistory, useLeaderboard, refreshAccount,
 } from './accountStore'

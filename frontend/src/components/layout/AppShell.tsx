@@ -1,7 +1,7 @@
 import { TourOverlay } from '../../learning/tour/TourOverlay'
 import { Outlet } from 'react-router-dom'
 import { useState } from 'react'
-import { useSession, usePortfolio, useTrades } from '../../api'
+import { useSession, usePortfolio, useTrades, reconnectSession } from '../../api'
 import Header from './Header'
 import SeasonControls from '../SeasonControls'
 import Onboarding from '../Onboarding'
@@ -26,7 +26,7 @@ export default function AppShell() {
     )
   }
 
-  if (!session) return <div className={styles.shell}><p>Connecting to a fresh account… Reload if the backend has restarted.</p><button onClick={()=>window.location.reload()}>Reconnect</button></div>
+  if (!session) return <div className={styles.shell}><p>Connecting to the market… This retries by itself every couple of seconds.</p><button onClick={reconnectSession}>Try now</button></div>
   if(portfolio && !trades.length && !portfolio.positions.length && entered!==session.user_id) return <Onboarding done={()=>setEntered(session.user_id)}/>
 
   return (
