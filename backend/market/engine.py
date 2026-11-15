@@ -43,6 +43,41 @@ ALIASES = {
 }
 
 
+SUFFIXES = {"JR", "SR", "II", "III", "IV", "V"}
+
+
+def _letters(text):
+    import unicodedata
+    plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    return "".join(ch for ch in plain.upper() if ch.isalpha())
+
+
+def make_tickers(names):
+    """Readable, stable tickers: the famous aliases first, then the surname (max 8 letters),
+    then first initial + surname, then a number. Deterministic by player id."""
+    taken, out = set(), {}
+    for pid, name in sorted(names.items()):
+        if name in ALIASES:
+            out[pid] = ALIASES[name]
+            taken.add(ALIASES[name])
+    for pid, name in sorted(names.items()):
+        if pid in out:
+            continue
+        parts = [w for w in name.replace(".", " ").split() if _letters(w) not in SUFFIXES]
+        last = _letters(parts[-1] if parts else name)[:8] or "PLAYER"
+        first = _letters(parts[0])[:1] if len(parts) > 1 else ""
+        options = [last, (first + last)[:9]]
+        ticker = next((o for o in options if o not in taken), None)
+        n = 2
+        while ticker is None:
+            candidate = f"{last[:7]}{n}"
+            ticker = candidate if candidate not in taken else None
+            n += 1
+        out[pid] = ticker
+        taken.add(ticker)
+    return out
+
+
 class LiveMarket:
     supports_advanced_trading = False
     supports_payouts = True
@@ -62,7 +97,8 @@ class LiveMarket:
         data, self.results = load_data(database or data_file('player_games_2024_25.sqlite'),
                                       values or data_file('starting_values_2024_25.csv'))
         self.markets = make_markets(data, seed, bot_count, bot_funding)
-        self._players = [Player(pid, ALIASES.get(p['name'], f'NBA{pid}'), p['name'], p['team'], self.markets[pid].fair_cents / 100)
+        tickers = make_tickers({pid: p['name'] for pid, p in data.items()})
+        self._players = [Player(pid, tickers[pid], p['name'], p['team'], self.markets[pid].fair_cents / 100)
                          for pid, p in sorted(data.items())]
         self.ids = {p.symbol: p.player_id for p in self._players}
         if len(self.ids) != len(self._players):
