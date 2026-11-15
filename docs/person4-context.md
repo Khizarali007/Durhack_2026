@@ -42,7 +42,7 @@ short sentences, written for beginners.
 backend/learning/            package: router.py, deps.py, scenario.py, mock_router.py, dev_app.py
 backend/learning/adapters/   models.py, base.py (Protocols), mock_market.py, mock_trades.py
 backend/learning/tests/      pytest
-backend/requirements-learning.txt
+backend/requirements.txt
 frontend/src/learning/   (and src/api/learning.ts, src/api/tutorialDirector.ts)
 learning-sandbox/
 content/                     missions.json, glossary.json
@@ -57,7 +57,7 @@ Never create `backend/main.py` or a top-level `requirements.txt`. In `frontend/`
 ```bash
 /opt/homebrew/bin/python3.12 -m venv .venv      # once (brew install python@3.12)
 source .venv/bin/activate
-pip install -r backend/requirements-learning.txt
+pip install -r backend/requirements.txt
 python -m pytest backend/learning -q
 python scenarios/check_scenarios.py
 uvicorn learning.dev_app:app --app-dir backend --port 8001 --reload

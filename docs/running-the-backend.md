@@ -32,7 +32,7 @@ source .venv/bin/activate
 ```
 
 ```bash
-pip install -r backend/requirements-trading.txt
+pip install -r backend/requirements.txt
 ```
 
 The Solana fee-payer wallet (`.solana/fee-payer-keypair.json`) is created on first use. It's git-ignored and must never be committed. To check it's funded:

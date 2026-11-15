@@ -9,7 +9,7 @@ From the repository root, with Python 3.11 or newer:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -r backend/requirements-trading.txt
+.venv/bin/python -m pip install -r backend/requirements.txt
 SOLANA_RECEIPTS=off MARKET_DAY_SECONDS=60 .venv/bin/uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000
 ```
 

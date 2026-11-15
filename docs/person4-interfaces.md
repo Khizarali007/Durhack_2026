@@ -273,4 +273,4 @@ The mission loop starts itself the first time a mission starts, so no other
 startup hook is needed.
 
 I don't touch `backend/main.py`, `frontend/`, or a top-level
-`requirements.txt`. My deps are in `backend/requirements-learning.txt`.
+`requirements.txt`. My deps are in `backend/requirements.txt`.

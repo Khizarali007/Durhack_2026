@@ -16,7 +16,7 @@ These tickets come from the 4-person work split and `hoopstreet-final-plan.md`. 
 
 ```bash
 source .venv/bin/activate
-pip install -r backend/requirements-trading.txt
+pip install -r backend/requirements.txt
 python -m pytest backend/trading                     # all Person 2 tests
 export SOLANA_PORTFOLIO_PROGRAM_ID=9FRpF58Q1rJFUFVAqrPWxQC54iFYunHsXj927vDrHBFp   # Level 1 on (this terminal only)
 uvicorn main:app --app-dir backend --reload          # then open http://127.0.0.1:8000/docs
@@ -34,7 +34,7 @@ Matches Person 4's: each person owns a package inside `backend/`, imported by it
   - `market_provider.py`: `get_market()`, the one place that switches fake → real
   - `tests/`: pytest tests
 - Later packages: `trading/accounts.py`, `trading/chain/` (Solana), etc.
-- `backend/requirements-trading.txt`: your dependencies
+- `backend/requirements.txt`: your dependencies
 
 ## Team conventions to follow
 These come from Person 1's prototype and Person 4's interfaces.
@@ -189,7 +189,7 @@ These come from Person 1's prototype and Person 4's interfaces.
 ## ✅ P2-08 · Solana setup: fee payer and per-account keypairs
 - **Gate:** G2
 - **What was built** (`backend/trading/chain/`):
-  - `solana` 0.42 and `solders` 0.29 installed and added to `requirements-trading.txt`.
+  - `solana` 0.42 and `solders` 0.29 installed and added to `requirements.txt`.
   - **Fee-payer wallet:** `.solana/fee-payer-keypair.json`.
     - Solana CLI format, owner-only (0600), ignored by git (`.solana/` and `*keypair*.json`).
     - Created on first use. Override the path with `SOLANA_FEE_PAYER_KEYPAIR` and the RPC with `SOLANA_RPC_URL`.
