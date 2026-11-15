@@ -86,3 +86,7 @@ export type { Timeline, TimelineChange, SeasonScore, Payout } from './season'
 // Price history for charts (loaded once) and official injury-report events.
 export { getHistory, getOfficialEvents, getValuation } from './history'
 export type { HistoryPoint, HistoryResponse, OfficialEvent, Valuation } from './history'
+
+// Season review (insights engine) and Coach Hoops.
+export { getReview, askCoach } from './review'
+export type { SeasonReview, Insight, TimelineItem, ReviewSummary, TradeResult, CoachAnswer, LearnLink } from './review'

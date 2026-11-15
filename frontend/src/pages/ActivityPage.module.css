@@ -1,0 +1,98 @@
+.page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--hs-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-5);
+}
+
+.page > * {
+  flex-shrink: 0;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--hs-space-4);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--hs-font-size-2xl);
+  color: var(--hs-color-text-primary);
+}
+
+.lede,
+.muted {
+  margin: 0;
+  color: var(--hs-color-text-secondary);
+  font-size: var(--hs-font-size-sm);
+}
+
+.skeleton {
+  height: 240px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hs-space-4);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--hs-font-size-lg);
+  color: var(--hs-color-text-primary);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--hs-space-3);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+  gap: var(--hs-space-6);
+  align-items: start;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-5);
+}
+
+.lessons {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-1);
+  color: var(--hs-color-text-primary);
+  font-size: var(--hs-font-size-sm);
+}
+
+.receipts {
+  padding: var(--hs-space-3) var(--hs-space-4);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-lg);
+  background: var(--hs-color-bg-panel);
+}
+
+.receipts summary {
+  cursor: pointer;
+  color: var(--hs-color-text-primary);
+  font-weight: var(--hs-font-weight-medium);
+}

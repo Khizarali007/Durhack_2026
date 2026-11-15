@@ -1,0 +1,223 @@
+/* Season review: summary strip, review cards, Coach Hoops, timeline. Tokens only. */
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-3);
+}
+
+.tiles {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--hs-space-3);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--hs-space-3) var(--hs-space-4);
+  background: var(--hs-color-bg-panel);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-lg);
+  min-width: 0;
+}
+
+.tile dd {
+  margin: 0;
+  font-size: var(--hs-font-size-lg);
+  font-weight: var(--hs-font-weight-semibold);
+  color: var(--hs-color-text-primary);
+  white-space: nowrap;
+}
+
+.tile dd.big {
+  font-size: var(--hs-font-size-xl);
+}
+
+.grade {
+  font-size: var(--hs-font-size-xl);
+}
+
+.sub {
+  font-size: var(--hs-font-size-xs);
+  color: var(--hs-color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lesson {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-1);
+  padding: var(--hs-space-3) var(--hs-space-4);
+  border-left: 3px solid var(--hs-color-accent);
+  border-radius: 0 var(--hs-radius-md) var(--hs-radius-md) 0;
+  background: var(--hs-color-accent-muted);
+  color: var(--hs-color-text-primary);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--hs-space-3);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-2);
+  padding: var(--hs-space-4);
+  background: var(--hs-color-bg-panel);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-lg);
+  border-top-width: 3px;
+}
+
+.warning {
+  border-top-color: var(--hs-color-down);
+}
+
+.praise {
+  border-top-color: var(--hs-color-up);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.impact {
+  font-weight: var(--hs-font-weight-semibold);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--hs-font-size-md);
+  color: var(--hs-color-text-primary);
+}
+
+.what,
+.why,
+.next {
+  margin: 0;
+  font-size: var(--hs-font-size-sm);
+  line-height: var(--hs-line-height-normal);
+}
+
+.what {
+  color: var(--hs-color-text-primary);
+}
+
+.why,
+.next {
+  color: var(--hs-color-text-secondary);
+}
+
+.learn {
+  margin-top: auto;
+  font-size: var(--hs-font-size-sm);
+  color: var(--hs-color-accent);
+  text-decoration: none;
+}
+
+.learn:hover {
+  text-decoration: underline;
+}
+
+.learn:focus-visible {
+  outline: 2px solid var(--hs-color-accent);
+  outline-offset: 2px;
+}
+
+.coach {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hs-space-2);
+}
+
+.coachAnswer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-1);
+  padding: var(--hs-space-3) var(--hs-space-4);
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-lg);
+  background: var(--hs-color-bg-panel-raised);
+  color: var(--hs-color-text-primary);
+  font-size: var(--hs-font-size-sm);
+}
+
+.coachAnswer ul {
+  margin: 0;
+  padding-left: var(--hs-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-1);
+}
+
+.error {
+  margin: 0;
+  color: var(--hs-color-down-text);
+  font-size: var(--hs-font-size-sm);
+}
+
+.timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.event {
+  display: grid;
+  grid-template-columns: 64px 72px 1fr;
+  align-items: baseline;
+  gap: var(--hs-space-3);
+  padding: var(--hs-space-2) 0;
+  border-bottom: 1px solid var(--hs-color-border-subtle);
+  font-size: var(--hs-font-size-sm);
+}
+
+.when {
+  color: var(--hs-color-text-secondary);
+}
+
+.kind {
+  justify-self: start;
+  padding: 0 var(--hs-space-2);
+  border-radius: var(--hs-radius-sm);
+  font-size: var(--hs-font-size-xs);
+  font-weight: var(--hs-font-weight-medium);
+  background: var(--hs-color-neutral-muted);
+  color: var(--hs-color-text-secondary);
+}
+
+.buy {
+  background: var(--hs-color-up-muted);
+  color: var(--hs-color-up-text);
+}
+
+.sell {
+  background: var(--hs-color-down-muted);
+  color: var(--hs-color-down-text);
+}
+
+.payout {
+  background: var(--hs-color-accent-muted);
+  color: var(--hs-color-accent);
+}
+
+.alert {
+  background: var(--hs-color-warn-muted);
+  color: var(--hs-color-warn-text);
+}
+
+.text {
+  color: var(--hs-color-text-primary);
+}
