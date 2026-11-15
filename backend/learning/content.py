@@ -16,7 +16,7 @@ def _load(name: str) -> dict:
 
 
 def missions() -> list[dict]:
-    return _load("missions.json")["missions"]
+    return _load("graded-missions.json")["missions"]
 
 
 def mission_entry(mission_id: str) -> dict | None:

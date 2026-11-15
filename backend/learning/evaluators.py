@@ -31,7 +31,7 @@ class FiredEvent:
 @dataclass
 class EvalInput:
     scenario: Scenario
-    mission: dict  # entry from content/missions.json
+    mission: dict  # entry from content/graded-missions.json
     trades: list[Trade]  # the user's fills inside the mission window, oldest first
     portfolio: Portfolio  # at mission end
     price_path: dict[str, list[Tick]]  # per mission symbol, oldest first

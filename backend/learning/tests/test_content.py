@@ -15,7 +15,7 @@ TITLES = [
 
 
 def missions():
-    return json.loads((CONTENT_DIR / "missions.json").read_text())["missions"]
+    return json.loads((CONTENT_DIR / "graded-missions.json").read_text())["missions"]
 
 
 def test_six_missions_in_order_with_titles():

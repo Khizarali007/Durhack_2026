@@ -181,7 +181,7 @@ After the merge it's the main backend. All JSON.
 
 | method + path | body / query | returns |
 |---|---|---|
-| `GET /learning/missions` | none | list of mission entries from `content/missions.json`, each with `available: bool` |
+| `GET /learning/missions` | none | list of mission entries from `content/graded-missions.json`, each with `available: bool` |
 | `POST /learning/missions/start` | `{"user_id", "mission_id"}` | status (below). `404` unknown or not available, `409` already running |
 | `POST /learning/missions/stop` | `{"user_id"}` | status. `409` if nothing is running |
 | `GET /learning/missions/status?user_id=` | none | status |
