@@ -104,3 +104,17 @@ the decision, the options considered, why, and how to revert. Archive tags
 
 ## D22. Currency unit labels
 - Price blocks show `H$111.11 HOOP` (an `H$` number plus a small HOOP unit label). Slightly redundant, kept because the unit label is part of Person 3's layout; drop the `unit` spans to tidy it.
+
+## D23. Accounts survive restarts; portfolios restart with the season (Part 1)
+- **Decision:** `backend/trading/identity.py` mirrors identity only (user id, username, scrypt password hash, SHA-256 session-token hashes, devnet wallet) into `data/accounts.sqlite` (git-ignored, `ACCOUNTS_DB_PATH` overrides; memory under pytest). Every fresh season trading DB (backend start or rewind) restores all accounts with H$100,000 and flags them; `/trading/me` returns `season_reset: true` until `POST /trading/me/season-reset/dismiss`. The UI shows "The season was reset. Your account is safe; your portfolio restarted with H$100,000."
+- **Options:** persist the whole trading DB to a file (rejected: the season engine's maker inventory and share ownership live in memory, so a persisted portfolio would disagree with the market after a restart); keep everything in memory (rejected: logins lost on every restart).
+- **Changed test:** `market/tests/test_integration.py` used to assert that a rewind invalidates the old token (401); it now asserts the account survives with a fresh portfolio.
+- **Revert:** remove `identity.use_store(...)` in `main.py`.
+
+## D24. No silent guest; `/login` is the way in
+- **Decision:** the app no longer creates a guest on load. Without a session the shell redirects to `/login` (Play as guest, Log in, Sign up). A backend that's down keeps the stored token and retries every 2 s ("Connecting to the market…"); only a rejected token (401/403) sends you to `/login`. New `POST /trading/upgrade` turns a guest into a named account, keeping its portfolio ("Save your progress" in the header menu).
+- **Revert:** call `joinAsGuest()` from `AppShell` when there's no session.
+
+## D25. Blocking onboarding replaced by an optional welcome card
+- **Decision:** `Onboarding.tsx` (which hid the whole app until a purchase) is deleted. Home shows a dismissible welcome card for brand-new players: two sentences, "Take the 2-minute tour" (starts the Welcome tutorial) and "Make your first investment" (the same quick buy, restyled with tokens). Dismissal is remembered per account in localStorage.
+- **Also:** the season bar and payout ledger are rewritten with the design system (no hardcoded colours, readable code) behind a new `src/api/season.ts`; payment and season-reset notices share one `Notice` component; the header gains a user menu with projector mode.

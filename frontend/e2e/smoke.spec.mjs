@@ -1,23 +1,24 @@
-// Core loop: join as guest -> first purchase -> advance the market -> payout -> sell -> score, then Learn.
+// Core loop and accounts on the real one-port build (scripts/demo).
 import { test, expect } from '@playwright/test'
 
 const hoop = (text) => Number(text.replace(/[^0-9.-]/g, ''))
 
-test('guest buys, the season pays out, guest sells, score shows; Learn opens', async ({ page }) => {
+test('guest: login page → welcome quick buy → next days pay out → sell → score; Learn opens', async ({ page }) => {
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Back your basketball judgement.' })).toBeVisible()
-  const buy = page.getByRole('button', { name: 'Buy shares and enter the season' })
+  await expect(page).toHaveURL(/\/login$/)
+  await page.getByRole('button', { name: 'Play as guest' }).click()
+  await expect(page.getByRole('heading', { name: 'Welcome to HoopStreet' })).toBeVisible()
+  await page.getByRole('button', { name: 'Make your first investment' }).click()
+  const buy = page.getByRole('button', { name: 'Buy 10 JOKIC' })
   await expect(buy).toBeEnabled({ timeout: 20_000 })
   await buy.click()
+  await expect(page.getByText(/^Bought 10 JOKIC/)).toBeVisible()
 
   const controls = page.getByRole('region', { name: 'Season challenge controls' })
-  await expect(controls).toBeVisible()
   const credited = controls.getByText('Payouts credited:').locator('b')
-
-  // Replay day by day until a game payout lands (Jokic's first game is on day 3).
   for (let day = 0; day < 6 && hoop(await credited.innerText()) <= 0; day++) {
     const next = controls.getByRole('button', { name: 'Next day' })
     await expect(next).toBeEnabled({ timeout: 30_000 })
@@ -34,10 +35,31 @@ test('guest buys, the season pays out, guest sells, score shows; Learn opens', a
   await expect(sell).toBeEnabled({ timeout: 20_000 })
   await sell.click()
   await expect(page.locator('[data-tour="ticket-result"]')).toBeVisible({ timeout: 20_000 })
-
   await expect(controls.getByText(/Estimated exit value: -?H\$/)).toBeVisible({ timeout: 20_000 })
 
   await page.goto('/learn')
   await expect(page.getByRole('heading', { name: 'Learn', level: 1 })).toBeVisible()
   expect(errors).toEqual([])
+})
+
+test('sign up, log out, log back in; wrong password is explained', async ({ page }) => {
+  const name = `e2e_${Date.now().toString(36)}`
+  await page.goto('/login')
+  await page.getByRole('tab', { name: 'Sign up' }).click()
+  await page.getByLabel('Username').fill(name)
+  await page.getByLabel('Password').fill('hoops123')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('heading', { name: 'Top movers' })).toBeVisible()
+
+  await page.getByRole('button', { name: new RegExp(name) }).click()
+  await page.getByRole('menuitem', { name: 'Log out' }).click()
+  await expect(page).toHaveURL(/\/login$/)
+
+  await page.getByLabel('Username').fill(name)
+  await page.getByLabel('Password').fill('wrong-pass')
+  await page.getByRole('button', { name: 'Log in', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Wrong username or password')
+  await page.getByLabel('Password').fill('hoops123')
+  await page.getByRole('button', { name: 'Log in', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Top movers' })).toBeVisible()
 })
