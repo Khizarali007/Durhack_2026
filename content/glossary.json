@@ -6,8 +6,8 @@
       "short": "A virtual entitlement to performance payouts. It is not ownership of the player, their salary or their team."
     },
     {
-      "term": "Virtual dollars",
-      "short": "The game currency. Every account starts with H$100,000; it cannot be cashed out."
+      "term": "HOOP",
+      "short": "The game currency, shown as H$. Every account starts with H$100,000; it is play money and cannot be cashed out."
     },
     {
       "term": "Bid",
@@ -51,7 +51,7 @@
     },
     {
       "term": "Cash",
-      "short": "Virtual dollars available for purchases or reserved by open buy orders. Payouts increase this balance."
+      "short": "HOOP available for purchases or reserved by open buy orders. Payouts increase this balance."
     },
     {
       "term": "Quoted portfolio value",
@@ -84,6 +84,10 @@
     {
       "term": "Diversification",
       "short": "Spreading money across players and teams reduces exposure to any one outcome; it does not guarantee a profit."
+    },
+    {
+      "term": "Composition grade",
+      "short": "A to F for how evenly your money is spread across players and teams. A is ten or so similar-sized positions on different teams; F is everything on one player."
     },
     {
       "term": "Season score",

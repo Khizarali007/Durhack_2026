@@ -264,7 +264,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
                 <button type="button" className={styles.priceFill} onClick={() => quote?.bid != null && setPriceText(round2(quote.bid * 0.9).toFixed(2))}>−10%</button>
               </>
             )}
-            <span className={styles.priceUnit}>virtual $</span>
+            <span className={styles.priceUnit}>HOOP</span>
           </div>
         </div>
       )}
@@ -273,7 +273,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         <span className={styles.estimateLabel}>{headlineLabel}</span>
         <span className={styles.estimateValue}>
           {headline !== null ? formatHOOP(headline) : '—'}
-          <span className={styles.unit}>virtual $</span>
+          <span className={styles.unit}>HOOP</span>
         </span>
         <span className={styles.estimateSub}>{headlineSub}</span>
       </div>

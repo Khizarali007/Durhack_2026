@@ -2,7 +2,7 @@ import type { Tutorial } from '../types'
 export const welcome: Tutorial = {
  id:'welcome', number:1, title:'Welcome tour', minutes:2,
  summary:'Your wallet, season score, replay controls and player market.',
- teaches:['Virtual dollars','Cash','Quoted portfolio value','Season score','Player share'],
+ teaches:['HOOP','Cash','Quoted portfolio value','Season score','Player share'],
  recap:['Located cash and quoted equity','Distinguished the exit score from quoted equity','Explored replay controls and the player screen'],
  steps:[
   {route:'/',title:'Welcome to HoopStreet',body:'Start with H$100,000 virtual cash. Invest in NBA performance through the 2024–25 regular season. Player shares pay game dividends; they are not ownership of the player.',complete:{type:'next'}},
