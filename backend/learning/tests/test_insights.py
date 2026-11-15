@@ -116,8 +116,9 @@ def test_timeline_gives_plain_english_context_and_summary_adds_up():
     equity = [(T0, 100_000), (T0 + DAY, 100_200), (T0 + 2 * DAY, 99_198), (T0 + 3 * DAY, 100_100)]
     r = review(season(fills, alerts=[alert], payments=payments, prices={"WEMBY": 125}, equity=equity, cash=99_276.0))
     texts = [i.text for i in r.timeline]
-    assert "You bought 10 WEMBY at H$124.18, the day before Wembanyama was listed doubtful." in texts
-    assert any(t.startswith("WEMBY paid you H$3.00") for t in texts)
+    # 124.18 accounting units = H$0.12418, exactly what formatPrice shows in the UI.
+    assert "You bought 10 shares of Victor Wembanyama at H$0.12418, the day before Wembanyama was listed doubtful." in texts
+    assert any(t.startswith("Victor Wembanyama earned you H$0.003 for the") for t in texts)
     s = r.summary
     assert s.payouts == 5.0 and s.fees == pytest.approx(1.7) and s.trades == 2
     assert s.best_trade.symbol == "WEMBY" and s.max_drawdown_pct == pytest.approx(-1.0)
@@ -127,4 +128,4 @@ def test_timeline_gives_plain_english_context_and_summary_adds_up():
 
 def test_an_empty_season_says_what_to_do():
     r = review(season([]))
-    assert r.insights == [] and r.summary.grade is None and "first trade" in r.summary.biggest_lesson
+    assert r.insights == [] and r.summary.grade is None and "first players" in r.summary.biggest_lesson

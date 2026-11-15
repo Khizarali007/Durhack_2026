@@ -19,7 +19,8 @@ from trading.market_provider import get_market
 from trading.money import to_hoop
 
 from .composition import Holding, compose
-from .insights import Fill, Payment, SeasonData, money, review
+from .currency import hoop
+from .insights import Fill, Payment, SeasonData, review
 from .review_api import my_review
 from .season_source import MarketView
 
@@ -132,17 +133,17 @@ def compare_with(db: Database, user: User, rid: str) -> dict:
     my_ids = {i["id"] for i in mine["insights"]}
     diffs = []
     my_grade = m["grade"] or "no grade yet"
-    diffs.append(f"{name} holds {their_holdings} players across {their_teams} teams (grade {t['grade'] or '–'}); "
-                 f"you're at grade {my_grade}.")
-    diffs.append(f"{name} has earned {money(t['payouts'])} in game payouts; you've earned {money(m['payouts'])}.")
-    diffs.append(f"Season return: {name} {t['return_pct']:+.2f}%, you {m['return_pct']:+.2f}%.")
+    diffs.append(f"{name} owns {their_holdings} players across {their_teams} teams (diversification grade "
+                 f"{t['grade'] or '–'}). Yours: {my_grade}.")
+    diffs.append(f"{name} has been paid {hoop(t['payouts'])} from games so far; you have been paid {hoop(m['payouts'])}.")
+    diffs.append(f"Season so far: {name} {t['return_pct']:+.2f}%, you {m['return_pct']:+.2f}%.")
     praise = [i for i in theirs["insights"] if i["tone"] == "praise" and i["id"] != "diversified"]
     if praise:
         diffs.append(f"{name}: {praise[0]['what']}")
     if "bought_into_storm" in my_ids:
-        diffs.append(f"You bought into a storm warning; {name}'s style ({rival.strategy.lower()}) shows another way.")
+        diffs.append(f"You bought a player during an injury warning. {name}'s approach: {rival.strategy.lower()}")
     if "churning" in my_ids:
-        diffs.append(f"You traded {m['trades']} times and lost money after fees; {name} made {t['trades']} trades and pays no fees.")
+        diffs.append(f"You traded {m['trades']} times and lost money after fees; {name} made {t['trades']} trades.")
     warnings = [i for i in mine["insights"] if i["tone"] == "warning"]
     learn = warnings[0]["learn"] if warnings else (praise[0]["learn"] if praise else
                                                     {"kind": "glossary", "id": "diversification", "label": "Diversification"})

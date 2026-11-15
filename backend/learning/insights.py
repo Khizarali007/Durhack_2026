@@ -9,12 +9,16 @@ randomness, no model: the same season always gives the same review.
 Used for the player (Activity → "Your season review") and for the practice
 rivals (Friends), so both are judged by the same rules.
 
-Rules (H$ = HOOP):
+Money: amounts are in API accounting units (1,000 = H$1, a player starts with
+H$100); every amount written into text goes through learning/currency.py so it
+reads exactly like the UI. Players are named in full, as in the rest of the UI.
+
+Rules:
   concentration      one player or one team > 40% of invested money
   bought_into_storm  a buy within 3 days after an early warning or storm on that player
   panic_sell         a sell at a loss, then the price recovered >= 8% within 10 days
   sold_before_payout a sell before the noon cutoff on a day that player had a game
-  overpaid           spread + slippage + fees > 1% of an order worth >= H$500
+  overpaid           price movement + fees > 1% of an order worth >= H$0.50 (500 units)
   churning           >= 3 round trips with a net loss after fees
   held_out_player    still holding 5+ days after the player was ruled out
   diversified        grade A or B with 5+ holdings (praise)
@@ -31,9 +35,11 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
 from .composition import Holding, compose
+from .currency import hoop, price
 
 DAY = 86400.0
 NOON = 43200.0
+MIN_ORDER_UNITS = 500.0  # H$0.50: smaller orders aren't worth a card
 
 
 # ---- inputs ---------------------------------------------------------------------------
@@ -225,14 +231,19 @@ def nice_day(t: float) -> str:
     return datetime.fromtimestamp(t, tz=timezone.utc).strftime("%-d %b")
 
 
-def money(x: float) -> str:
-    sign = "-" if x < 0 else ""
-    return f"{sign}H${abs(x):,.2f}"
+def money(units: float) -> str:
+    """A total in the UI's denomination (1,000 accounting units = H$1); see learning/currency.py."""
+    return hoop(units)
 
 
 def surname(name: str) -> str:
     parts = [p for p in name.split() if p.rstrip(".").upper() not in {"JR", "SR", "II", "III", "IV"}]
     return parts[-1] if parts else name
+
+
+def full_name(data: SeasonData, symbol: str) -> str:
+    """Players are shown by full name everywhere (Jonathan's UI); symbols stay internal."""
+    return data.names.get(symbol, symbol)
 
 
 def alert_status(alert: Alert) -> str:
@@ -261,6 +272,7 @@ def learn_term(term: str) -> Learn:
 
 
 # ---- the rules ----------------------------------------------------------------------------------
+# Copy is plain and short (Jonathan's tone): what happened, what it cost or earned, what to try.
 
 def _concentration(data: SeasonData, holdings: list[Holding]) -> list[Insight]:
     comp = compose(holdings, data.cash)
@@ -268,22 +280,22 @@ def _concentration(data: SeasonData, holdings: list[Holding]) -> list[Insight]:
         return []
     out = []
     top = comp.by_player[0]
-    if comp.top_player_pct > 40 and comp.holdings > 0:
+    if comp.top_player_pct > 40:
         shock = 0.2 * top.value
         out.append(Insight(
-            "concentration", "warning", f"{comp.top_player_pct:.0f}% on one player",
-            f"{top.label} is {comp.top_player_pct:.0f}% of your invested money.",
-            f"If {surname(top.label)} drops 20% after one bad report, that alone costs you {money(shock)}.",
-            "Cap any one player at about a fifth of what you invest, and spread across teams.",
+            "concentration", "warning", "Most of your money is on one player",
+            f"{top.label} is {comp.top_player_pct:.0f}% of the money you have invested.",
+            f"If {surname(top.label)}'s price fell 20% after one bad report, you would lose {money(shock)}.",
+            "Keep any one player to about a fifth of what you invest, and pick players from different teams.",
             -round(shock, 2), learn_term("Diversification"), top.key))
-    elif comp.top_team_pct > 40 and comp.teams > 0:
+    elif comp.top_team_pct > 40:
         team = comp.by_team[0]
         shock = 0.15 * team.value
         out.append(Insight(
-            "concentration", "warning", f"{comp.top_team_pct:.0f}% on one team",
-            f"{comp.top_team_pct:.0f}% of your invested money is on {team.label} players.",
-            f"Teammates share a schedule and the same storms: a 15% team slump costs {money(shock)}.",
-            "Mix in players from other teams so one bad week can't hit everything.",
+            "concentration", "warning", "Most of your money is on one team",
+            f"{comp.top_team_pct:.0f}% of the money you have invested is in {team.label} players.",
+            f"Teammates have the same games and the same bad weeks. A 15% team slump would cost {money(shock)}.",
+            "Add players from other teams so one team's bad week can't hit everything.",
             -round(shock, 2), learn_term("Diversification")))
     return out
 
@@ -300,13 +312,14 @@ def _bought_into_storm(data: SeasonData, orders: list[Order]) -> list[Insight]:
         later = window(data.daily(o.symbol), o.t, 7)
         low = min(later) if later else o.avg_price
         cost = min(0.0, (low - o.avg_price) * o.qty)
-        name = surname(data.names.get(o.symbol, o.symbol))
+        player = full_name(data, o.symbol)
         out.append(Insight(
-            "bought_into_storm", "warning", f"Bought {o.symbol} under a storm warning",
-            f"You bought {o.qty:g} {o.symbol} at {money(o.avg_price)} on {nice_day(o.t)}, while {name} was {alert_status(a)}.",
-            f"Within a week it traded as low as {money(low)}: a paper hit of {money(cost)}." if cost < 0
-            else "It worked out this time, but the risk was on the official report for everyone to see.",
-            "Check the Storm Radar before buying. A cloud or storm means wait for the next report.",
+            "bought_into_storm", "warning", f"Bought {player} during an injury warning",
+            f"You bought {o.qty:g} shares of {player} at {price(o.avg_price)} on {nice_day(o.t)}, "
+            f"while {surname(player)} was {alert_status(a)} on the official injury report.",
+            f"Within a week the price fell to {price(low)}: your shares lost {money(-cost)} in value." if cost < 0
+            else "It worked out this time, but the warning was public for everyone to see.",
+            "Check the injury status before buying. If a player is listed, wait for the next report.",
             round(cost, 2), learn_tutorial("survive-the-storm", "Survive the storm"), o.symbol, o.t))
     return out
 
@@ -321,11 +334,12 @@ def _panic_sell(data: SeasonData, orders: list[Order]) -> list[Insight]:
         if high < o.avg_price * 1.08:
             continue
         missed = (high - o.avg_price) * o.qty
+        player = full_name(data, o.symbol)
         out.append(Insight(
-            "panic_sell", "warning", f"Sold {o.symbol} at a loss, just before it bounced",
-            f"You sold {o.qty:g} {o.symbol} at {money(o.avg_price)} on {nice_day(o.t)} for a loss of {money(o.realised)}.",
-            f"Within 10 days it was back up to {money(high)}: holding would have been worth {money(missed)} more.",
-            "Before selling into a dip, ask whether anything changed (an injury report?) or it's just noise.",
+            "panic_sell", "warning", f"Sold {player} at a loss just before a rebound",
+            f"You sold {o.qty:g} shares of {player} at {price(o.avg_price)} on {nice_day(o.t)} and lost {money(-o.realised)}.",
+            f"Within 10 days the price was back up to {price(high)}. Holding would have been worth {money(missed)} more.",
+            "Before selling after a drop, check whether anything actually changed, like an injury report.",
             -round(missed, 2), learn_term("Volatility"), o.symbol, o.t))
     return out
 
@@ -339,34 +353,38 @@ def _sold_before_payout(data: SeasonData, orders: list[Order]) -> list[Insight]:
         if per_share <= 0:
             continue
         missed = per_share * o.qty
+        player = full_name(data, o.symbol)
         out.append(Insight(
-            "sold_before_payout", "warning", f"Sold {o.symbol} hours before a payout",
-            f"You sold {o.qty:g} {o.symbol} on the morning of {nice_day(o.t)}; {surname(data.names.get(o.symbol, o.symbol))} played that night.",
-            f"Holding through the noon cutoff would have paid {money(per_share)} a share: {money(missed)}.",
-            "Check the schedule: if a player has a game today, sell after the noon cutoff to keep the payout.",
+            "sold_before_payout", "warning", f"Sold {player} hours before a payment",
+            f"You sold {o.qty:g} shares of {player} on the morning of {nice_day(o.t)}. {surname(player)} played that night.",
+            f"Owners at noon were paid {price(per_share)} per share for that game: {money(missed)} for your shares.",
+            "If a player has a game today, sell after noon to keep that game's payment.",
             -round(missed, 2), learn_tutorial("performance-payouts", "Earn a performance payout"), o.symbol, o.t))
     return out
 
 
-def _overpaid(orders: list[Order]) -> list[Insight]:
+def _overpaid(data: SeasonData, orders: list[Order]) -> list[Insight]:
     out = []
     for o in orders:
         notional = o.avg_price * o.qty
-        if notional < 500:
+        if notional < MIN_ORDER_UNITS:
             continue
-        slip = 0.0
+        extra = 0.0
         if o.quoted_price:
-            slip = max(0.0, (o.avg_price - o.quoted_price) * o.qty if o.side == "buy"
-                       else (o.quoted_price - o.avg_price) * o.qty)
-        cost = slip + o.fee
+            extra = max(0.0, (o.avg_price - o.quoted_price) * o.qty if o.side == "buy"
+                        else (o.quoted_price - o.avg_price) * o.qty)
+        cost = extra + o.fee
         if cost / notional <= 0.01:
             continue
+        player = full_name(data, o.symbol)
+        verb = "buying" if o.side == "buy" else "selling"
         out.append(Insight(
-            "overpaid", "warning", f"Paid {cost / notional:.1%} to trade {o.symbol}",
-            f"Your {o.side} of {o.qty:g} {o.symbol} filled at {money(o.avg_price)} on average"
-            + (f" against a quoted {money(o.quoted_price)}" if o.quoted_price else "") + ".",
-            f"Slippage {money(slip)} plus fees {money(o.fee)} cost {money(cost)} on a {money(notional)} order.",
-            "Split big orders, or use a limit order so you never pay more than you chose.",
+            "overpaid", "warning", f"Paid {cost / notional:.1%} extra {verb} {player}",
+            f"You {'bought' if o.side == 'buy' else 'sold'} {o.qty:g} shares at an average of {price(o.avg_price)}"
+            + (f"; the best price when you clicked was {price(o.quoted_price)}." if o.quoted_price else "."),
+            f"Price movement while your order filled ({money(extra)}) plus fees ({money(o.fee)}) cost {money(cost)} "
+            f"on a {money(notional)} order.",
+            "Split large orders into smaller ones, or use a limit order to set the most you will pay.",
             -round(cost, 2), learn_tutorial("read-the-spread", "Read the spread"), o.symbol, o.t))
     return out
 
@@ -380,10 +398,10 @@ def _churning(orders: list[Order]) -> list[Insight]:
     if net >= 0:
         return []
     return [Insight(
-        "churning", "warning", f"{len(sells)} round trips, net {money(net)}",
-        f"You sold {len(sells)} times this season and paid {money(fees)} in fees overall.",
-        f"After fees those trades lost {money(net)}. Every trip pays the spread and a fee before it can profit.",
-        "Trade less. Hold a reason (a payout, a mispricing) rather than reacting to every tick.",
+        "churning", "warning", "Frequent trading lost money",
+        f"You sold {len(sells)} times and paid {money(fees)} in fees in total.",
+        f"After fees, those sales lost {money(-net)}. Every buy and sell pays a fee before it can make money.",
+        "Trade less often. Buy with a reason, such as upcoming games or a price below the estimate.",
         round(net, 2), learn_term("Fee"))]
 
 
@@ -402,11 +420,12 @@ def _held_out_player(data: SeasonData, orders: list[Order]) -> list[Insight]:
         if not before or not after:
             continue
         change = (after[-1] - before[-1]) * min(held, later_held)
+        player = full_name(data, a.symbol)
         out.append(Insight(
-            "held_out_player", "warning", f"Held {a.symbol} through a long absence",
-            f"{surname(data.names.get(a.symbol, a.symbol))} was ruled out on {nice_day(report_day(a))} and you still held {later_held:g} shares five days later.",
-            f"An Out player pays nothing while he sits; the position moved {money(change)} over those days." if change < 0
-            else "An Out player pays nothing while he sits, so that money earned no payouts.",
+            "held_out_player", "warning", f"Kept {player} through an absence",
+            f"{player} was ruled out on {nice_day(report_day(a))}, and you still held {later_held:g} shares five days later.",
+            f"A player who doesn't play earns no payments. Your shares lost {money(-change)} over those days." if change < 0
+            else "A player who doesn't play earns no payments, so that money earned nothing.",
             "When a player is ruled out, decide: sell, or set a stop-loss so a longer absence can't keep costing you.",
             round(min(change, 0.0), 2), learn_term("Stop-loss"), a.symbol, a.t))
     return out
@@ -417,10 +436,10 @@ def _praise(data: SeasonData, orders: list[Order], holdings: list[Holding]) -> l
     comp = compose(holdings, data.cash)
     if comp.grade in ("A", "B") and comp.holdings >= 5:
         out.append(Insight(
-            "diversified", "praise", f"Well spread: grade {comp.grade}",
-            f"{comp.holdings} players across {comp.teams} teams; the biggest is {comp.top_player_pct:.0f}%.",
-            "One bad report can't sink you, and payouts arrive from many games instead of one.",
-            "Keep it up as you add positions.", 0.0, learn_term("Diversification")))
+            "diversified", "praise", f"Well spread out (grade {comp.grade})",
+            f"{comp.holdings} players across {comp.teams} teams; the biggest is {comp.top_player_pct:.0f}% of your investments.",
+            "One bad report can't sink you, and payments come from many games.",
+            "Keep it up as you add players.", 0.0, learn_term("Diversification")))
 
     for o in orders:
         if o.side != "buy":
@@ -428,11 +447,12 @@ def _praise(data: SeasonData, orders: list[Order], holdings: list[Holding]) -> l
         later = window(data.daily(o.symbol), o.t, 10)
         if later and max(later) >= o.avg_price * 1.10:
             gain = (max(later) - o.avg_price) * o.qty
+            player = full_name(data, o.symbol)
             out.append(Insight(
-                "hot_stretch_buy", "praise", f"Bought {o.symbol} before a hot stretch",
-                f"You bought {o.qty:g} {o.symbol} at {money(o.avg_price)} on {nice_day(o.t)}; within 10 days it reached {money(max(later))}.",
-                f"That was worth up to {money(gain)} on paper.",
-                "Note what you saw (form, schedule, a discount to the estimate) so you can spot it again.",
+                "hot_stretch_buy", "praise", f"Bought {player} before a rise",
+                f"You bought {o.qty:g} shares at {price(o.avg_price)} on {nice_day(o.t)}; within 10 days the price reached {price(max(later))}.",
+                f"Those shares gained up to {money(gain)} in value.",
+                "Note what you noticed (form, upcoming games, a price below the estimate) so you can spot it again.",
                 round(gain, 2), learn_term("Hot streak"), o.symbol, o.t))
 
     for s in {o.symbol for o in orders}:
@@ -448,11 +468,12 @@ def _praise(data: SeasonData, orders: list[Order], holdings: list[Holding]) -> l
         held = [p for t, p in data.daily(s) if first < t <= end_t]
         end_price = sold[-1].avg_price if sold else data.prices.get(s, held[-1] if held else cost)
         if held and min(held) <= cost * 0.95 and end_price >= cost:
+            player = full_name(data, s)
             out.append(Insight(
-                "held_through_noise", "praise", f"Held {s} through a dip",
-                f"{s} fell to {money(min(held))} (below your {money(cost)} average) and you didn't panic.",
-                f"It came back to {money(end_price)}.",
-                "Price noise without news is not a reason to sell.",
+                "held_through_noise", "praise", f"Stayed calm with {player}",
+                f"The price fell to {price(min(held))}, below the {price(cost)} you paid, and you kept your shares.",
+                f"It came back to {price(end_price)}.",
+                "A price dip with no news is not a reason to sell.",
                 round((end_price - min(held)) * sum(o.qty for o in buys), 2), learn_term("Volatility"), s, first))
 
     for o in orders:
@@ -463,11 +484,12 @@ def _praise(data: SeasonData, orders: list[Order], holdings: list[Holding]) -> l
         later = window(data.daily(o.symbol), o.t, 7)
         if warned and later and min(later) <= o.avg_price * 0.95:
             saved = (o.avg_price - min(later)) * o.qty
+            player = full_name(data, o.symbol)
             out.append(Insight(
-                "sold_on_warning", "praise", f"Sold {o.symbol} on the early warning",
-                f"{surname(data.names.get(o.symbol, o.symbol))} was {alert_status(warned[-1])}; you sold {o.qty:g} at {money(o.avg_price)} on {nice_day(o.t)}.",
-                f"It then fell to {money(min(later))}: you avoided {money(saved)} of losses.",
-                "Early warnings are the cheapest time to act.", round(saved, 2),
+                "sold_on_warning", "praise", f"Sold {player} on the injury warning",
+                f"{surname(player)} was {alert_status(warned[-1])}; you sold {o.qty:g} shares at {price(o.avg_price)} on {nice_day(o.t)}.",
+                f"The price then fell to {price(min(later))}, so you avoided losing {money(saved)}.",
+                "An injury warning is the cheapest time to act.", round(saved, 2),
                 learn_tutorial("survive-the-storm", "Survive the storm"), o.symbol, o.t))
     return out
 
@@ -505,20 +527,20 @@ def _pick(insights: list[Insight], per_rule: int = 2, limit: int = 8) -> list[In
 def _timeline(data: SeasonData, orders: list[Order]) -> list[TimelineItem]:
     items: list[TimelineItem] = []
     for o in orders:
-        name = surname(data.names.get(o.symbol, o.symbol))
+        player = full_name(data, o.symbol)
         verb = "bought" if o.side == "buy" else "sold"
-        text = f"You {verb} {o.qty:g} {o.symbol} at {money(o.avg_price)}"
+        text = f"You {verb} {o.qty:g} shares of {player} at {price(o.avg_price)}"
         upcoming = [a for a in data.alerts if a.symbol == o.symbol and 0 <= report_day(a) - o.t // DAY * DAY <= 3 * DAY]
         recent = [a for a in data.alerts if a.symbol == o.symbol and 0 < o.t - report_day(a) <= 3 * DAY]
         if upcoming:
             a = upcoming[0]
             gap = round((report_day(a) - o.t // DAY * DAY) / DAY)
             when = "the same day" if gap == 0 else "the day before" if gap == 1 else f"{gap} days before"
-            text += f", {when} {name} was {alert_status(a)}"
+            text += f", {when} {surname(player)} was {alert_status(a)}"
         elif recent:
-            text += f", while {name} was {alert_status(recent[-1])}"
+            text += f", while {surname(player)} was {alert_status(recent[-1])}"
         if o.realised is not None:
-            text += f" ({'profit' if o.realised >= 0 else 'loss'} {money(o.realised)} after fees)"
+            text += f" ({'profit' if o.realised >= 0 else 'loss'} of {money(abs(o.realised))} after fees)"
         items.append(TimelineItem(o.t, o.side, text + ".", o.symbol, round(o.avg_price * o.qty, 2)))
 
     by_day: dict[tuple[str, str], float] = defaultdict(float)
@@ -526,17 +548,17 @@ def _timeline(data: SeasonData, orders: list[Order]) -> list[TimelineItem]:
         by_day[(iso_day(p.t - 1), p.symbol)] += p.amount
     for (day, symbol), amount in by_day.items():
         t = datetime.fromisoformat(day).replace(tzinfo=timezone.utc).timestamp() + DAY
-        items.append(TimelineItem(t, "payout", f"{symbol} paid you {money(amount)} for the {nice_day(t - DAY)} game.",
+        items.append(TimelineItem(t, "payout", f"{full_name(data, symbol)} earned you {money(amount)} for the {nice_day(t - DAY)} game.",
                                    symbol, round(amount, 2)))
 
     held_symbols = {o.symbol for o in orders}
     for a in data.alerts:
         if a.symbol not in held_symbols or positions_at(orders, a.t).get(a.symbol, 0) <= 0:
             continue
-        word = "Storm" if a.kind == "injury" else "Early warning"
-        items.append(TimelineItem(a.t, "alert", f"{word} on a player you held: {a.headline.split(': ', 1)[-1]}", a.symbol))
+        word = "Out" if a.kind == "injury" else "Injury warning"
+        items.append(TimelineItem(a.t, "alert", f"{word} for a player you owned: {a.headline.split(': ', 1)[-1]}", a.symbol))
 
-    # Composition grade after each order (valued at each order's own price for simplicity).
+    # Diversification grade after each order (valued at each order's own price for simplicity).
     last_price: dict[str, float] = {}
     previous = None
     for o in orders:
@@ -545,7 +567,7 @@ def _timeline(data: SeasonData, orders: list[Order]) -> list[TimelineItem]:
         holdings = [Holding(s, s, data.teams.get(s, "?"), q * last_price.get(s, 0)) for s, q in held.items()]
         grade = compose(holdings, 0.0).grade
         if grade != previous and grade is not None:
-            items.append(TimelineItem(o.t + 0.001, "grade", f"Your Composition grade became {grade}."))
+            items.append(TimelineItem(o.t + 0.001, "grade", f"Your diversification grade became {grade}."))
         previous = grade
 
     items.sort(key=lambda i: i.t, reverse=True)
@@ -557,7 +579,7 @@ def review(data: SeasonData) -> Review:
     holdings = _holdings_now(data, orders)
     comp = compose(holdings, data.cash)
     raw = (_concentration(data, holdings) + _bought_into_storm(data, orders) + _panic_sell(data, orders)
-           + _sold_before_payout(data, orders) + _overpaid(orders) + _churning(orders)
+           + _sold_before_payout(data, orders) + _overpaid(data, orders) + _churning(orders)
            + _held_out_player(data, orders) + _praise(data, orders, holdings))
     insights = _pick(raw)
 
@@ -567,13 +589,13 @@ def review(data: SeasonData) -> Review:
     worst = min(sells, key=lambda o: o.realised, default=None)
     warnings = [i for i in insights if i.tone == "warning"]
     if warnings:
-        lesson = f"{warnings[0].title}: {warnings[0].next_time}"
+        lesson = f"{warnings[0].title}. {warnings[0].next_time}"
     elif insights:
         lesson = f"{insights[0].title}. {insights[0].next_time}"
     elif not orders:
-        lesson = "Make your first trade: the review fills in as you play."
+        lesson = "Buy your first players: this review fills in as the season plays."
     else:
-        lesson = "No mistakes spotted yet. Keep spreading your money and watch the Storm Radar."
+        lesson = "No mistakes spotted yet. Keep your money spread out and check injury news before buying."
 
     summary = Summary(
         equity=round(equity, 2),

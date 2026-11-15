@@ -5,9 +5,12 @@ them is real engine data: their cash, holdings, trades, payouts and equity.
 Only these five bots are tracked (a trade log, payouts and one equity point
 per market day), so the cost is negligible next to the 300-bot market.
 
-Funding: a fixed-pool bot starts with about H$10,000 and spends it within days,
-so each rival is topped up to RIVAL_CASH_CENTS when the market is created,
+Funding: each rival has at least the same cash a player starts with (H$100 in
+the UI's denomination = 10,000,000 ledger cents), set when the market is created,
 before the market's conservation baseline is taken (the ledger stays exact).
+With the tenfold share economics a fixed-pool bot already starts with that much,
+so the top-up only matters for other bot counts. Rivals also hold their opening
+shares, so their return is measured from opening equity, not from cash.
 """
 
 from __future__ import annotations
@@ -15,7 +18,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-RIVAL_CASH_CENTS = 10_000_000  # H$100,000: the same cash a player starts with
+from trading.db import STARTING_CASH_CENTS
+
+RIVAL_CASH_CENTS = STARTING_CASH_CENTS  # H$100 displayed: the same cash a player starts with
 
 # (bot style, rival id, name, persona, one-line strategy)
 ROSTER = (
