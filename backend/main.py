@@ -37,6 +37,7 @@ from trading.open_orders import OrderWatcher
 from trading.payouts import PayoutProcessor
 from learning import configure as configure_learning, router as learning_router, shutdown as shutdown_learning
 from learning.adapters.season_market import SeasonMarketAdapter
+from learning.composition_api import router as composition_router
 
 
 @asynccontextmanager
@@ -179,6 +180,7 @@ from market.router import router as market_router
 app.include_router(trading_router)
 app.include_router(market_router)
 app.include_router(learning_router)
+app.include_router(composition_router)
 from market.timeline import router as timeline_router
 app.include_router(timeline_router)
 # Standalone integration demo; keeps the production frontend namespace free.

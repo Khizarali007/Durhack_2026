@@ -103,5 +103,12 @@ def test_one_backend_serves_learning_with_real_adapters(engine, monkeypatch):
             assert c.get("/learning/glossary").status_code == 200
             assert isinstance(c.get("/learning/missions").json(), list)
             assert c.get("/market/players").status_code == 200
+            assert c.get("/learning/composition").status_code == 401
+            token = c.post("/trading/guest").json()["token"]
+            auth = {"Authorization": "Bearer " + token}
+            assert c.get("/learning/composition", headers=auth).json()["grade"] is None
+            assert c.post("/trading/orders", headers=auth, json={"symbol": "SGA", "side": "buy", "qty": 2}).status_code == 200
+            comp = c.get("/learning/composition", headers=auth).json()
+            assert comp["grade"] == "F" and comp["by_player"][0]["key"] == "SGA" and comp["by_team"][0]["key"] == "OKC"
     finally:
         use_market(None)
