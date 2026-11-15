@@ -213,7 +213,8 @@ class Market:
         before = self.fair_cents
         changed = (self.injury_status, self.injury_level) != (report['status'], report['impact_level'])
         self.injury_status, self.injury_level = report['status'], report['impact_level']
-        self.injury_reason = report['reason']
+        # Player-facing text stays mild: the status only, never the medical reason.
+        self.injury_reason = f"Listed {report['status'].lower()} on the official NBA injury report"
         self.update_fair()
         healthy = dividend_value(self.ability_score,self.form_score,age=self.age+max(0.,self.valuation_time-OPENING_T)/YEAR_SECONDS,
                                  as_of=self.valuation_time,schedule=self.schedule,excluded=self.detached_days)

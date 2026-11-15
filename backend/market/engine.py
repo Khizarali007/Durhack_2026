@@ -95,6 +95,7 @@ class LiveMarket:
         self.human_dividends = {}
         self.last_error = None
         self._bot_trades = []
+        self.news = []  # recent official-report events, newest last
         self._bundle_minute = int(self._t // 60) * 60
         for m in self.markets.values():
             m.trade_observer = self._record_bot
@@ -314,7 +315,8 @@ class LiveMarket:
             m.valuation_time = day_end(day)
             report = self.injuries.get(day, {}).get(pid)
             if report:
-                m.set_injury(report)
+                if m.set_injury(report):
+                    self._announce_injury(pid, report, day)
             else:
                 m.injury_signal = 0.0
             scores = self.results.get(day, {}).get(pid, [])
@@ -336,6 +338,26 @@ class LiveMarket:
         for bot in next(iter(self.markets.values())).bots:
             bot.orders_today = 0
         self.day += timedelta(days=1)
+
+    def _announce_injury(self, pid, report, day):
+        """Official injury-report changes become radar events: Questionable/Doubtful is an
+        early warning (cloudy), Out is a storm. Headlines carry the status only."""
+        status = report['status']
+        if status in ('Questionable', 'Doubtful'):
+            kind, verb = 'early_warning', f"listed {status.lower()}"
+        elif status == 'Out':
+            kind, verb = 'injury', 'ruled out'
+        else:
+            return
+        m = self.markets[pid]
+        game = datetime.fromisoformat(report['game_date']).strftime('%-d %b') if report.get('game_date') else 'the next game'
+        prefix = 'Early warning' if kind == 'early_warning' else 'Storm'
+        event = {'type': 'event', 't': day_end(day), 'symbol': self.symbols[pid], 'kind': kind,
+                 'headline': f"{prefix}: {m.player_name} {verb} for {game} on the official injury report",
+                 'impact': round(m.injury_signal, 4), 'storm': 2.0 if kind == 'injury' else 1.3}
+        self.news.append(event)
+        del self.news[:-500]
+        self._publish(event)
 
     def step(self, target_t=None):
         if self.finished:

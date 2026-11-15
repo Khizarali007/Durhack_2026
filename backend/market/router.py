@@ -86,6 +86,10 @@ async def live_quotes(websocket: WebSocket):
                     await getter
                 continue
             event = getter.result()
+            if isinstance(event, dict) and event.get('type') == 'event':
+                if event.get('symbol') in symbols:
+                    await websocket.send_json({**event, 'session_id': getattr(m, 'session_id', None)})
+                continue
             if isinstance(event, MarketTick):
                 # Browser updates are display-only. Internal order consumers still
                 # receive every tick; avoid serializing 580 quotes hundreds of times/s.
@@ -103,6 +107,12 @@ async def live_quotes(websocket: WebSocket):
                 task.cancel()
                 with contextlib.suppress(asyncio.CancelledError, WebSocketDisconnect):
                     await task
+
+
+@router.get('/events')
+async def recent_events(limit: int = 50):
+    """Recent official injury-report events (early warnings and storms), newest first."""
+    return list(reversed(getattr(get_market(), 'news', [])[-max(1, min(limit, 500)):]))
 
 
 @router.get('/model')

@@ -79,7 +79,11 @@ class SeasonMarketAdapter:
 
     def recent_events(self, since_t: float | None = None) -> list[MarketEvent]:
         now = self.market_time()
-        return [e for e in self._events if e.t <= now and (since_t is None or e.t >= since_t)]
+        real = [MarketEvent(t=e['t'], symbol=e['symbol'], kind=e['kind'], headline=e['headline'],
+                            impact=e.get('impact', 0.0), storm=e.get('storm', 1.0))
+                for e in getattr(self._market(), 'news', [])]
+        merged = sorted(self._events + real, key=lambda e: e.t)
+        return [e for e in merged if e.t <= now and (since_t is None or e.t >= since_t)]
 
     def requested_shifts(self) -> dict[str, float]:
         """What missions asked for; recorded for the debrief, not applied to prices."""
