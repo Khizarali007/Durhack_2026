@@ -1,4 +1,4 @@
-"""HoopStreet backend app, shared by Person 1 (market) and Person 2 (trading).
+"""HoopStreet backend app: Person 1 (market), Person 2 (trading) and Person 4 (learning).
 
 Historical market, account trading, settlement and the standalone browser demo
 share one process and one replay session.
@@ -35,6 +35,8 @@ from trading.margin import MarginMonitor
 from trading.market_provider import get_market, use_market
 from trading.open_orders import OrderWatcher
 from trading.payouts import PayoutProcessor
+from learning import configure as configure_learning, router as learning_router, shutdown as shutdown_learning
+from learning.adapters.season_market import SeasonMarketAdapter
 
 
 @asynccontextmanager
@@ -99,14 +101,15 @@ async def market_runtime(app: FastAPI):
                                                Pubkey.from_string(chain_config.PORTFOLIO_PROGRAM_ID))
         await app.state.portfolios.start()
 
-    # Person 4's TradesAdapter (P2-21). At merge, Person 4 plugs in here (see
-    # docs/person4-interfaces.md on their branch):
-    #   configure_learning(market_adapter, app.state.trades_adapter)
+    # Person 4's learning layer, on Person 2's real TradesAdapter (P2-21) and a
+    # MarketAdapter over Person 1's season engine.
     app.state.trades_adapter = TradesAdapter(app.state.trading_db)
+    app.state.market_adapter = SeasonMarketAdapter(get_market)
+    configure_learning(app.state.market_adapter, app.state.trades_adapter)
     try:
         yield
     finally:
-        # Person 4: await shutdown_learning()
+        await shutdown_learning()
         if app.state.portfolios:
             await app.state.portfolios.stop()
         await leaderboard.stop()
@@ -175,7 +178,27 @@ from market.router import router as market_router
 
 app.include_router(trading_router)
 app.include_router(market_router)
+app.include_router(learning_router)
 from market.timeline import router as timeline_router
 app.include_router(timeline_router)
 # Standalone integration demo; keeps the production frontend namespace free.
 app.mount("/demo", StaticFiles(directory=Path(__file__).resolve().parents[1] / "web" / "demo", html=True), name="demo")
+
+
+class SPAStaticFiles(StaticFiles):
+    """Serve the built React app; unknown paths fall back to index.html for client routing."""
+
+    async def get_response(self, path, scope):
+        from starlette.exceptions import HTTPException as StarletteHTTPException
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code != 404 or path.startswith(("market/", "trading/", "learning/")):
+                raise
+            return await super().get_response("index.html", scope)
+
+
+# One-port demo (scripts/demo): the API above plus the built frontend.
+FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+if os.environ.get("SERVE_FRONTEND", "1") != "0" and (FRONTEND_DIST / "index.html").exists():
+    app.mount("/", SPAStaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
