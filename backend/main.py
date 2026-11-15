@@ -27,6 +27,7 @@ from trading.chain import config as chain_config
 from trading.chain import worker as receipt_worker
 from trading.chain.portfolio_sync import PortfolioSyncer
 from trading.chain.bot_bundles import BotBundleRecorder
+from trading import identity
 from trading.db import Database
 from trading.equity import EquityRecorder
 from trading.leaderboard import LeaderboardBroadcaster
@@ -70,6 +71,10 @@ async def market_runtime(app: FastAPI):
     market = get_market()
     fresh = getattr(market, "requires_fresh_session", False)
     app.state.trading_db = Database(":memory:" if fresh else None)
+    # Accounts outlive the season: restore every saved login into the fresh database (identity.py).
+    app.state.season_reset_users = set()
+    if fresh and identity.store() is not None:
+        app.state.season_reset_users = identity.store().restore_into(app.state.trading_db)
 
 
     # Live updates over /trading/ws (P2-13).
@@ -175,6 +180,7 @@ async def lifespan(app: FastAPI):
         await stack.enter_async_context(market_runtime(app))
 
     app.state.restart_market = restart_market
+    identity.use_store(identity.IdentityStore())
     await stack.enter_async_context(market_runtime(app))
     try:
         yield
@@ -185,6 +191,9 @@ async def lifespan(app: FastAPI):
             with contextlib.suppress(asyncio.CancelledError):
                 await task
         await stack.aclose()
+        if identity.store() is not None:
+            identity.store().close()
+            identity.use_store(None)
 
 
 app = FastAPI(title="HoopStreet", lifespan=lifespan)

@@ -14,6 +14,7 @@ import sqlite3
 import time
 from dataclasses import dataclass
 
+from . import identity
 from .chain.wallets import ensure_wallet
 from .db import STARTING_CASH_CENTS, Database
 from .passwords import DUMMY_HASH, hash_password, verify_password
@@ -35,6 +36,12 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _remember(db: Database, user_id: str) -> None:
+    """Mirror the account into the restart-proof identity store (identity.py), if one is running."""
+    if (store := identity.store()) is not None:
+        store.remember_user(db, user_id)
+
+
 def _row_to_user(row: sqlite3.Row) -> User:
     return User(row["user_id"], row["username"], bool(row["is_guest"]), row["cash_cents"])
 
@@ -47,6 +54,7 @@ def create_guest_user(db: Database, cash_cents: int = STARTING_CASH_CENTS) -> Us
             (user_id, cash_cents, time.time()),
         )
     ensure_wallet(db, user_id)
+    _remember(db, user_id)
     return User(user_id, None, True, cash_cents)
 
 
@@ -67,6 +75,7 @@ def create_account(db: Database, username: str, password: str,
             (user_id, username, password_hash, cash_cents, time.time()),
         )
     ensure_wallet(db, user_id)
+    _remember(db, user_id)
     return User(user_id, username, False, cash_cents)
 
 
@@ -87,6 +96,8 @@ def authenticate(db: Database, username: str, password: str) -> User | None:
 def delete_session(db: Database, token: str) -> None:
     with db.lock, db.conn:
         db.conn.execute("DELETE FROM sessions WHERE token_hash = ?", (_hash_token(token),))
+    if (store := identity.store()) is not None:
+        store.forget_session(_hash_token(token))
 
 
 def create_session(db: Database, user_id: str) -> str:
@@ -97,6 +108,8 @@ def create_session(db: Database, user_id: str) -> str:
             "INSERT INTO sessions (token_hash, user_id, created_at) VALUES (?, ?, ?)",
             (_hash_token(token), user_id, time.time()),
         )
+    if (store := identity.store()) is not None:
+        store.remember_session(_hash_token(token), user_id)
     return token
 
 
@@ -113,3 +126,27 @@ def get_user(db: Database, user_id: str) -> User | None:
     with db.lock:
         row = db.conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
     return _row_to_user(row) if row else None
+
+
+class NotAGuest(Exception):
+    pass
+
+
+def upgrade_guest(db: Database, user_id: str, username: str, password: str) -> User:
+    """Turn a guest into a named account, keeping its portfolio ("Save your progress")."""
+    password_hash = hash_password(password)
+    with db.lock, db.conn:
+        row = db.conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+        if row is None or not row["is_guest"]:
+            raise NotAGuest(user_id)
+        taken = db.conn.execute(
+            "SELECT 1 FROM users WHERE lower(username) = lower(?)", (username,)
+        ).fetchone()
+        if taken:
+            raise UsernameTaken(username)
+        db.conn.execute(
+            "UPDATE users SET username = ?, password_hash = ?, is_guest = 0 WHERE user_id = ?",
+            (username, password_hash, user_id),
+        )
+    _remember(db, user_id)
+    return User(user_id, username, False, row["cash_cents"])

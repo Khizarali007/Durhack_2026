@@ -11,8 +11,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket
 from pydantic import BaseModel, Field
 
 from .accounts import (
+    NotAGuest,
     User,
     UsernameTaken,
+    upgrade_guest,
     authenticate,
     create_account,
     create_guest_user,
@@ -73,6 +75,8 @@ class MeOut(BaseModel):
     cash: float
     wallet_address: str
     wallet_explorer_url: str
+    season_reset: bool = Field(False, description="The season restarted since your last visit: your account is "
+                                                  "safe and your portfolio began again with the starting cash")
 
 
 class OrderIn(BaseModel):
@@ -438,12 +442,33 @@ def logout(token: str = Depends(current_token), db: Database = Depends(get_db)) 
 
 
 @router.get("/me")
-def me(user: User = Depends(current_user), db: Database = Depends(get_db)) -> MeOut:
+def me(request: Request, user: User = Depends(current_user), db: Database = Depends(get_db)) -> MeOut:
     """Who the token belongs to, their cash and their devnet wallet."""
     address = ensure_wallet(db, user.user_id)
+    reset = user.user_id in getattr(request.app.state, "season_reset_users", set())
     return MeOut(user_id=user.user_id, username=user.username, is_guest=user.is_guest,
                  cash=to_hoop(user.cash_cents), wallet_address=address,
-                 wallet_explorer_url=explorer_url("address", address))
+                 wallet_explorer_url=explorer_url("address", address), season_reset=reset)
+
+
+@router.post("/me/season-reset/dismiss", status_code=status.HTTP_204_NO_CONTENT)
+def dismiss_season_reset(request: Request, user: User = Depends(current_user)) -> None:
+    """Hide the "the season was reset" notice for this account."""
+    getattr(request.app.state, "season_reset_users", set()).discard(user.user_id)
+
+
+@router.post("/upgrade")
+def upgrade(credentials: CredentialsIn, request: Request, user: User = Depends(current_user),
+            db: Database = Depends(get_db)) -> MeOut:
+    """Save your progress: give a guest account a username and password, keeping its portfolio."""
+    try:
+        upgrade_guest(db, user.user_id, credentials.username, credentials.password)
+    except UsernameTaken:
+        raise HTTPException(status.HTTP_409_CONFLICT, "that username is taken") from None
+    except NotAGuest:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "this account already has a username") from None
+    upgraded = User(user.user_id, credentials.username, False, user.cash_cents)
+    return me(request, upgraded, db)
 
 
 @router.post("/orders")

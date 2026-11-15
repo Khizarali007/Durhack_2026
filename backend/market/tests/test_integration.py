@@ -356,7 +356,10 @@ def test_timeline_forward_settles_and_rewind_resets_accounts(engine, monkeypatch
             client.post('/market/timeline', json={'target_t':start})
             status = wait_seek()
             assert status['t'] == start and status['session_id'] != session
-            assert client.get('/trading/portfolio', headers=headers).status_code == 401
+            # Rewind restarts the portfolio but keeps the account (trading/identity.py).
+            restarted = client.get('/trading/portfolio', headers=headers).json()
+            assert restarted['positions'] == [] and restarted['cash'] == 100000
+            assert client.get('/trading/me', headers=headers).json()['season_reset'] is True
             fresh = client.post('/trading/guest').json()
             assert fresh['cash'] == 100000
             assert client.post('/market/timeline', json={'rate':20,'paused':False}).json()['rate'] == 20
