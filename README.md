@@ -10,14 +10,14 @@ virtual; owning a share confers no rights in a real player.
 
 ## What you can do
 
-- **Log in, sign up or play as guest.** Accounts survive backend restarts and season rewinds; a guest can "Save your progress" from the header menu.
-- **Trade the season.** Buy and sell any of 580 players (market, limit, stop-loss), press **Next day** to replay games, and collect performance payouts.
-- **Read the market.** Daily price chart with the analyst estimate, compare up to three players, 1M/3M/Season ranges, and early-warning / storm markers from the official injury report. Storm Radar and "Why did it move?" on every player.
-- **Composition.** Portfolio page: % by team and player and an A–F grade with a reason.
-- **Your season review** (Activity): return, payouts, fees, best/worst trade, max drawdown, review cards (concentration, buying into a storm, panic selling, missed payouts, overpaying, churning, holding an Out player, plus praise) with the H$ impact and the lesson that teaches it, and a plain-English timeline. Optional **Coach Hoops** (Gemini) rewords it in three bullets.
-- **Friends.** Five simulated practice rivals (Maya, Theo, Priya, Sam, Jordan) built from the real market bots: ranked against you, with an Insights panel on what each did differently. They also fill the leaderboard.
-- **Learn.** Six guided tutorials over the real screens, a glossary and a knowledge check.
-- **Demo helpers.** `/director` jumps to the Wembanyama storm (19–21 Feb 2025); projector mode in the header menu.
+1. **Sign in.** Log in, sign up, or press **Play as guest**. Your login survives server restarts; a guest can **Save your progress** from the menu.
+2. **Build your roster.** Start with **H$100**, search the 580 players by name or team, and buy shares in at least three players across two teams. Then press **Start season**.
+3. **Follow the season.** It plays continuously; every week a report appears in **Updates** (what happened in the market and to your money). Buy and sell any time (market, limit and stop-loss orders).
+4. **See what you did.** **Activity** reviews *your* choices: season return, payments, fees, your best sale, biggest drop, and plain-English cards on what worked and what to try next, each linked to the lesson that teaches it. **Coach Hoops** (Gemini, optional) sums it up in three bullets.
+5. **Compare with Friends.** Five practice rivals (Maya, Theo, Priya, Sam, Jordan) are computer traders from the market with made-up names. See how they did and what they did differently. They also appear on the **Leaderboard**, labelled as simulated.
+6. **Learn.** Six short guided tutorials over the real screens, a glossary and a quick quiz.
+
+Also: price charts with the analyst estimate, injury markers from the official NBA report, player comparisons; a diversification grade on Portfolio; Solana receipts for trades; projector mode in the menu; `/director` jumps to the Wembanyama injury (19–21 Feb 2025) for demos.
 
 ## Quickstart (fresh clone)
 
@@ -74,7 +74,7 @@ apply to a new market session; old running processes must be restarted.
 ```sh
 cd backend && ../.venv/bin/python -m pytest -q        # market, trading, learning
 PYTHONPATH=backend:scripts .venv/bin/python -m pytest -q tests
-cd frontend && npm run build && npm run lint && npm run test:learning && npm run test:currency
+cd frontend && npm run build && npm run lint && npm run test:learning && npm run test:currency && npm run test:season
 cd frontend && npm run test:e2e                       # Playwright smoke (needs scripts/demo running)
 ```
 

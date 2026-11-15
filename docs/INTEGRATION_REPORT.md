@@ -140,3 +140,18 @@ git push -u origin my-next-feature   # then open a PR into main
 ```
 
 If you had unpushed commits on an old branch, `git merge origin/main` keeps them; resolve any conflicts in favour of main for files listed in D2/D18 and re-apply your change on top. Nothing on the archive tags is ever deleted.
+
+
+## Merge with Jonathan's `user-simplification` (16 November)
+
+`main` now has Jonathan's simplified product (Overview, Updates, roster setup, continuous
+season with weekly reports, H$100 currency, ×10 share economics, portraits and full names,
+better opening values) with Person 4's login, persistent accounts, Friends/rivals, season
+review, Coach Hoops and chart performance redrawn in his style. Details: D31–D37.
+
+Results: backend **498 passed, 3 skipped**; root tests **10 passed**; frontend build and lint
+clean; unit tests season **3/3**, currency **5/5** (including the shared backend/UI cases),
+learning **6/6**; Playwright **2/2** (sign-up → roster → season → trade → review → Coach
+Hoops → Updates → log out/in; guest → roster → Friends Insights → rival → leaderboard).
+Checked by hand in the browser: a full Welcome tutorial, the Wembanyama storm (warning then
+−10%), a real Gemini answer (cached afterwards).

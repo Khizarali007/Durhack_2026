@@ -34,3 +34,27 @@ and network churn were captured. First pass on `main` at e5ad6f7; re-checked on
 - `PortfolioPage`, `MarketPage`, `HomePage` and the ticket were already on the design system and were not reformatted.
 
 Final pass: no page errors, no console errors other than the 409 above, in either theme.
+
+
+## Merge with `user-simplification` (16 November)
+
+Screenshots of `/login`, roster setup, `/`, `/updates`, `/market`, a stock page,
+`/portfolio`, `/leaderboard`, `/friends`, a rival page, `/learn`, `/activity` and
+`/director`, in dark and light, after three weekly reports. Jonathan's design is
+the reference; Person 4's pages were redrawn to match it.
+
+| # | Found | Status |
+|---|---|---|
+| M1 | Person 4's pages (Activity, Friends, rival, leaderboard, Director) used their own denser cards and tile grid, out of place next to his overview layout | **Fixed**: rebuilt on his shared classes (`overview-page`, `balance-panel`, `holdings-panel`, `holding-item`, `result-details`, `quiet-label`) |
+| M2 | Login copy said "H$100,000"; reset notice said "H$100,000" | **Fixed**: H$100 |
+| M3 | `formatHOOP(x, 0)` on Friends/rival/Composition would round H$99.95 to "H$100" in the new denomination | **Fixed**: default precision |
+| M4 | Backend sentences wrote legacy units as H$ (e.g. "H$124.18" for a H$0.12418 price) and tickers instead of names | **Fixed**: `learning/currency.py` plus full names; parity test against the UI formatter |
+| M5 | Rivals showed ~H$720 next to the player's H$100 (opening shares × tenfold prices) | **Fixed**: rival money scaled to a H$100 start, labelled |
+| M6 | A rival's praise read "You bought…" and omitted the player | **Fixed**: subject-aware wording |
+| M7 | Chart: his version reloaded the whole history every second | **Fixed**: Person 4's data flow under his design |
+| M8 | Season bar said a rewind "resets all accounts" (untrue with persistent logins) | **Fixed** wording |
+| M9 | Coach Hoops always fell back to the template (retired model, 8 s deadline below Gemini's 10 s minimum, failures cached) | **Fixed** (D37) |
+
+Still open (minor): one expected `409` while a jump is processing; one portrait `404`
+for players without an ESPN headshot (his component falls back to initials by design);
+the chart credit overlaps the date axis slightly in his layout.
