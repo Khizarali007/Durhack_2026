@@ -7,14 +7,15 @@ export interface SegmentOption {
 }
 
 export interface SegmentedControlProps {
+  tourId?: string
   options: [SegmentOption, SegmentOption]
   value: string
   onChange: (value: string) => void
 }
 
-export function SegmentedControl({ options, value, onChange }: SegmentedControlProps) {
+export function SegmentedControl({ options, value, onChange, tourId }: SegmentedControlProps) {
   return (
-    <div className={styles.root}>
+    <div className={styles.root} data-tour={tourId}>
       {options.map((opt) => {
         const isActive = opt.value === value
         const colorClass =
@@ -29,7 +30,7 @@ export function SegmentedControl({ options, value, onChange }: SegmentedControlP
           .join(' ')
 
         return (
-          <button key={opt.value} type="button" className={cls} onClick={() => onChange(opt.value)}>
+          <button key={opt.value} type="button" aria-pressed={isActive} data-tour={tourId ? `${tourId}-${opt.value}` : undefined} className={cls} onClick={() => onChange(opt.value)}>
             {opt.label}
           </button>
         )

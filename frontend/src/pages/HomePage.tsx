@@ -1,3 +1,4 @@
+import { TourPromptCard } from '../learning/learn/TourPromptCard'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePlayers } from '../api'
@@ -51,7 +52,7 @@ export default function HomePage() {
 
       <AccountStrip />
 
-      <div className={styles.columns}>
+      <div className={styles.columns} data-tour="home-movers">
         <section className={styles.column} aria-label="Top gainers">
           <h2 className={styles.colTitle}><span className="trend-up" aria-hidden="true">▲</span> Biggest gainers</h2>
           {waiting
@@ -71,7 +72,7 @@ export default function HomePage() {
 
         {/* Mount point for Person 4's mission prompt card ("Mission 1: Buy low, sell high") */}
         <section id="mission-card-mount" className={styles.mount} aria-label="Mission">
-          Your score includes cash and what your holdings could sell for after costs. A good player is not automatically a good buy at any price.
+          <TourPromptCard />
         </section>
       </div>
     </div>

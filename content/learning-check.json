@@ -1,0 +1,57 @@
+[
+  {
+    "id": "execution",
+    "question": "A player is quoted at a $50 midpoint, with a $49 bid and $51 ask. What does a small market buy use before fees?",
+    "options": [
+      "The $50 midpoint",
+      "The available $51 ask",
+      "The analyst estimate"
+    ],
+    "answer": 1,
+    "explanation": "A purchase uses available asks. The midpoint is indicative; larger orders can move through different prices."
+  },
+  {
+    "id": "payout",
+    "question": "You hold 10 shares at the game cutoff and the player records Game Score 20. What is the performance payment?",
+    "options": [
+      "$4",
+      " $20",
+      "$40"
+    ],
+    "answer": 0,
+    "explanation": "10 shares \u00d7 $0.02 \u00d7 20 = $4. The payment is virtual cash, separate from the stock price."
+  },
+  {
+    "id": "cutoff",
+    "question": "You buy just after a game\u2019s noon ownership cutoff. Who receives the entitlement already recorded for that game?",
+    "options": [
+      "You, because you own shares at day close",
+      "Both buyer and seller",
+      "The holder recorded at the cutoff"
+    ],
+    "answer": 2,
+    "explanation": "Ownership at the cutoff determines the entitlement. Selling afterward does not transfer that already-recorded right."
+  },
+  {
+    "id": "score",
+    "question": "Your cash is $90,000, including $100 of paid dividends. Net sale proceeds are $10,200 and pending rights are $5. What is your season score?",
+    "options": [
+      "$100,305",
+      "$100,205",
+      "$100,200"
+    ],
+    "answer": 1,
+    "explanation": "$90,000 + $10,200 + $5 = $100,205. Adding the $100 again would count the paid dividends twice."
+  },
+  {
+    "id": "risk",
+    "question": "A stop trigger is $50, but the next available bid after a gap is $45. Which statement is correct?",
+    "options": [
+      "The stop guarantees a $50 sale",
+      "It tries to sell at available bids and can fill below $50",
+      "The market refunds the gap"
+    ],
+    "answer": 1,
+    "explanation": "The trigger activates a market sale; it does not guarantee a price or enough liquidity for a full fill."
+  }
+]

@@ -18,7 +18,7 @@ export default function PortfolioPage() {
 
       <AccountStrip />
 
-      <section className={styles.panel} aria-label="Holdings">
+      <section className={styles.panel} aria-label="Holdings" data-tour="portfolio-holdings">
         <h2 className={styles.panelTitle}>Holdings</h2>
         {portfolio === null ? (
           <div className={styles.skeletons} aria-busy={loading}>

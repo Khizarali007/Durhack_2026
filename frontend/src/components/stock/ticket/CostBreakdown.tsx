@@ -19,7 +19,7 @@ interface CostBreakdownProps {
 /** Spread, slippage and fee before you confirm. Collapsed by default: one line until you ask for more. */
 export default function CostBreakdown({ lines, totalLabel, total, footnote }: CostBreakdownProps) {
   return (
-    <details className={styles.breakdown}>
+    <details className={styles.breakdown} data-tour="ticket-breakdown">
       <summary>
         <span>Cost breakdown</span>
         <span className={styles.breakdownTotal}>{total === null ? '—' : formatHOOP(total)}</span>

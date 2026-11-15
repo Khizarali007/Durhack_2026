@@ -133,3 +133,14 @@ Prepared, not approved: replace the league-level no-history prior with a cautiou
 historical newcomer prior. Active opening values have not been regenerated.
 An alternative is excluding those players for the demo. Reconsider the simple
 prior when trustworthy preseason draft/role and playing-time estimates exist.
+
+
+## 15 November 2026 — learning adaptation
+
+Restored guided learning without changing the market to guarantee a profitable
+tutorial. Replaced the active forced-rally timed mission with actual-action
+checks and a scored rules quiz. Reason: the season model has finite liquidity,
+execution costs and uncertain returns. A small round-trip loss is useful
+evidence of costs, not a failed lesson. Educational scores never affect
+portfolio cash or competition rankings. A separate, clearly labelled sandbox
+could host scripted scenarios later if specifically desired.

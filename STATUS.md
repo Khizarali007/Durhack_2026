@@ -6,6 +6,14 @@ Branch: `integration/season-gameplay`. Local integration; do not push.
 
 ## Current milestone
 
+Learning restored on 15 November: six guided tutorials, saved account-scoped
+progress, searchable glossary, actual-action checklist and a scored knowledge
+check. All six tutorials completed in-browser against the running backend;
+resume after reload and glossary search verified. Buy/sell exercise showed
+-$2.14 after costs; payout exercise waited until $4.77 was actually credited.
+Six focused learning regressions pass; frontend build and lint pass. No backend
+economics changed in this update. See frontend/src/learning/README.md.
+
 Working frontend/backend season challenge. Core loop verified in browser:
 first purchase → historical replay → game payouts → sale → liquidation score.
 Frontend imported from `origin/frontend` (832f6b7), backend based on b3834af.

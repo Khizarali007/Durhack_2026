@@ -71,6 +71,7 @@ export async function placeOrder(input: OrderIn): Promise<OrderOut> {
   const out = USE_MOCKS
     ? mockRest.placeOrder(input)
     : await apiFetch<OrderOut>('/orders', { method: 'POST', body: JSON.stringify(input) })
+  window.dispatchEvent(new CustomEvent('learning-order-filled', {detail: out}))
   signalAccountChanged()
   return out
 }

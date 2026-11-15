@@ -1,3 +1,4 @@
+import { TourOverlay } from '../../learning/tour/TourOverlay'
 import { Outlet } from 'react-router-dom'
 import { useState } from 'react'
 import { useSession, usePortfolio, useTrades } from '../../api'
@@ -30,6 +31,7 @@ export default function AppShell() {
 
   return (
     <div className={styles.shell}>
+      <TourOverlay />
       <Header />
       <SeasonControls />
       <PaymentNotice />

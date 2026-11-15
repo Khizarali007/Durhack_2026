@@ -201,6 +201,7 @@ export default function MarketPage() {
           className={styles.filterInput}
           type="search"
           placeholder="Filter players, symbols, teams…"
+          data-tour="market-search"
           value={query}
           onChange={e => { setQuery(e.target.value); setHighlightedIdx(-1) }}
           aria-label="Filter players"
@@ -210,6 +211,7 @@ export default function MarketPage() {
           value={teamFilter}
           onChange={e => { setTeamFilter(e.target.value); setHighlightedIdx(-1) }}
           aria-label="Filter by team"
+          data-tour="market-team"
         >
           <option value="">All 30 teams</option>
           {allTeams.map(t => <option key={t} value={t}>{t}</option>)}
@@ -220,7 +222,7 @@ export default function MarketPage() {
       </div>
 
       {/* Table */}
-      <div className={styles.tableWrapper}>
+      <div className={styles.tableWrapper} data-tour="market-table">
 
         {/* Column header row */}
         <div className={styles.tableHeader} role="row">
@@ -307,6 +309,7 @@ export default function MarketPage() {
                       onClick={() => navigate(`/stock/${player.symbol}`)}
                       onMouseEnter={() => setHighlightedIdx(idx)}
                       aria-rowindex={idx + 1}
+                      data-tour={`market-row-${player.symbol}`}
                     >
                       <MarketRow player={player} isHighlighted={idx === highlightedIdx} />
                     </div>

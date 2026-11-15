@@ -1,0 +1,96 @@
+/* ---- Plain feed line ---- */
+.item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--hs-space-2);
+  padding: var(--hs-space-2) var(--hs-space-3);
+  border-bottom: 1px solid var(--hs-color-border-subtle);
+}
+
+.kind {
+  font-size: var(--learn-fs-xs);
+  font-weight: var(--hs-font-weight-medium);
+  letter-spacing: var(--hs-letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--learn-text-muted);
+  min-width: 3.5em;
+}
+
+.hint .kind {
+  color: var(--hs-color-accent);
+}
+
+.text {
+  color: var(--hs-color-text-primary);
+  font-size: var(--learn-fs-sm);
+}
+
+.time {
+  font-size: var(--learn-fs-xs);
+  color: var(--learn-text-muted);
+}
+
+/* ---- Breaking news alert: muted tint + left border, no neon ---- */
+.alert {
+  padding: var(--hs-space-2) var(--hs-space-3);
+  border-left: 2px solid var(--tone);
+  background: var(--tone-muted);
+  border-bottom: 1px solid var(--hs-color-border-subtle);
+}
+
+.heat {
+  --tone: var(--learn-heat);
+  --tone-muted: var(--learn-heat-muted);
+}
+
+.storm {
+  --tone: var(--learn-storm);
+  --tone-muted: var(--learn-storm-muted);
+}
+
+.watch {
+  --tone: var(--learn-watch);
+  --tone-muted: var(--learn-watch-muted);
+}
+
+.calm,
+.fog {
+  --tone: var(--learn-calm);
+  --tone-muted: var(--learn-calm-muted);
+}
+
+.alertHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--hs-space-2);
+}
+
+.alertLabel {
+  font-size: var(--learn-fs-xs);
+  font-weight: var(--hs-font-weight-semibold);
+  letter-spacing: var(--hs-letter-spacing-label);
+  text-transform: uppercase;
+  color: var(--tone);
+}
+
+.symbol {
+  font-size: var(--learn-fs-xs);
+  font-weight: var(--hs-font-weight-semibold);
+  color: var(--hs-color-text-primary);
+  padding: 0 var(--hs-space-1);
+  border-radius: var(--hs-radius-sm);
+  background: var(--hs-color-neutral-muted);
+}
+
+.alertHead .time {
+  margin-left: auto;
+}
+
+.headline {
+  margin: var(--hs-space-1) 0 0;
+  color: var(--hs-color-text-primary);
+  font-size: var(--learn-fs-md);
+  font-weight: var(--hs-font-weight-semibold);
+  line-height: var(--hs-line-height-tight);
+}

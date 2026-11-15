@@ -80,7 +80,7 @@ export default function StockActivity({ symbol }: StockActivityProps) {
   ]
 
   return (
-    <section className={styles.panel} aria-label={`Your activity in ${symbol}`}>
+    <section className={styles.panel} aria-label={`Your activity in ${symbol}`} data-tour="stock-activity">
       <div className={styles.tabs} role="tablist">
         {tabs.map(t => (
           <button
@@ -89,6 +89,7 @@ export default function StockActivity({ symbol }: StockActivityProps) {
             role="tab"
             aria-selected={tab === t.value}
             className={`${styles.tab} ${tab === t.value ? styles.tabActive : ''}`}
+            data-tour={`stock-tab-${t.value}`}
             onClick={() => setTab(t.value)}
           >
             {t.label}

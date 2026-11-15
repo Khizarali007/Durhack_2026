@@ -18,7 +18,7 @@ interface OrderResultProps {
 export default function OrderResult({ result, onDismiss }: OrderResultProps) {
   if (result.kind === 'error') {
     return (
-      <div className={`${styles.result} ${styles.error}`} role="alert">
+      <div className={`${styles.result} ${styles.error}`} role="alert" data-tour="ticket-result">
         <div className={styles.head}>
           <span className={styles.title}><span aria-hidden="true">✕</span> Order not placed</span>
           <button type="button" className={styles.dismiss} onClick={onDismiss} aria-label="Dismiss">×</button>
@@ -33,7 +33,7 @@ export default function OrderResult({ result, onDismiss }: OrderResultProps) {
     const what = o.type === 'limit' ? 'Limit' : 'Stop-loss'
     const done = o.status === 'filled'
     return (
-      <div className={`${styles.result} ${done ? styles.ok : styles.pending}`} role="status">
+      <div className={`${styles.result} ${done ? styles.ok : styles.pending}`} role="status" data-tour="ticket-result">
         <div className={styles.head}>
           <span className={styles.title}>
             <span aria-hidden="true">{done ? '✓' : '◷'}</span>{' '}
@@ -61,7 +61,7 @@ export default function OrderResult({ result, onDismiss }: OrderResultProps) {
     : null
 
   return (
-    <div className={`${styles.result} ${partial ? styles.pending : styles.ok}`} role="status">
+    <div className={`${styles.result} ${partial ? styles.pending : styles.ok}`} role="status" data-tour="ticket-result">
       <div className={styles.head}>
         <span className={styles.title}>
           <span aria-hidden="true">{partial ? '◐' : '✓'}</span>{' '}

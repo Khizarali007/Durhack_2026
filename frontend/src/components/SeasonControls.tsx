@@ -31,12 +31,12 @@ export default function SeasonControls(){
   async function change(body:object){setWorking(true);setError('');try{setClock(await apiFetch<Timeline>('/market/timeline',{method:'POST',body:JSON.stringify(body)}))}catch(e){setError(errorDetail(e))}finally{setWorking(false)}}
   if(!clock)return <div className="season-controls" role="status">{error||'Connecting to the season…'}</div>
   const finished=clock.t>=clock.end_t
-  return <section className="season-controls" aria-label="Season challenge controls">
+  return <section className="season-controls" aria-label="Season challenge controls" data-tour="season-controls">
     <div className="season-row">
       <strong>2024–25 season · {new Date(clock.t*1000).toLocaleDateString('en-GB',{timeZone:'UTC'})}</strong>
       <button disabled={working||clock.busy||finished} onClick={()=>void change({paused:!clock.paused})}>{clock.paused?'Play':'Pause'}</button>
       <select aria-label="Replay speed" value={clock.rate} disabled={working||clock.busy} onChange={e=>void change({rate:Number(e.target.value)})}>{[1,5,20,50,200,500].map(r=><option key={r} value={r}>{r}×</option>)}</select>
-      <button disabled={working||clock.busy||finished} onClick={()=>void change({target_t:Math.min(clock.end_t,Math.floor(clock.t/86400)*86400+86400)})}>Next day</button>
+      <button disabled={working||clock.busy||finished} data-tour="season-next-day" onClick={()=>void change({target_t:Math.min(clock.end_t,Math.floor(clock.t/86400)*86400+86400)})}>Next day</button>
       <button disabled={working||clock.busy||finished} onClick={()=>void change({target_t:clock.end_t})}>Finish season</button>
       <label>Jump to <input aria-label="Jump to season date" type="date" min={new Date(clock.start_t*1000).toISOString().slice(0,10)} max={new Date(clock.end_t*1000).toISOString().slice(0,10)} ref={dateInput} disabled={working||clock.busy}/></label><button disabled={working||clock.busy} onClick={()=>{const target=Date.parse((dateInput.current?.value??'')+'T00:00:00Z')/1000;if(Number.isFinite(target))void change({target_t:target});else setError('Choose a season date first')}}>Go to date</button>
       <small>Rewinding resets every account. Speed is a target, limited by processing.</small>

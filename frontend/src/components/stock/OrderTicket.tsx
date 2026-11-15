@@ -119,7 +119,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
     totalLabel = selling ? 'You receive' : 'Cash set aside'
     footnote = mode === 'stop'
       ? 'A stop sells at the market once it triggers, so a sudden drop can fill below your stop.'
-      : 'A limit order has no slippage: it fills at your price or better, or not at all.'
+      : 'A limit controls the execution price: fills can occur at different prices within your limit, or not at all. Fees are additional.'
   }
 
   function selectMode(next: Mode) {
@@ -194,7 +194,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         : 'Place stop-loss'
 
   return (
-    <aside className={styles.ticket} aria-label={`Order ticket for ${player.name}`}>
+    <aside className={styles.ticket} aria-label={`Order ticket for ${player.name}`} data-tour="ticket">
       <div className={styles.head}>
         <span className={styles.title}>Trade {symbol}</span>
         <span className={styles.keys} title="Keyboard: B for buy, S for sell, Enter in the quantity box to confirm">
@@ -202,7 +202,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         </span>
       </div>
 
-      <SegmentedControl
+      <SegmentedControl tourId="ticket-side"
         options={[
           { label: 'Buy', value: 'buy', color: 'buy' },
           { label: 'Sell', value: 'sell', color: 'sell' },
@@ -211,10 +211,10 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         onChange={v => selectSide(v as Side)}
       />
 
-      <div className={styles.tabs} role="tablist" aria-label="Order type">
+      <div className={styles.tabs} role="tablist" aria-label="Order type" data-tour="ticket-order-type">
         {MODES.map(m => (
           <button
-            key={m.value}
+            key={m.value} data-tour={`ticket-tab-${m.value}`}
             type="button"
             role="tab"
             aria-selected={mode === m.value}
@@ -237,7 +237,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
       />
 
       {mode !== 'market' && (
-        <div className={styles.field}>
+        <div className={styles.field} data-tour="ticket-price">
           <label className={styles.fieldLabel} htmlFor="ticket-price">
             {mode === 'limit' ? 'Limit price' : 'Stop price'}
           </label>
@@ -269,7 +269,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
         </div>
       )}
 
-      <div className={styles.estimate}>
+      <div className={styles.estimate} data-tour="ticket-estimate">
         <span className={styles.estimateLabel}>{headlineLabel}</span>
         <span className={styles.estimateValue}>
           {headline !== null ? formatHOOP(headline) : '—'}
@@ -282,7 +282,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
 
       <CostBreakdown lines={lines} totalLabel={totalLabel} total={headline} footnote={footnote} />
 
-      <dl className={styles.account}>
+      <dl className={styles.account} data-tour="ticket-account">
         <div>
           <dt>Cash free to spend</dt>
           <dd>{freeCash === null ? '—' : formatHOOP(freeCash)}</dd>
@@ -307,7 +307,7 @@ export default function OrderTicket({ player }: OrderTicketProps) {
       </div>
 
       <Button
-        variant={buying ? 'buy' : 'sell'}
+        tourId="ticket-confirm" variant={buying ? 'buy' : 'sell'}
         size="lg"
         fullWidth
         disabled={!canSubmit}

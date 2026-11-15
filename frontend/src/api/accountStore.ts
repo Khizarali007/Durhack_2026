@@ -176,3 +176,5 @@ export function useLeaderboard(): { rows: LeaderboardRow[]; loading: boolean } {
 
   return state
 }
+
+export function learningPortfolio(): PortfolioOut | null { return snap.portfolio }

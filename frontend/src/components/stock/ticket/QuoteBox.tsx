@@ -18,8 +18,8 @@ export default function QuoteBox({ quote, emphasise, bidHelp, askHelp, makersHel
   const makers = quote?.makers ?? []
 
   return (
-    <div className={styles.box}>
-      <div className={styles.best}>
+    <div className={styles.box} data-tour="ticket-quote">
+      <div className={styles.best} data-tour="ticket-best">
         <div className={`${styles.side} ${emphasise === 'bid' ? styles.sideActive : ''}`}>
           <span className={styles.label}>Best bid {bidHelp}</span>
           <span className={styles.price}>{formatPrice(quote?.bid)}</span>
@@ -32,7 +32,7 @@ export default function QuoteBox({ quote, emphasise, bidHelp, askHelp, makersHel
         </div>
       </div>
 
-      <table className={styles.makers}>
+      <table className={styles.makers} data-tour="ticket-makers">
         <caption className={styles.caption}>Market makers {makersHelp}</caption>
         <thead>
           <tr>

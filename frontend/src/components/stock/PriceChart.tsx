@@ -46,7 +46,7 @@ export default function PriceChart({symbol}: {symbol:string;events?:MarketEvent[
     const timer=setInterval(()=>void load(),1000)
     return()=>{alive=false;clearInterval(timer);fit.current=null;chart.remove()}
   },[selection,symbol,theme,projector])
-  return <section className={styles.panel} aria-label={`${symbol} price chart`}>
+  return <section className={styles.panel} aria-label={`${symbol} price chart`} data-tour="stock-chart">
     <div className={styles.toolbar}>
       <span>Quoted prices · daily observations · dashed analyst estimate</span>
       <button onClick={()=>fit.current?.()}>Fit history</button>

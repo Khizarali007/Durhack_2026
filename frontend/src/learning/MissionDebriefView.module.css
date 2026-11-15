@@ -1,0 +1,143 @@
+.root {
+  min-width: 0;
+}
+
+.root .card {
+  border-left-width: 2px;
+}
+
+.root .pass {
+  border-left-color: var(--hs-color-up);
+}
+
+.root .fail {
+  border-left-color: var(--hs-color-down);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hs-space-3);
+  min-height: var(--hs-layout-btn-height-lg);
+  padding: var(--hs-space-2) var(--hs-space-4);
+  border-bottom: 1px solid var(--hs-color-border);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-4);
+  padding: var(--hs-space-4);
+}
+
+.verdictRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-4);
+}
+
+.verdict {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hs-space-1);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  color: var(--hs-color-text-primary);
+  font-size: var(--learn-fs-xl);
+  font-weight: var(--hs-font-weight-semibold);
+  line-height: var(--hs-line-height-tight);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--learn-fs-sm);
+}
+
+/* Bordered number box, like the ticket's bid / ask box. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--hs-color-border);
+  border-radius: var(--hs-radius-md);
+  overflow: hidden;
+}
+
+.stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-1);
+  padding: var(--hs-space-2) var(--hs-space-3);
+  border-bottom: 1px solid var(--hs-color-border-subtle);
+}
+
+.stats > div:nth-child(odd) {
+  border-right: 1px solid var(--hs-color-border-subtle);
+}
+
+.stats dt {
+  display: flex;
+  align-items: center;
+  gap: var(--hs-space-1);
+}
+
+.stats dd {
+  margin: 0;
+  color: var(--hs-color-text-primary);
+  font-size: var(--learn-fs-lg);
+  font-weight: var(--hs-font-weight-semibold);
+  white-space: nowrap;
+}
+
+.unit,
+.arrow {
+  color: var(--learn-text-muted);
+  font-size: var(--learn-fs-sm);
+  font-weight: var(--hs-font-weight-normal);
+}
+
+.stats dd.up {
+  color: var(--hs-color-up-text);
+}
+
+.stats dd.down {
+  color: var(--hs-color-down-text);
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--learn-fs-sm);
+}
+
+.debrief {
+  margin: 0;
+  color: var(--hs-color-text-primary);
+  font-size: var(--learn-fs-md);
+}
+
+.lesson {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hs-space-1);
+  padding: var(--hs-space-2) var(--hs-space-3);
+  border-left: 2px solid var(--hs-color-accent);
+  border-radius: 0 var(--hs-radius-md) var(--hs-radius-md) 0;
+  background: var(--hs-color-neutral-muted);
+}
+
+.lesson p {
+  margin: 0;
+  color: var(--hs-color-text-primary);
+  font-size: var(--learn-fs-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hs-space-2);
+}

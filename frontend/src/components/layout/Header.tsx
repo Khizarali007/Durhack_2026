@@ -39,10 +39,10 @@ export default function Header() {
     <header className={styles.header}>
       <div className={styles.wordmark}>HoopStreet</div>
 
-      <div className={styles.clock}>{formatGameClock(t)}</div>
+      <div className={styles.clock} data-tour="header-clock">{formatGameClock(t)}</div>
 
       <div className={styles.right}>
-        <form onSubmit={handleSearch} className={styles.searchForm}>
+        <form onSubmit={handleSearch} className={styles.searchForm} data-tour="header-search">
           <input
             ref={searchRef}
             className={styles.search}
@@ -52,14 +52,14 @@ export default function Header() {
           />
         </form>
 
-        <div className={styles.statBlock}>
+        <div className={styles.statBlock} data-tour="header-cash">
           <span className={styles.statLabel}>Cash</span>
           <span className={styles.statValue}>
             {portfolio != null ? formatHOOP(portfolio.cash) : '—'}
           </span>
         </div>
 
-        <div className={styles.statBlock}>
+        <div className={styles.statBlock} data-tour="header-equity">
           <span className={styles.statLabel}>Equity</span>
           <span className={styles.statValue}>
             {portfolio != null ? formatHOOP(portfolio.equity) : '—'}

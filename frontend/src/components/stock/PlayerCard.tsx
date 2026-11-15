@@ -47,7 +47,7 @@ export default function PlayerCard({ player }: PlayerCardProps) {
 
   return (
     <section className={styles.card} aria-label={`${player.name} summary`}>
-      <div className={styles.identity}>
+      <div className={styles.identity} data-tour="stock-identity">
         <Badge initials={playerInitials(player.name)} color={teamColor(player.team)} size="lg" />
         <div className={styles.names}>
           <h1 className={styles.name}>{player.name}</h1>
@@ -60,7 +60,7 @@ export default function PlayerCard({ player }: PlayerCardProps) {
         </div>
       </div>
 
-      <div className={styles.priceBlock}>
+      <div className={styles.priceBlock} data-tour="stock-price">
         <div className={`${styles.price} ${flashClass(flash)}`} aria-live="off">
           {formatPrice(price)}
           <span className={styles.unit}>virtual $</span>
@@ -70,7 +70,7 @@ export default function PlayerCard({ player }: PlayerCardProps) {
           : <Pill variant="neutral">— since opening</Pill>}
       </div>
 
-      <div className={styles.valueLine}>
+      <div className={styles.valueLine} data-tour="stock-value-line">
         <span>Quoted price <strong className={styles.num}>{formatPrice(price)}</strong></span>
         <span className={styles.dot}>·</span>
         <span>Analyst estimate <strong className={styles.num}>{formatPrice(quote?.fair_value)}</strong></span>

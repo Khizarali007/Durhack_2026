@@ -103,3 +103,36 @@ Daily results and final injury reports are revealed at synthetic day close;
 ownership cutoff is synthetic noon. Forecast schedules still use opening teams,
 so midseason transfers need a causal schedule update. Ability, form, career risk,
 discounting and injury-duration coefficients remain explicit prototype assumptions.
+
+
+## Restored learning — 15 November 2026
+
+The guided experience from origin/learn-mode 3b65932 is restored and adapted:
+welcome, first trade, spread/costs, price vs expectations, injury risk and a new
+performance-payout lesson. Home links into the tour; /learn offers all lessons,
+resume/restart, the glossary and scored knowledge questions. Tutorials use the
+current virtual account. The payout exercise advances the shared replay and
+leaves its purchased share owned.
+
+Design adaptation: the old timed mission forced an SGA rally and treated a
+profitable exit as success. The historical season should not change to guarantee
+a tutorial profit. Its active replacement checks actual purchases/sales/payouts
+and grades knowledge of execution, entitlement, score accounting and stop risk.
+The quiz score is educational only. The old standalone components remain as
+legacy source but are not mounted or connected to a mock learning server.
+
+Copy now distinguishes midpoint, bid/ask and uncertain analyst estimates. It
+does not promise advance injury warnings, a guaranteed stop price, a premium
+reversal or automatic Solana confirmation. Unsupported leverage lessons are
+not offered. Existing optional backend limit/stop functionality remains intact.
+
+Progress belongs to the account: hs-learn-tour-v2:<user id>. Fresh rewind
+accounts do not inherit completion evidence. Successful order responses supply
+fill evidence; old history, failed orders and duplicate fills cannot complete
+new actions. Payout steps require an increase in credited cash, not a timer.
+
+Validation: all six guided tutorials completed in browser; real buy/sell costs,
+actual $4.77 payout, reload/resume, glossary filtering and 100/100 quiz verified.
+Six targeted Node regression tests pass; production build and lint pass.
+Backend economics were unchanged, so the prior 351-test backend result remains
+the last full backend verification.

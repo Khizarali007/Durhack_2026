@@ -1,0 +1,35 @@
+{
+  "_notes": "Lesson copy for the restored season tutorials. The original scripted timed-profit mission is replaced by real-action progress and content/learning-check.json.",
+  "missions": [
+    {
+      "number": 1,
+      "title": "Trade and inspect costs",
+      "lesson": "Sales realise trading gains or losses; performance dividends are another source of return. Profit is not required to learn execution."
+    },
+    {
+      "number": 2,
+      "title": "Read the spread",
+      "lesson": "Check the available bid and ask, fees and price impact. A limit controls the price but cannot guarantee a fill."
+    },
+    {
+      "number": 3,
+      "title": "Diversify",
+      "lesson": "Spreading exposure reduces dependence on one player; it does not guarantee profit."
+    },
+    {
+      "number": 4,
+      "title": "Price vs expectations",
+      "lesson": "The analyst estimate is uncertain. A premium or discount is not proof of hype or a guaranteed bargain."
+    },
+    {
+      "number": 5,
+      "title": "Injury risk",
+      "lesson": "Injury reports affect expected availability. Stops can execute below their trigger and may not fill fully."
+    },
+    {
+      "number": 6,
+      "title": "Season payouts",
+      "lesson": "Only cutoff ownership earns the game entitlement. Paid dividends are already in cash and must not be counted twice."
+    }
+  ]
+}

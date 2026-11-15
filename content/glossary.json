@@ -31,7 +31,7 @@
     },
     {
       "term": "Fee",
-      "short": "A small cut (0.10%) taken on every trade. Lots of tiny trades add up."
+      "short": "The execution fee is 0.10% per fill, rounded to cents. The preview includes fees; many small fills can make rounding matter."
     },
     {
       "term": "Realised profit",
@@ -43,7 +43,7 @@
     },
     {
       "term": "Hot streak",
-      "short": "A run of big games. Prices often jump - and the hype often fades a bit afterwards."
+      "short": "A run of strong games. It can raise recent-form and payout expectations; neither a price rise nor a later reversal is guaranteed."
     },
     {
       "term": "Volatility",
@@ -67,11 +67,11 @@
     },
     {
       "term": "Limit order",
-      "short": "An order with your price on it. It waits until the market comes to you, and never pays more than your limit."
+      "short": "A buy cannot execute above its limit; a sell cannot execute below it. Fees are additional, and execution may be partial or never happen."
     },
     {
       "term": "Stop-loss",
-      "short": "A safety net: it sells your shares automatically if the bid falls to the price you set."
+      "short": "Triggers an attempted market sale when the bid reaches your stop. Execution may be below the trigger and may be partial if liquidity is limited."
     },
     {
       "term": "Market premium",
@@ -79,7 +79,7 @@
     },
     {
       "term": "Candlestick",
-      "short": "One bar on the chart: where the price opened, closed, and how high and low it went in that time."
+      "short": "A chart bar summarising opening, closing, high and low prices. This season demo currently uses daily quote lines instead."
     },
     {
       "term": "Diversification",
