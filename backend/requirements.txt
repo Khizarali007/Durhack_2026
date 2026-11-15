@@ -6,6 +6,8 @@ pydantic>=2.6,<3
 # Solana devnet receipts and on-chain portfolios
 solana>=0.36
 solders>=0.26
+# Coach Hoops (optional: without GEMINI_API_KEY it uses template text)
+google-genai>=1.0
 # Data import scripts (scripts/setup_data.sh --rebuild)
 requests>=2.31
 # Tests
