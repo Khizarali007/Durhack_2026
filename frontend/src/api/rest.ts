@@ -11,7 +11,7 @@ import { mockRest } from '../mocks/mockRest'
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getStoredToken()
-  const res = await fetch(`${path.startsWith("/market/") ? "" : API_BASE}${path}`, {
+  const res = await fetch(`${path.startsWith("/market/") || path.startsWith("/learning/") ? "" : API_BASE}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',

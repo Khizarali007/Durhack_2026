@@ -70,3 +70,7 @@ export type {
 // --- Learn mode tutorials (Person 4): scripted market moments, mock only ---
 export { playTutorialMoment, TUTORIAL_MOMENTS_AVAILABLE } from './tutorialDirector'
 export type { TutorialMoment } from './tutorialDirector'
+
+// Portfolio Composition (Person 4): % by team and player, concentration, A–F grade.
+export { useComposition } from './useComposition'
+export type { Composition, CompositionSlice, CompositionGrade } from './useComposition'

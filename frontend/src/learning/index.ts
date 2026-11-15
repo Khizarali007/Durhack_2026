@@ -40,3 +40,6 @@ export type { Tutorial, TourStepDef, StepCompletion } from './tour'
 export { GlossaryTerm } from './glossary/GlossaryTerm'
 export type { GlossaryTermProps } from './glossary/GlossaryTerm'
 export { GLOSSARY, findTerm, termKey, missionLesson } from './content'
+
+// Portfolio Composition panel and compact grade chip.
+export { CompositionPanel, CompositionGradeChip } from './composition/CompositionPanel'

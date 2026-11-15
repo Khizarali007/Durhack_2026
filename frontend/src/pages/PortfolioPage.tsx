@@ -1,4 +1,5 @@
 import PayoutLedger from '../components/PayoutLedger'
+import { CompositionPanel } from '../learning'
 import { Link } from 'react-router-dom'
 import { usePortfolio } from '../api'
 import AccountStrip from '../components/account/AccountStrip'
@@ -38,10 +39,12 @@ export default function PortfolioPage() {
         )}
       </section>
 
-      {/* Mount point for Person 4's Composition panel (% by team / player, grade A–F) */}
-      <section id="composition-panel-mount" className={styles.mount} aria-label="Composition">
-        <PayoutLedger />
+      {/* Person 4's Composition panel (% by team / player, grade A–F) */}
+      <section id="composition-panel-mount" aria-label="Composition">
+        <CompositionPanel />
       </section>
+
+      <PayoutLedger />
     </div>
   )
 }

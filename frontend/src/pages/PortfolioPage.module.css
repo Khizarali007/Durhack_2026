@@ -8,6 +8,11 @@
   gap: var(--hs-space-5);
 }
 
+/* The page scrolls; its sections keep their natural height instead of being squeezed. */
+.page > * {
+  flex-shrink: 0;
+}
+
 .header {
   display: flex;
   align-items: baseline;

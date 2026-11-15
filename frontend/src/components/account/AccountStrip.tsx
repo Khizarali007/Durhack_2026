@@ -1,5 +1,6 @@
 import { usePortfolio, useReservedCash } from '../../api'
 import { formatHOOP, formatPct, formatPnl, trendArrow } from '../../utils/format'
+import { CompositionGradeChip } from '../../learning'
 import styles from './AccountStrip.module.css'
 
 /** Cash, equity and profit at a glance. Shared by Home and Portfolio. */
@@ -22,7 +23,7 @@ export default function AccountStrip() {
     <dl className={styles.strip}>
       <div className={styles.stat}>
         <dt>Quoted portfolio value</dt>
-        <dd className={styles.big}>{formatHOOP(portfolio.equity)} <span className={styles.unit}>virtual $</span></dd>
+        <dd className={styles.big}>{formatHOOP(portfolio.equity)}</dd>
         <span className={styles.sub}>cash + quoted holdings + pending rights</span>
       </div>
       <div className={styles.stat}>
@@ -39,6 +40,11 @@ export default function AccountStrip() {
         <dt>Profit / loss</dt>
         <dd className={trend}>{trendArrow(pnl)} {formatPnl(pnl)}</dd>
         <span className={`${styles.sub} ${trend}`}>{formatPct(portfolio.total_pnl_pct, 2)} since you started with {formatHOOP(portfolio.starting_cash, 0)}</span>
+      </div>
+      <div className={styles.stat}>
+        <dt>Composition</dt>
+        <dd><CompositionGradeChip /></dd>
+        <span className={styles.sub}>how spread your money is</span>
       </div>
     </dl>
   )
